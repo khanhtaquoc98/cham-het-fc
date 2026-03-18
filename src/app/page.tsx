@@ -577,7 +577,7 @@ export default function Home() {
             <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔔</div>
             <h3 className="install-modal-title">Bật thông báo</h3>
             <p className="install-modal-desc">
-              Nhận nhắc nhở trước giờ đá 1 tiếng để không bỏ lỡ trận nào!
+              Nhận nhắc nhở trước giờ đá để không bỏ lỡ trận nào!
             </p>
             <button className="install-modal-btn" onClick={async () => {
               const perm = await Notification.requestPermission();
@@ -587,7 +587,7 @@ export default function Home() {
                 await subscribeToPush();
               }
             }}>
-              🔔 Bật thông báo
+              Bật thông báo
             </button>
             <button className="install-modal-dismiss" onClick={() => {
               setShowNotiModal(false);
