@@ -295,6 +295,7 @@ export default function Home() {
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [isIOS, setIsIOS] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<string>('default');
 
   useEffect(() => {
     const saved = localStorage.getItem('football-theme');
@@ -304,38 +305,50 @@ export default function Home() {
     }
   }, []);
 
+  // Helper: subscribe to push notifications
+  const subscribeToPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidKey) return;
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidKey),
+        });
+      }
+
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription }),
+      });
+      console.log('Push subscription saved!');
+    } catch (err) {
+      console.log('Push subscription failed:', err);
+    }
+  };
+
   // Service Worker + Push + Install Prompt
   useEffect(() => {
-    // Register service worker (won't work on HTTP but that's OK)
+    // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(async (registration) => {
         console.log('SW registered:', registration.scope);
 
-        // Subscribe to push notifications
-        if ('PushManager' in window) {
-          try {
-            const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-            if (!vapidKey) return;
-
-            let subscription = await registration.pushManager.getSubscription();
-            if (!subscription) {
-              subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(vapidKey),
-              });
-            }
-
-            // Save subscription to server
-            await fetch('/api/push/subscribe', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ subscription }),
-            });
-          } catch (err) {
-            console.log('Push subscription failed:', err);
-          }
+        // Auto-subscribe only if permission already granted (works on Chrome/Android)
+        if ('Notification' in window && Notification.permission === 'granted') {
+          subscribeToPush();
         }
       }).catch(err => console.log('SW registration failed (needs HTTPS):', err));
+    }
+
+    // Check notification permission
+    if ('Notification' in window) {
+      setNotifPermission(Notification.permission);
     }
 
     // Detect mobile browser - multiple methods for reliability
@@ -547,6 +560,28 @@ export default function Home() {
           </>
         )}
       </main>
+
+      {/* Notification Permission Banner */}
+      {notifPermission === 'default' && 'Notification' in window && (
+        <div className="noti-banner">
+          <div className="noti-banner-content">
+            <span style={{ fontSize: '20px' }}>🔔</span>
+            <div>
+              <strong>Bật thông báo</strong>
+              <p style={{ margin: 0, fontSize: '12px', opacity: 0.7 }}>Nhận nhắc nhở trước giờ đá</p>
+            </div>
+          </div>
+          <button className="noti-banner-btn" onClick={async () => {
+            const perm = await Notification.requestPermission();
+            setNotifPermission(perm);
+            if (perm === 'granted') {
+              await subscribeToPush();
+            }
+          }}>
+            Bật ngay
+          </button>
+        </div>
+      )}
 
       <footer className="app-footer">
         Powered by Chấm Hết FC

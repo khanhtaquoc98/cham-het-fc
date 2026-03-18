@@ -739,3 +739,49 @@ a.venue-link:hover {
 .install-modal-dismiss:hover {
   color: var(--text-primary);
 }
+
+/* ========================= */
+/* NOTIFICATION BANNER       */
+/* ========================= */
+.noti-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, rgba(198,40,40,0.06), rgba(198,40,40,0.12));
+  border-top: 1px solid rgba(198,40,40,0.15);
+  gap: 12px;
+  animation: slideUp 0.4s ease;
+}
+
+[data-theme="dark"] .noti-banner {
+  background: linear-gradient(135deg, rgba(239,83,80,0.08), rgba(239,83,80,0.15));
+  border-top: 1px solid rgba(239,83,80,0.2);
+}
+
+.noti-banner-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.noti-banner-btn {
+  white-space: nowrap;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.noti-banner-btn:hover {
+  opacity: 0.9;
+  transform: scale(1.03);
+}
