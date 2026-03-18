@@ -562,7 +562,7 @@ export default function Home() {
       </main>
 
       {/* Notification Permission Banner */}
-      {notifPermission === 'default' && 'Notification' in window && (
+      {notifPermission === 'default' && typeof globalThis.Notification !== 'undefined' && (
         <div className="noti-banner">
           <div className="noti-banner-content">
             <span style={{ fontSize: '20px' }}>🔔</span>
