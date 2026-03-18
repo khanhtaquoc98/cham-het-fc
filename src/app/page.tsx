@@ -296,6 +296,7 @@ export default function Home() {
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [notifPermission, setNotifPermission] = useState<string>('default');
+  const [showNotiModal, setShowNotiModal] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('football-theme');
@@ -346,9 +347,14 @@ export default function Home() {
       }).catch(err => console.log('SW registration failed (needs HTTPS):', err));
     }
 
-    // Check notification permission
     if ('Notification' in window) {
       setNotifPermission(Notification.permission);
+      // Show noti popup after 3s if not yet granted
+      const notiDismissed = localStorage.getItem('noti-dismissed-at');
+      const notiSkipped = notiDismissed && (Date.now() - parseInt(notiDismissed)) < 3 * 24 * 60 * 60 * 1000;
+      if (Notification.permission === 'default' && !notiSkipped) {
+        setTimeout(() => setShowNotiModal(true), 3000);
+      }
     }
 
     // Detect mobile browser - multiple methods for reliability
@@ -561,25 +567,35 @@ export default function Home() {
         )}
       </main>
 
-      {/* Notification Permission Banner */}
-      {notifPermission === 'default' && typeof globalThis.Notification !== 'undefined' && (
-        <div className="noti-banner">
-          <div className="noti-banner-content">
-            <span style={{ fontSize: '20px' }}>🔔</span>
-            <div>
-              <strong>Bật thông báo</strong>
-              <p style={{ margin: 0, fontSize: '12px', opacity: 0.7 }}>Nhận nhắc nhở trước giờ đá</p>
-            </div>
+      {/* Notification Permission Popup */}
+      {showNotiModal && notifPermission === 'default' && (
+        <div className="install-modal-overlay" onClick={() => {
+          setShowNotiModal(false);
+          localStorage.setItem('noti-dismissed-at', String(Date.now()));
+        }}>
+          <div className="install-modal" onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔔</div>
+            <h3 className="install-modal-title">Bật thông báo</h3>
+            <p className="install-modal-desc">
+              Nhận nhắc nhở trước giờ đá 1 tiếng để không bỏ lỡ trận nào!
+            </p>
+            <button className="install-modal-btn" onClick={async () => {
+              const perm = await Notification.requestPermission();
+              setNotifPermission(perm);
+              setShowNotiModal(false);
+              if (perm === 'granted') {
+                await subscribeToPush();
+              }
+            }}>
+              🔔 Bật thông báo
+            </button>
+            <button className="install-modal-dismiss" onClick={() => {
+              setShowNotiModal(false);
+              localStorage.setItem('noti-dismissed-at', String(Date.now()));
+            }}>
+              Để sau
+            </button>
           </div>
-          <button className="noti-banner-btn" onClick={async () => {
-            const perm = await Notification.requestPermission();
-            setNotifPermission(perm);
-            if (perm === 'granted') {
-              await subscribeToPush();
-            }
-          }}>
-            Bật ngay
-          </button>
         </div>
       )}
 
