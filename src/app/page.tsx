@@ -422,7 +422,7 @@ export default function Home() {
   const teamCount = matchData?.teams?.length || 0;
 
   return (
-    <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
+    <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* PWA Install Modal */}
       {showInstallModal && (
         <div className="install-modal-overlay" onClick={dismissInstall}>
@@ -487,7 +487,7 @@ export default function Home() {
       </header>
 
       {/* Main */}
-      <main style={{ padding: '0 24px 60px', maxWidth: '1200px', margin: '0 auto' }}>
+      <main style={{ padding: '0 24px 60px', maxWidth: '1200px', margin: '0 auto', flex: 1, width: '100%' }}>
         {loading ? (
           <div style={{ padding: '40px 0' }}>
             <div className="skeleton" style={{ height: '72px', marginBottom: '24px' }} />
