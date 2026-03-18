@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { MatchData, Team } from '@/types/match';
 import { PlayerConfig } from '@/types/player';
 
@@ -68,6 +69,17 @@ function findMatchingPlayer(playerName: string, telegramHandle: string | undefin
     }
   }
   return null;
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray as Uint8Array<ArrayBuffer>;
 }
 
 /* =============================================
@@ -279,6 +291,11 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
 
+  // PWA Install states
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
+  const [isIOS, setIsIOS] = useState(false);
+
   useEffect(() => {
     const saved = localStorage.getItem('football-theme');
     if (saved === 'dark') {
@@ -286,6 +303,81 @@ export default function Home() {
       document.documentElement.setAttribute('data-theme', 'dark');
     }
   }, []);
+
+  // Service Worker + Push + Install Prompt
+  useEffect(() => {
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(async (registration) => {
+        console.log('SW registered:', registration.scope);
+
+        // Subscribe to push notifications
+        if ('PushManager' in window) {
+          try {
+            const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+            if (!vapidKey) return;
+
+            let subscription = await registration.pushManager.getSubscription();
+            if (!subscription) {
+              subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(vapidKey),
+              });
+            }
+
+            // Save subscription to server
+            await fetch('/api/push/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ subscription }),
+            });
+          } catch (err) {
+            console.log('Push subscription failed:', err);
+          }
+        }
+      });
+    }
+
+    // Detect mobile browser
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || ('standalone' in navigator && (navigator as unknown as { standalone: boolean }).standalone);
+    const dismissed = localStorage.getItem('install-dismissed');
+
+    // iOS detection
+    const iosDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent) && !('standalone' in navigator && (navigator as unknown as { standalone: boolean }).standalone);
+    setIsIOS(iosDevice);
+
+    // Show install modal on mobile if not installed and not dismissed
+    if (isMobile && !isStandalone && !dismissed) {
+      setTimeout(() => setShowInstallModal(true), 2000);
+    }
+
+    // Android install prompt
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      if (isMobile && !dismissed) {
+        setShowInstallModal(true);
+      }
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (deferredPrompt && 'prompt' in deferredPrompt) {
+      (deferredPrompt as { prompt: () => void }).prompt();
+      setShowInstallModal(false);
+      setDeferredPrompt(null);
+    }
+  };
+
+  const dismissInstall = () => {
+    setShowInstallModal(false);
+    localStorage.setItem('install-dismissed', 'true');
+  };
 
   const toggleTheme = useCallback(() => {
     setIsDark(prev => {
@@ -320,6 +412,40 @@ export default function Home() {
 
   return (
     <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh' }}>
+      {/* PWA Install Modal */}
+      {showInstallModal && (
+        <div className="install-modal-overlay" onClick={dismissInstall}>
+          <div className="install-modal" onClick={e => e.stopPropagation()}>
+            <div className="install-modal-icon">
+              <Image src="/logo.png" alt="Chấm Hết FC" width={72} height={72} style={{ borderRadius: '16px' }} />
+            </div>
+            <h3 className="install-modal-title">Cài đặt Chấm Hết FC</h3>
+            <p className="install-modal-desc">
+              Thêm app vào màn hình chính để truy cập nhanh hơn và nhận thông báo trước giờ đá!
+            </p>
+
+            {isIOS ? (
+              <div className="install-modal-ios">
+                <p>Nhấn <strong>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle', marginRight: '4px' }}>
+                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16,6 12,2 8,6" /><line x1="12" y1="2" x2="12" y2="15" />
+                  </svg>
+                  Chia sẻ
+                </strong> rồi chọn <strong>&quot;Thêm vào MH chính&quot;</strong></p>
+              </div>
+            ) : (
+              <button className="install-modal-btn" onClick={handleInstall}>
+                📲 Cài đặt ngay
+              </button>
+            )}
+
+            <button className="install-modal-dismiss" onClick={dismissInstall}>
+              Để sau
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Theme Toggle */}
       <button className="theme-toggle" onClick={toggleTheme} title={isDark ? 'Chuyển sang sáng' : 'Chuyển sang tối'}>
         {isDark ? '☀️' : '🌙'}

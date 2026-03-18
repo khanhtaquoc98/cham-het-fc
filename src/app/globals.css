@@ -623,3 +623,119 @@ a.venue-link:hover {
   background: var(--footer-bg);
   transition: background 0.3s ease, border-color 0.3s ease;
 }
+
+/* ========================= */
+/* PWA INSTALL MODAL         */
+/* ========================= */
+.install-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.install-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-accent);
+  border-radius: 24px 24px 16px 16px;
+  padding: 32px 28px 24px;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.3);
+  animation: slideUp 0.4s ease;
+  position: relative;
+}
+
+.install-modal-icon {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.install-modal-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.install-modal-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.install-modal-btn {
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--field-accent-dark), var(--field-accent-light));
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 16px rgba(198, 40, 40, 0.3);
+}
+
+.install-modal-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(198, 40, 40, 0.4);
+}
+
+.install-modal-btn:active {
+  transform: translateY(0);
+}
+
+.install-modal-ios {
+  background: var(--card-header-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.8;
+}
+
+.install-modal-ios strong {
+  color: var(--accent);
+}
+
+.install-modal-dismiss {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  padding: 8px 16px;
+  transition: color 0.2s ease;
+}
+
+.install-modal-dismiss:hover {
+  color: var(--text-primary);
+}
