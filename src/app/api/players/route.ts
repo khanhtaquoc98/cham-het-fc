@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 // GET all players
 export async function GET() {
-  const players = getPlayers();
+  const players = await getPlayers();
   return NextResponse.json(players);
 }
 
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'name and jerseyNumber are required' }, { status: 400 });
     }
 
-    const player = addPlayer({
+    const player = await addPlayer({
       name,
       subNames: subNames || [],
       telegramHandle: telegramHandle || '',
@@ -46,7 +46,7 @@ export async function PUT(request: Request) {
       data.jerseyNumber = Number(data.jerseyNumber);
     }
 
-    const updated = updatePlayer(id, data);
+    const updated = await updatePlayer(id, data);
     if (!updated) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 });
     }
@@ -67,7 +67,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    const deleted = deletePlayer(id);
+    const deleted = await deletePlayer(id);
     if (!deleted) {
       return NextResponse.json({ error: 'Player not found' }, { status: 404 });
     }

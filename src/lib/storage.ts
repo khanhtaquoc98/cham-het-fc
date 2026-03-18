@@ -1,37 +1,53 @@
 import { MatchData } from '@/types/match';
-import fs from 'fs';
-import path from 'path';
+import { supabase } from '@/lib/supabase';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const DATA_FILE = path.join(DATA_DIR, 'match.json');
+export async function getMatchData(): Promise<MatchData | null> {
+  const { data, error } = await supabase
+    .from('match_data')
+    .select('*')
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .single();
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-}
-
-export function getMatchData(): MatchData | null {
-  ensureDataDir();
-  if (!fs.existsSync(DATA_FILE)) {
+  if (error || !data) {
     return null;
   }
-  try {
-    const raw = fs.readFileSync(DATA_FILE, 'utf-8');
-    return JSON.parse(raw) as MatchData;
-  } catch {
-    return null;
+
+  return {
+    id: data.id,
+    teams: data.teams || [],
+    venue: data.venue || {},
+    createdAt: data.created_at,
+    updatedAt: data.updated_at,
+    rawMessage: data.raw_message,
+  };
+}
+
+export async function saveMatchData(matchData: MatchData): Promise<void> {
+  const { error } = await supabase
+    .from('match_data')
+    .upsert({
+      id: matchData.id,
+      teams: matchData.teams,
+      venue: matchData.venue,
+      created_at: matchData.createdAt,
+      updated_at: matchData.updatedAt,
+      raw_message: matchData.rawMessage || null,
+    }, { onConflict: 'id' });
+
+  if (error) {
+    console.error('Failed to save match data:', error);
   }
 }
 
-export function saveMatchData(data: MatchData): void {
-  ensureDataDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf-8');
-}
+export async function deleteMatchData(): Promise<void> {
+  const { error } = await supabase
+    .from('match_data')
+    .delete()
+    .neq('id', ''); // Delete all rows
 
-export function deleteMatchData(): void {
-  if (fs.existsSync(DATA_FILE)) {
-    fs.unlinkSync(DATA_FILE);
+  if (error) {
+    console.error('Failed to delete match data:', error);
   }
 }
 

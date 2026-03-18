@@ -1,61 +1,102 @@
 import { PlayerConfig } from '@/types/player';
-import fs from 'fs';
-import path from 'path';
+import { DEFAULT_PLAYERS } from '@/lib/default-players';
+import { supabase } from '@/lib/supabase';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const PLAYERS_FILE = path.join(DATA_DIR, 'players.json');
+export async function getPlayers(): Promise<PlayerConfig[]> {
+  const { data, error } = await supabase
+    .from('players')
+    .select('*')
+    .order('created_at', { ascending: true });
 
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (error || !data || data.length === 0) {
+    return [...DEFAULT_PLAYERS];
+  }
+
+  return data.map((row) => ({
+    id: row.id,
+    name: row.name,
+    subNames: row.sub_names || [],
+    telegramHandle: row.telegram_handle || '',
+    jerseyNumber: row.jersey_number,
+  }));
+}
+
+export async function savePlayers(players: PlayerConfig[]): Promise<void> {
+  // Delete all existing and re-insert
+  await supabase.from('players').delete().neq('id', '');
+
+  const rows = players.map((p) => ({
+    id: p.id,
+    name: p.name,
+    sub_names: p.subNames,
+    telegram_handle: p.telegramHandle || '',
+    jersey_number: p.jerseyNumber,
+  }));
+
+  const { error } = await supabase.from('players').insert(rows);
+  if (error) {
+    console.error('Failed to save players:', error);
   }
 }
 
-export function getPlayers(): PlayerConfig[] {
-  ensureDataDir();
-  if (!fs.existsSync(PLAYERS_FILE)) {
-    return [];
+export async function addPlayer(player: Omit<PlayerConfig, 'id'>): Promise<PlayerConfig> {
+  const id = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+
+  const { error } = await supabase.from('players').insert({
+    id,
+    name: player.name,
+    sub_names: player.subNames || [],
+    telegram_handle: player.telegramHandle || '',
+    jersey_number: player.jerseyNumber,
+  });
+
+  if (error) {
+    console.error('Failed to add player:', error);
   }
-  try {
-    const raw = fs.readFileSync(PLAYERS_FILE, 'utf-8');
-    return JSON.parse(raw) as PlayerConfig[];
-  } catch {
-    return [];
-  }
+
+  return { ...player, id, telegramHandle: player.telegramHandle || '' };
 }
 
-export function savePlayers(players: PlayerConfig[]): void {
-  ensureDataDir();
-  fs.writeFileSync(PLAYERS_FILE, JSON.stringify(players, null, 2), 'utf-8');
-}
+export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 'id'>>): Promise<PlayerConfig | null> {
+  // Build update object with snake_case keys
+  const updateObj: Record<string, unknown> = {};
+  if (data.name !== undefined) updateObj.name = data.name;
+  if (data.subNames !== undefined) updateObj.sub_names = data.subNames;
+  if (data.telegramHandle !== undefined) updateObj.telegram_handle = data.telegramHandle;
+  if (data.jerseyNumber !== undefined) updateObj.jersey_number = data.jerseyNumber;
 
-export function addPlayer(player: Omit<PlayerConfig, 'id'>): PlayerConfig {
-  const players = getPlayers();
-  const newPlayer: PlayerConfig = {
-    ...player,
-    telegramHandle: player.telegramHandle || '',
-    id: Date.now().toString(36) + Math.random().toString(36).substring(2, 6),
+  const { data: updated, error } = await supabase
+    .from('players')
+    .update(updateObj)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error || !updated) {
+    return null;
+  }
+
+  return {
+    id: updated.id,
+    name: updated.name,
+    subNames: updated.sub_names || [],
+    telegramHandle: updated.telegram_handle || '',
+    jerseyNumber: updated.jersey_number,
   };
-  players.push(newPlayer);
-  savePlayers(players);
-  return newPlayer;
 }
 
-export function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 'id'>>): PlayerConfig | null {
-  const players = getPlayers();
-  const idx = players.findIndex(p => p.id === id);
-  if (idx === -1) return null;
-  players[idx] = { ...players[idx], ...data };
-  savePlayers(players);
-  return players[idx];
-}
+export async function deletePlayer(id: string): Promise<boolean> {
+  const { error, count } = await supabase
+    .from('players')
+    .delete({ count: 'exact' })
+    .eq('id', id);
 
-export function deletePlayer(id: string): boolean {
-  const players = getPlayers();
-  const filtered = players.filter(p => p.id !== id);
-  if (filtered.length === players.length) return false;
-  savePlayers(filtered);
-  return true;
+  if (error) {
+    console.error('Failed to delete player:', error);
+    return false;
+  }
+
+  return (count ?? 0) > 0;
 }
 
 /**
@@ -63,8 +104,8 @@ export function deletePlayer(id: string): boolean {
  * 1. First check telegramHandle (priority)
  * 2. Then check subNames
  */
-export function findPlayerByName(name: string, telegramHandle?: string): PlayerConfig | null {
-  const players = getPlayers();
+export async function findPlayerByName(name: string, telegramHandle?: string): Promise<PlayerConfig | null> {
+  const players = await getPlayers();
 
   // Priority 1: match by telegramHandle if provided
   if (telegramHandle) {

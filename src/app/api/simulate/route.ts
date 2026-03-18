@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     }
 
     // Get or create match data
-    let matchData = getMatchData();
+    let matchData = await getMatchData();
     const now = new Date().toISOString();
 
     if (!matchData) {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
         matchData.teams = teams;
         matchData.updatedAt = now;
         matchData.rawMessage = text;
-        saveMatchData(matchData);
+        await saveMatchData(matchData);
         result = `Updated ${teams.length} teams with ${teams.reduce((s, t) => s + t.players.length, 0)} players`;
       } else {
         result = 'No teams parsed';
@@ -45,12 +45,12 @@ export async function POST(request: Request) {
       const venue = parseVenueMessage(text);
       matchData.venue = { ...matchData.venue, ...venue };
       matchData.updatedAt = now;
-      saveMatchData(matchData);
+      await saveMatchData(matchData);
       result = `Updated venue: ${JSON.stringify(venue)}`;
     }
     // Handle /reset
     else if (text.toLowerCase().startsWith('/reset')) {
-      deleteMatchData();
+      await deleteMatchData();
       return NextResponse.json({ ok: true, result: 'All data deleted', matchData: null });
     }
 

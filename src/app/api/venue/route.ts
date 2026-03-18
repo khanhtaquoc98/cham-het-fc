@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 // GET venue info
 export async function GET() {
-  const matchData = getMatchData();
+  const matchData = await getMatchData();
   return NextResponse.json(matchData?.venue || {});
 }
 
@@ -15,7 +15,7 @@ export async function PUT(request: Request) {
     const body = await request.json();
     const { date, time, venue, googleMapLink } = body;
 
-    let matchData = getMatchData();
+    let matchData = await getMatchData();
     const now = new Date().toISOString();
 
     if (!matchData) {
@@ -35,7 +35,7 @@ export async function PUT(request: Request) {
       googleMapLink: googleMapLink || '',
     };
     matchData.updatedAt = now;
-    saveMatchData(matchData);
+    await saveMatchData(matchData);
 
     return NextResponse.json({ ok: true, venue: matchData.venue });
   } catch (error) {

@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const chatId = message.chat?.id;
 
     // Get or create match data
-    let matchData = getMatchData();
+    let matchData = await getMatchData();
     const now = new Date().toISOString();
 
     if (!matchData) {
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         matchData.teams = teams;
         matchData.updatedAt = now;
         matchData.rawMessage = text;
-        saveMatchData(matchData);
+        await saveMatchData(matchData);
 
         const totalPlayers = teams.reduce((sum, t) => sum + t.players.length, 0);
         replyText = `✅ Đã cập nhật đội hình!\n${teams.map(t => `${t.name}: ${t.players.length} người`).join('\n')}\nTổng: ${totalPlayers} người`;
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
           matchData.teams = teams;
           matchData.updatedAt = now;
           matchData.rawMessage = text;
-          saveMatchData(matchData);
+          await saveMatchData(matchData);
 
           const totalPlayers = teams.reduce((sum, t) => sum + t.players.length, 0);
           replyText = `✅ Đã cập nhật đội hình!\n${teams.map(t => `${t.name}: ${t.players.length} người`).join('\n')}\nTổng: ${totalPlayers} người`;
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
         if (venue.date || venue.time || venue.venue) {
           matchData.venue = { ...matchData.venue, ...venue };
           matchData.updatedAt = now;
-          saveMatchData(matchData);
+          await saveMatchData(matchData);
 
           replyText = `✅ Đã cập nhật thông tin sân!\n`;
           if (venue.date) replyText += `📅 Ngày: ${venue.date}\n`;
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
 
     // Handle /reset command
     else if (text.toLowerCase().startsWith('/reset')) {
-      deleteMatchData();
+      await deleteMatchData();
       replyText = '🗑️ Đã xoá toàn bộ dữ liệu trận đấu!';
     }
 
