@@ -253,7 +253,7 @@ function MatchInfoSection({ matchData }: { matchData: MatchData }) {
             <span className="value">
               {venue.googleMapLink ? (
                 <a href={venue.googleMapLink} target="_blank" rel="noopener noreferrer" className="venue-link">
-                  {venue.venue} ↗
+                  {venue.venue}
                 </a>
               ) : venue.venue}
             </span>
@@ -430,7 +430,7 @@ export default function Home() {
             <div className="install-modal-icon">
               <Image src="/logo.png" alt="Chấm Hết FC" width={72} height={72} style={{ borderRadius: '16px' }} />
             </div>
-            <h3 className="install-modal-title">Cài đặt Chấm Hết FC</h3>
+            <h3 className="install-modal-title">Install Cham Het FC</h3>
             <p className="install-modal-desc">
               Thêm app vào màn hình chính để truy cập nhanh hơn và nhận thông báo trước giờ đá!
             </p>
@@ -438,20 +438,17 @@ export default function Home() {
             {isIOS ? (
               <div className="install-modal-ios">
                 <p>Nhấn <strong>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ verticalAlign: 'middle', marginRight: '4px' }}>
-                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16,6 12,2 8,6" /><line x1="12" y1="2" x2="12" y2="15" />
-                  </svg>
                   Chia sẻ
                 </strong> rồi chọn <strong>&quot;Thêm vào MH chính&quot;</strong></p>
               </div>
             ) : (
               <button className="install-modal-btn" onClick={handleInstall}>
-                📲 Cài đặt ngay
+                Install now
               </button>
             )}
 
             <button className="install-modal-dismiss" onClick={dismissInstall}>
-              Để sau
+              Later
             </button>
           </div>
         </div>
@@ -494,8 +491,8 @@ export default function Home() {
         {loading ? (
           <div style={{ padding: '40px 0' }}>
             <div className="skeleton" style={{ height: '72px', marginBottom: '24px' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
-              {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: '280px' }} />)}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '20px' }}>
+              {[1].map(i => <div key={i} className="skeleton" style={{ height: 'calc(100vh - 350px)' }} />)}
             </div>
           </div>
         ) : error ? (

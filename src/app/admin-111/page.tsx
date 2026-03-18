@@ -203,6 +203,31 @@ export default function AdminPage() {
     }
   };
 
+  const handleSendMatchReminder = async () => {
+    setNotiSending(true);
+    setNotiStatus(null);
+    const title = '⚽ Sắp đến giờ đá!';
+    const body = venue.time && venue.venue
+      ? `Trận đấu lúc ${venue.time} tại ${venue.venue}. Chuẩn bị lên đường! 🔥`
+      : 'Chuẩn bị lên đường nhé anh em! 🔥';
+    try {
+      const res = await fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, message: body }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setNotiStatus(`✅ Đã gửi nhắc nhở ${data.sent} thiết bị`);
+      } else {
+        setNotiStatus('❌ ' + (data.error || 'Lỗi'));
+      }
+      setTimeout(() => setNotiStatus(null), 5000);
+    } catch {
+      setNotiStatus('❌ Lỗi kết nối');
+    } finally { setNotiSending(false); }
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: '#faf5f5', fontFamily: 'Outfit, sans-serif' }}>
       {/* Header */}
@@ -365,6 +390,18 @@ export default function AdminPage() {
               onClick={handleAutoNotify}
             >
               ⏰ Kiểm tra tự động
+            </button>
+
+            <button
+              style={{
+                ...btnBase,
+                padding: '10px 24px', borderRadius: '10px',
+                background: '#e8f5e9', color: '#2e7d32', fontSize: '14px',
+              }}
+              onClick={handleSendMatchReminder}
+              disabled={notiSending}
+            >
+              🚀 Gửi ngay
             </button>
           </div>
 
