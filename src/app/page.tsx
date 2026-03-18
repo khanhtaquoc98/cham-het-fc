@@ -306,7 +306,7 @@ export default function Home() {
 
   // Service Worker + Push + Install Prompt
   useEffect(() => {
-    // Register service worker
+    // Register service worker (won't work on HTTP but that's OK)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then(async (registration) => {
         console.log('SW registered:', registration.scope);
@@ -335,22 +335,33 @@ export default function Home() {
             console.log('Push subscription failed:', err);
           }
         }
-      });
+      }).catch(err => console.log('SW registration failed (needs HTTPS):', err));
     }
 
-    // Detect mobile browser
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-      || ('standalone' in navigator && (navigator as unknown as { standalone: boolean }).standalone);
-    const dismissed = localStorage.getItem('install-dismissed');
+    // Detect mobile browser - multiple methods for reliability
+    const ua = navigator.userAgent || '';
+    const isMobileUA = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+    const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    const isSmallScreen = window.innerWidth <= 768;
+    const isMobile = isMobileUA || (isTouchDevice && isSmallScreen);
 
-    // iOS detection
-    const iosDevice = /iPhone|iPad|iPod/i.test(navigator.userAgent) && !('standalone' in navigator && (navigator as unknown as { standalone: boolean }).standalone);
-    setIsIOS(iosDevice);
+    // Check if already installed as standalone app
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+
+    // iOS detection (Safari on iPhone/iPad, not already installed)
+    const isIOSDevice = /iPhone|iPad|iPod/i.test(ua) || (ua.includes('Mac') && isTouchDevice);
+    setIsIOS(isIOSDevice && !isStandalone);
+
+    // Check dismissed state (reset after 7 days)
+    const dismissedAt = localStorage.getItem('install-dismissed-at');
+    const dismissed = dismissedAt && (Date.now() - parseInt(dismissedAt)) < 7 * 24 * 60 * 60 * 1000;
+
+    console.log('Install check:', { isMobile, isStandalone, dismissed, isIOSDevice, ua: ua.substring(0, 60) });
 
     // Show install modal on mobile if not installed and not dismissed
     if (isMobile && !isStandalone && !dismissed) {
-      setTimeout(() => setShowInstallModal(true), 2000);
+      setTimeout(() => setShowInstallModal(true), 1500);
     }
 
     // Android install prompt
@@ -376,7 +387,7 @@ export default function Home() {
 
   const dismissInstall = () => {
     setShowInstallModal(false);
-    localStorage.setItem('install-dismissed', 'true');
+    localStorage.setItem('install-dismissed-at', String(Date.now()));
   };
 
   const toggleTheme = useCallback(() => {
