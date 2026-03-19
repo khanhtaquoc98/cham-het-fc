@@ -5,6 +5,16 @@ import Image from 'next/image';
 import { MatchData, Team } from '@/types/match';
 import { PlayerConfig } from '@/types/player';
 
+interface PlayerStatsSummary {
+  playerName: string;
+  playerId?: string | null;
+  wins: number;
+  draws: number;
+  losses: number;
+  totalMatches: number;
+  winRate: number;
+}
+
 /* =============================================
    UTILITY FUNCTIONS
    ============================================= */
@@ -141,7 +151,7 @@ function JerseyIcon({ label, team, isDark }: { label: string; team: 'home' | 'aw
    TEAM CARD
    ============================================= */
 
-function TeamCard({ team, index, playerConfigs, isDark }: { team: Team; index: number; playerConfigs: PlayerConfig[]; isDark: boolean }) {
+function TeamCard({ team, index, playerConfigs, isDark, playerStats }: { team: Team; index: number; playerConfigs: PlayerConfig[]; isDark: boolean; playerStats: PlayerStatsSummary[] }) {
   const color = getTeamColor(team.name);
   const borderClass = getTeamBorderClass(team.name);
   const tooltip = getTeamTooltip(team.name);
@@ -179,6 +189,9 @@ function TeamCard({ team, index, playerConfigs, isDark }: { team: Team; index: n
           const matched = findMatchingPlayer(player.name, player.telegramHandle, playerConfigs);
           const jerseyLabel = matched ? String(matched.jerseyNumber) : getInitials(player.name);
 
+          // Find stats for this player
+          const stat = findPlayerStat(player.name, player.telegramHandle, playerConfigs, playerStats);
+
           return (
             <div key={i} className="player-item" style={{ animationDelay: `${(index * 0.08) + (i * 0.04)}s` }}>
               <div className="player-number">{i + 1}</div>
@@ -200,19 +213,35 @@ function TeamCard({ team, index, playerConfigs, isDark }: { team: Team; index: n
                   </div>
                 )}
               </div>
-              {/* {matched && (
+              {stat && stat.totalMatches > 0 && (
                 <div style={{
-                  fontSize: '10px',
-                  color: 'var(--text-muted)',
-                  background: 'rgba(46,125,50,0.06)',
-                  padding: '2px 8px',
-                  borderRadius: '6px',
-                  fontWeight: 500,
-                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  flexShrink: 0,
                 }}>
-                  {matched.name}
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    color: stat.winRate >= 50 ? '#2e7d32' : stat.winRate >= 30 ? '#e65100' : '#c62828',
+                    background: stat.winRate >= 50 ? 'rgba(46,125,50,0.08)' : stat.winRate >= 30 ? 'rgba(230,81,0,0.08)' : 'rgba(198,40,40,0.08)',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                  }}>
+                    {stat.winRate}%
+                  </span>
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: 'var(--text-muted)',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    <span style={{ color: '#2e7d32' }}>{stat.wins}W</span>/
+                    <span style={{ color: '#616161' }}>{stat.draws}D</span>/
+                    <span style={{ color: '#c62828' }}>{stat.losses}L</span>
+                  </span>
                 </div>
-              )} */}
+              )}
             </div>
           );
         })}
@@ -284,9 +313,33 @@ function EmptyState() {
    MAIN PAGE
    ============================================= */
 
+function findPlayerStat(
+  playerName: string,
+  telegramHandle: string | undefined,
+  playerConfigs: PlayerConfig[],
+  playerStats: PlayerStatsSummary[],
+): PlayerStatsSummary | null {
+  // Try to find stats by matching player name (case-insensitive)
+  const normalized = playerName.trim().toLowerCase();
+  for (const stat of playerStats) {
+    if (stat.playerName.trim().toLowerCase() === normalized) return stat;
+  }
+
+  // Try to find via registered player -> match by playerId
+  const matched = findMatchingPlayer(playerName, telegramHandle, playerConfigs);
+  if (matched) {
+    for (const stat of playerStats) {
+      if (stat.playerId === matched.id) return stat;
+    }
+  }
+
+  return null;
+}
+
 export default function Home() {
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [playerConfigs, setPlayerConfigs] = useState<PlayerConfig[]>([]);
+  const [playerStats, setPlayerStats] = useState<PlayerStatsSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
@@ -420,10 +473,15 @@ export default function Home() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/match', { cache: 'no-store' });
-      const data = await res.json();
+      const [matchRes, statsRes] = await Promise.all([
+        fetch('/api/match', { cache: 'no-store' }),
+        fetch('/api/stats', { cache: 'no-store' }),
+      ]);
+      const data = await matchRes.json();
+      const statsData = await statsRes.json();
       setMatchData(data.matchData);
       setPlayerConfigs(data.players || []);
+      setPlayerStats(statsData.players || []);
       setError(null);
     } catch (err) {
       console.error('Failed to fetch:', err);
@@ -551,7 +609,7 @@ export default function Home() {
               {matchData.teams.map((team, i) =>
                 teamCount === 2 ? (
                   <div key={team.name} style={{ display: 'contents' }}>
-                    <TeamCard team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} />
+                    <TeamCard team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} />
                     {i === 0 && (
                       <div className="vs-badge-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', alignSelf: 'center' }}>
                         <div className="vs-badge">VS</div>
@@ -559,7 +617,7 @@ export default function Home() {
                     )}
                   </div>
                 ) : (
-                  <TeamCard key={team.name} team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} />
+                  <TeamCard key={team.name} team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} />
                 )
               )}
             </div>

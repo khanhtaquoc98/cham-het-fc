@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getMatchData, saveMatchData, generateId, deleteMatchData } from '@/lib/storage';
 import { parseTeamMessage, parseVenueMessage } from '@/lib/parser';
+import { saveMatchHistory } from '@/lib/history';
 
 export async function POST(request: Request) {
   try {
@@ -31,8 +32,53 @@ export async function POST(request: Request) {
 
     let replyText = '';
 
+    // Handle /tiso command - record match score
+    if (textLower.startsWith('/tiso')) {
+      const scoreText = text.replace(/^\/tiso\s*/i, '').trim();
+      const scoreParts = scoreText.split('-').map(s => parseInt(s.trim()));
+
+      if (scoreParts.length < 2 || scoreParts.some(isNaN)) {
+        replyText = '❌ Format sai! Dùng:\n/tiso 1-2 (Home-Away)\n/tiso 1-2-3 (Home-Away-Extra)';
+      } else if (!matchData.teams || matchData.teams.length === 0) {
+        replyText = '❌ Chưa có đội hình! Hãy dùng /team để tạo đội hình trước.';
+      } else {
+        const homeScore = scoreParts[0];
+        const awayScore = scoreParts[1];
+        const extraScore = scoreParts.length >= 3 ? scoreParts[2] : null;
+
+        // Determine result text
+        let resultText = '';
+        if (extraScore !== null) {
+          resultText = `⚽ EXTRA thắng!\n🏠 HOME: ${homeScore} ❌\n✈️ AWAY: ${awayScore} ❌\n⭐ EXTRA: ${extraScore} ✅`;
+        } else if (homeScore > awayScore) {
+          resultText = `⚽ HOME thắng!\n🏠 HOME: ${homeScore} ✅\n✈️ AWAY: ${awayScore} ❌`;
+        } else if (awayScore > homeScore) {
+          resultText = `⚽ AWAY thắng!\n🏠 HOME: ${homeScore} ❌\n✈️ AWAY: ${awayScore} ✅`;
+        } else {
+          resultText = `⚽ Hoà!\n🏠 HOME: ${homeScore} 🤝\n✈️ AWAY: ${awayScore} 🤝`;
+        }
+
+        // Save to history
+        const saved = await saveMatchHistory(
+          homeScore,
+          awayScore,
+          extraScore,
+          matchData.teams,
+          matchData.venue?.date,
+          matchData.venue?.time,
+          matchData.venue?.venue,
+        );
+
+        if (saved) {
+          replyText = `✅ Đã lưu tỉ số!\n\n${resultText}\n\n📊 Đã cập nhật thống kê ${matchData.teams.reduce((s, t) => s + t.players.length, 0)} cầu thủ.`;
+        } else {
+          replyText = '❌ Lỗi khi lưu tỉ số. Vui lòng thử lại.';
+        }
+      }
+    }
+
     // Handle /Team command - team lineup
-    if (textLower.startsWith('/team')) {
+    else if (textLower.startsWith('/team')) {
       const teams = parseTeamMessage(text);
       if (teams.length > 0) {
         matchData.teams = teams;
