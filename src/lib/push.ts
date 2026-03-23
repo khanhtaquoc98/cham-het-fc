@@ -144,13 +144,13 @@ export async function checkAndSendAutoNotification(): Promise<{ sent: boolean; r
   // Build match date
   const matchDate = new Date(currentYear, month - 1, day, hours, minutes, 0);
 
-  // Calculate time difference
-  const diffMs = matchDate.getTime() - now.getTime();
-  const diffMinutes = diffMs / 60000;
+  // Check if match is today
+  const isToday = now.getDate() === matchDate.getDate() &&
+    now.getMonth() === matchDate.getMonth() &&
+    now.getFullYear() === matchDate.getFullYear();
 
-  // Check if within the 1-hour window (between 55-65 minutes before match)
-  if (diffMinutes < 55 || diffMinutes > 65) {
-    return { sent: false, reason: `Not in notification window (${Math.round(diffMinutes)} min before match)` };
+  if (!isToday) {
+    return { sent: false, reason: `Match is not today (match: ${venue.date})` };
   }
 
   // Check if we already sent this notification
