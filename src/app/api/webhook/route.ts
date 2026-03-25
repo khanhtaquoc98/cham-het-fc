@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getMatchData, saveMatchData, generateId, deleteMatchData } from '@/lib/storage';
 import { parseTeamMessage, parseVenueMessage } from '@/lib/parser';
 import { saveMatchHistory } from '@/lib/history';
+import { handlePollAnswer, handleVoteCommand } from '@/lib/weekly-vote';
 import {
   sendTelegramMessage,
   getBenchMembers,
@@ -41,12 +42,30 @@ interface TelegramMessage {
   text?: string;
 }
 
+interface TelegramPollAnswer {
+  poll_id: string;
+  user: {
+    id: number;
+    first_name?: string;
+    username?: string;
+  };
+  option_ids: number[];
+}
+
 // ==========================================
 // WEBHOOK POST HANDLER
 // ==========================================
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // ── Handle poll_answer (vote tracking) ──────────────────────
+    const pollAnswer: TelegramPollAnswer | undefined = body.poll_answer;
+    if (pollAnswer) {
+      await handlePollAnswer(pollAnswer);
+      return NextResponse.json({ ok: true });
+    }
+
     const message: TelegramMessage | undefined = body.message;
 
     if (!message || !message.text) {
@@ -87,12 +106,12 @@ export async function POST(request: Request) {
 • \`/clearteam\` - Xóa member khỏi team
 
 📅 *Trận đấu:*
-• \`/tiso\` - Lưu tỉ số
 • \`/san\` - Thông tin sân / đội hình
 
 💰 *Tiền sân:*
 • \`/tiensan\` - Xem/đặt tiền sân (mặc định 580K)
 • \`/tiennuoc\` - Xem/đặt tiền nước (mặc định 60K)
+• \`/tiso\` - Lưu tỉ số
 • \`/chiatien\` - Chia tiền
 
 🗑️ *Khác:*
@@ -680,6 +699,15 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
     else if (textLower === '/reset') {
       await deleteMatchData();
       await reply('🗑️ Đã xoá toàn bộ dữ liệu trận đấu!');
+    }
+
+    // ====================
+    // Weekly Vote commands
+    // /autopoll, /setschedule, /setautopoll, /setautoremind,
+    // /testcron, /checkremind, /createpoll, /votestatus
+    // ====================
+    else {
+      await handleVoteCommand(chatId, text, reply);
     }
 
     return NextResponse.json({ ok: true });
