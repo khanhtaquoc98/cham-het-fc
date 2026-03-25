@@ -22,8 +22,6 @@ import {
   updateMatchState,
   isValidName,
   formatMoney,
-  isAdmin,
-  TeamAssignment,
   MessageType,
 } from '@/lib/bot';
 
@@ -95,7 +93,6 @@ export async function POST(request: Request) {
 💰 *Tiền sân:*
 • \`/tiensan\` - Xem/đặt tiền sân (mặc định 580K)
 • \`/tiennuoc\` - Xem/đặt tiền nước (mặc định 60K)
-• \`/teamthua HOME|AWAY\` - Chọn team thua
 • \`/chiatien\` - Chia tiền
 
 🗑️ *Khác:*
@@ -476,35 +473,7 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
     }
 
     // ====================
-    // /teamthua HOME|AWAY - Chọn team thua
-    // ====================
-    else if (textLower === '/teamthua') {
-      const state = await getMatchState();
-      if (!state.teamThua) {
-        await reply('⚠️ Chưa chọn team thua. Dùng `/teamthua HOME` hoặc `/teamthua AWAY`', 'Markdown');
-      } else {
-        await reply(`📋 Team thua hiện tại: *${state.teamThua}*`, 'Markdown');
-      }
-    } else if (/^\/teamthua\s+(HOME|AWAY)$/i.test(text)) {
-      const team = text.replace(/^\/teamthua\s+/i, '').toUpperCase();
-      await updateMatchState({ teamThua: team });
-
-      // Calculate and show money split if data is ready
-      const state = await getMatchState();
-      const teamA = await getTeamMembers('teamA');
-      const teamB = await getTeamMembers('teamB');
-      const totalMembers = teamA.length + teamB.length;
-
-      if (!state.tiensan || totalMembers === 0) {
-        await reply(`✅ Đã chọn team thua: *${team}*`, 'Markdown');
-      } else {
-        const msg = buildChiaTienMessage(state.tiensan, state.tiennuoc, team, teamA, teamB);
-        await reply(msg, 'Markdown', 'ANNOUNCEMENT');
-      }
-    }
-
-    // ====================
-    // /chiatien - Chia tiền
+    // /chiatien - Chia tiền (dựa trên tỉ số từ /tiso)
     // ====================
     else if (textLower === '/chiatien') {
       const state = await getMatchState();
@@ -513,16 +482,14 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
         return NextResponse.json({ ok: true });
       }
 
-      const teamA = await getTeamMembers('teamA');
-      const teamB = await getTeamMembers('teamB');
-      const totalMembers = teamA.length + teamB.length;
-
-      if (totalMembers === 0) {
-        await reply('⚠️ Không có thành viên nào trong team để chia tiền.');
+      const matchData = await getMatchData();
+      const teams = matchData?.teams;
+      if (!teams || teams.length === 0) {
+        await reply('⚠️ Chưa có team. Dùng /chiateam trước.');
         return NextResponse.json({ ok: true });
       }
 
-      const msg = buildChiaTienMessage(state.tiensan, state.tiennuoc, state.teamThua, teamA, teamB);
+      const msg = buildChiaTienMessage(state.tiensan, state.tiennuoc, state.teamThua, teams);
       await reply(msg, 'Markdown', 'ANNOUNCEMENT');
     }
 
@@ -637,6 +604,26 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
         );
 
         if (saved) {
+          // Auto-determine team thua from score
+          let teamThua: string | null = null;
+          if (extraScore !== null) {
+            // 3 teams - find min score team
+            const scores = [
+              { name: 'HOME', score: homeScore },
+              { name: 'AWAY', score: awayScore },
+              { name: 'EXTRA', score: extraScore },
+            ];
+            const minScore = Math.min(homeScore, awayScore, extraScore);
+            const losers = scores.filter(s => s.score === minScore);
+            if (losers.length === 1) teamThua = losers[0].name;
+          } else if (homeScore < awayScore) {
+            teamThua = 'HOME';
+          } else if (awayScore < homeScore) {
+            teamThua = 'AWAY';
+          }
+          // Save teamThua to match_state
+          await updateMatchState({ teamThua });
+
           let resultText = '';
           if (extraScore !== null) {
             const scores = [
@@ -746,43 +733,51 @@ function parseSelectionIndices(selection: string, maxLength: number): number[] {
 /**
  * Build chia tien message with winner/loser split
  */
+interface TeamData {
+  name: string;
+  players: { name: string }[];
+}
+
 function buildChiaTienMessage(
   tiensan: number,
   tiennuoc: number,
   teamThua: string | null,
-  teamA: TeamAssignment[],
-  teamB: TeamAssignment[],
+  teams: TeamData[],
 ): string {
-  const totalMembers = teamA.length + teamB.length;
+  const totalMembers = teams.reduce((sum, t) => sum + t.players.length, 0);
+  if (totalMembers === 0) return '⚠️ Không có thành viên nào trong team.';
   const perMember = Math.ceil(tiensan / totalMembers);
 
   if (!teamThua) {
+    return `💸 Tổng tiền: ${formatMoney(tiensan)} VND\n👥 Số người: ${totalMembers}\n\nMỗi người phải trả: ${formatMoney(perMember)} VND\n\n⚠️ Chưa có tỉ số. Dùng /tiso để xác định team thua.`;
+  }
+
+  const loserTeam = teams.find(t => t.name === teamThua);
+  const winnerTeams = teams.filter(t => t.name !== teamThua);
+
+  if (!loserTeam) {
     return `💸 Tổng tiền: ${formatMoney(tiensan)} VND\n👥 Số người: ${totalMembers}\n\nMỗi người phải trả: ${formatMoney(perMember)} VND`;
   }
 
-  const loserTeam = teamThua === 'HOME' ? teamA : teamB;
-  const winnerTeam = teamThua === 'HOME' ? teamB : teamA;
-  const loserName = teamThua === 'HOME' ? 'HOME' : 'AWAY';
-  const winnerName = teamThua === 'HOME' ? 'AWAY' : 'HOME';
-
-  const loserCount = loserTeam.length;
+  const loserCount = loserTeam.players.length;
   const waterPerLoser = loserCount > 0 ? Math.ceil(tiennuoc / loserCount) : 0;
   const loserTotal = perMember + waterPerLoser;
-  const winnerTotal = perMember;
 
-  const loserMembers = loserTeam.map(m => m.displayName).join('\n');
-  const winnerMembers = winnerTeam.map(m => m.displayName).join('\n');
+  const loserMembers = loserTeam.players.map(p => p.name).join('\n');
+  const winnerLines = winnerTeams.map(t =>
+    `*${t.name}:*\n${t.players.map(p => p.name).join('\n')}`
+  ).join('\n\n');
 
   return (
     `💸 *Tổng tiền: ${formatMoney(tiensan)} VND*\n` +
     `👥 Số người: ${totalMembers}\n\n` +
     `Mỗi người phải trả: ${formatMoney(perMember)} VND\n` +
     `Tiền nước: ${formatMoney(tiennuoc)}/${loserCount}=${formatMoney(waterPerLoser)}\n\n` +
-    `*${winnerName}:*\n${winnerMembers}\n\n` +
-    `*${loserName}:*\n${loserMembers}\n\n` +
+    `${winnerLines}\n\n` +
+    `*${teamThua} (thua):*\n${loserMembers}\n\n` +
     `=> \n` +
-    `*${winnerName}:* ${formatMoney(winnerTotal)}\n` +
-    `*${loserName}:* ${formatMoney(perMember)} + ${formatMoney(waterPerLoser)}=${formatMoney(loserTotal)}\n\n` +
+    winnerTeams.map(t => `*${t.name}:* ${formatMoney(perMember)}`).join('\n') + '\n' +
+    `*${teamThua}:* ${formatMoney(perMember)} + ${formatMoney(waterPerLoser)} = ${formatMoney(loserTotal)}\n\n` +
     `0905889885 Momo, zalopay, shopeefood, lazada, tiki, ...\n` +
     `8888220198 Techcombank`
   );
