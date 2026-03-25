@@ -517,60 +517,48 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
     }
 
     // ====================
-    // /san [text] - Lưu sân
+    // /san [text] - Lưu/xem sân
     // ====================
     else if (textLower === '/san') {
-      const state = await getMatchState();
-      if (state.san) {
-        await reply(`📍 Sân: ${state.san}`);
+      // Show saved venue info
+      const matchData = await getMatchData();
+      const venue = matchData?.venue;
+      if (venue && (venue.date || venue.time || venue.venue)) {
+        let msg = `📍 *Thông tin sân:*\n`;
+        if (venue.date) msg += `📅 Ngày: ${venue.date}\n`;
+        if (venue.time) msg += `⏰ Giờ: ${venue.time}\n`;
+        if (venue.venue) msg += `📍 Sân: ${venue.venue}\n`;
+        if (venue.googleMapLink) msg += `🗺️ Map: ${venue.googleMapLink}\n`;
+        await reply(msg, 'Markdown');
       } else {
-        await reply('⚠️ Chưa lưu sân nào. Dùng /san [tên sân] để lưu.');
+        await reply('⚠️ Chưa lưu sân nào. Dùng /san [ngày - giờ - sân - map] để lưu.\nVí dụ: `/san 26/03/2026 - 19h30 - Sân số 8 - https://maps.app.goo.gl/...`', 'Markdown');
       }
     } else if (textLower.startsWith('/san ')) {
-      // Check if it's a team lineup (contains 👤)
-      if (text.includes('👤')) {
-        const teams = parseTeamMessage(text);
-        if (teams.length > 0) {
-          let matchData = await getMatchData();
-          const now = new Date().toISOString();
-          if (!matchData) {
-            matchData = { id: generateId(), teams: [], venue: {}, createdAt: now, updatedAt: now };
-          }
-          matchData.teams = teams;
-          matchData.updatedAt = now;
-          matchData.rawMessage = text;
-          await saveMatchData(matchData);
+      // Parse and save venue info
+      const venue = parseVenueMessage(text);
 
-          const totalPlayers = teams.reduce((sum, t) => sum + t.players.length, 0);
-          await reply(`✅ Đã cập nhật đội hình!\n${teams.map(t => `${t.name}: ${t.players.length} người`).join('\n')}\nTổng: ${totalPlayers} người`);
-        } else {
-          await reply('❌ Không parse được đội hình.');
-        }
+      let matchData = await getMatchData();
+      const now = new Date().toISOString();
+      if (!matchData) {
+        matchData = { id: generateId(), teams: [], venue: {}, createdAt: now, updatedAt: now };
+      }
+      matchData.venue = { ...matchData.venue, ...venue };
+      matchData.updatedAt = now;
+      await saveMatchData(matchData);
+
+      // If parser didn't extract structured fields, save raw text as venue name
+      if (!venue.date && !venue.time && !venue.venue) {
+        const sanName = text.replace(/^\/san\s+/i, '').trim();
+        matchData.venue = { ...matchData.venue, venue: sanName };
+        await saveMatchData(matchData);
+        await reply(`✅ Đã lưu sân: ${sanName}`);
       } else {
-        // Parse as venue info or just save as san name
-        const venue = parseVenueMessage(text);
-        if (venue.date || venue.time || venue.venue) {
-          let matchData = await getMatchData();
-          const now = new Date().toISOString();
-          if (!matchData) {
-            matchData = { id: generateId(), teams: [], venue: {}, createdAt: now, updatedAt: now };
-          }
-          matchData.venue = { ...matchData.venue, ...venue };
-          matchData.updatedAt = now;
-          await saveMatchData(matchData);
-
-          let replyText = `✅ Đã cập nhật thông tin sân!\n`;
-          if (venue.date) replyText += `📅 Ngày: ${venue.date}\n`;
-          if (venue.time) replyText += `⏰ Giờ: ${venue.time}\n`;
-          if (venue.venue) replyText += `📍 Sân: ${venue.venue}\n`;
-          if (venue.googleMapLink) replyText += `🗺️ Map: ${venue.googleMapLink}\n`;
-          await reply(replyText);
-        } else {
-          // Just save as san name string
-          const sanName = text.replace(/^\/san\s+/i, '').trim();
-          await updateMatchState({ san: sanName });
-          await reply(`✅ Đã lưu sân: ${sanName}`);
-        }
+        let replyText = `✅ Đã cập nhật thông tin sân!\n`;
+        if (venue.date) replyText += `📅 Ngày: ${venue.date}\n`;
+        if (venue.time) replyText += `⏰ Giờ: ${venue.time}\n`;
+        if (venue.venue) replyText += `📍 Sân: ${venue.venue}\n`;
+        if (venue.googleMapLink) replyText += `🗺️ Map: ${venue.googleMapLink}\n`;
+        await reply(replyText);
       }
     }
 
