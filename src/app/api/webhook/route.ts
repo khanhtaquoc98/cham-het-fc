@@ -22,8 +22,9 @@ import {
   updateMatchState,
   isValidName,
   formatMoney,
-  BenchMember,
+  isAdmin,
   TeamAssignment,
+  MessageType,
 } from '@/lib/bot';
 
 // ==========================================
@@ -59,10 +60,10 @@ export async function POST(request: Request) {
     const chatId = message.chat?.id;
     const user = message.from;
 
-    // Helper to send reply
-    const reply = async (msg: string, parseMode?: string) => {
+    // Helper to send reply (with thread routing)
+    const reply = async (msg: string, parseMode?: string, type?: MessageType) => {
       if (chatId) {
-        await sendTelegramMessage(chatId, msg, parseMode);
+        await sendTelegramMessage(chatId, msg, parseMode, type);
       }
     };
 
@@ -71,6 +72,7 @@ export async function POST(request: Request) {
     // ====================
     if (textLower === '/start') {
       await reply(
+        // Send to MAIN thread
         `👋 *DANH SÁCH LỆNH HƯỚNG DẪN*
 
 📝 *Quản lý danh sách:*
@@ -102,7 +104,8 @@ export async function POST(request: Request) {
 • \`/clearsan\` - Xoá sân
 
 💡 Dùng sai cú pháp = ngu!`,
-        'Markdown'
+        'Markdown',
+        'MAIN'
       );
     }
 
@@ -245,7 +248,8 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
       } else {
         await reply(
           `🎲 *Chia team* 🎲\n\n👤 *HOME:*\n${result.teamA.join('\n')}\n\n👤 *AWAY:*\n${result.teamB.join('\n')}`,
-          'Markdown'
+          'Markdown',
+          'ANNOUNCEMENT'
         );
       }
     }
@@ -260,7 +264,8 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
       } else {
         await reply(
           `🎲 *Chia 3 team* 🎲\n\n👤 *HOME:*\n${result.team3A.join('\n')}\n\n👤 *AWAY:*\n${result.team3B.join('\n')}\n\n👤 *EXTRA:*\n${result.team3C.join('\n')}`,
-          'Markdown'
+          'Markdown',
+          'ANNOUNCEMENT'
         );
       }
     }
@@ -484,7 +489,7 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
         await reply(`✅ Đã chọn team thua: *${team}*`, 'Markdown');
       } else {
         const msg = buildChiaTienMessage(state.tiensan, state.tiennuoc, team, teamA, teamB);
-        await reply(msg, 'Markdown');
+        await reply(msg, 'Markdown', 'ANNOUNCEMENT');
       }
     }
 
@@ -508,7 +513,7 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
       }
 
       const msg = buildChiaTienMessage(state.tiensan, state.tiennuoc, state.teamThua, teamA, teamB);
-      await reply(msg, 'Markdown');
+      await reply(msg, 'Markdown', 'ANNOUNCEMENT');
     }
 
     // ====================

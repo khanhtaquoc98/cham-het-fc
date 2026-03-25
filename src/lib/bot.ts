@@ -1,21 +1,45 @@
 import { supabase } from '@/lib/supabase';
 
 // ==========================================
-// TELEGRAM REPLY HELPER
+// TELEGRAM REPLY HELPER (mirrors chiateam-bot chat.js)
 // ==========================================
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const CHAT_ID = process.env.CHAT_ID;
 
-export async function sendTelegramMessage(chatId: number | string, text: string, parseMode?: string): Promise<void> {
+const THREAD_TYPES: Record<string, string | undefined> = {
+  DEFAULT: process.env.DEFAULT_THREAD_ID || undefined,
+  MAIN: process.env.MAIN_THREAD_ID || undefined,
+  ANNOUNCEMENT: process.env.ANNOUNCEMENT_THREAD_ID || undefined,
+  VIP: process.env.VIP_THREAD_ID || undefined,
+  STATISTICS: process.env.STATISTICS_THREAD_ID || undefined,
+};
+
+export type MessageType = 'DEFAULT' | 'MAIN' | 'ANNOUNCEMENT' | 'VIP' | 'STATISTICS';
+
+/**
+ * Send a message to the configured group chat + thread.
+ * Falls back to replying in the same chat if CHAT_ID is not set.
+ */
+export async function sendTelegramMessage(
+  chatId: number | string,
+  text: string,
+  parseMode?: string,
+  type?: MessageType,
+): Promise<void> {
   if (!BOT_TOKEN) return;
+
+  const targetChatId = CHAT_ID || chatId;
+  const threadId = type ? THREAD_TYPES[type] : undefined;
 
   await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      chat_id: chatId,
+      chat_id: targetChatId,
       text,
       ...(parseMode ? { parse_mode: parseMode } : {}),
+      ...(threadId ? { message_thread_id: Number(threadId) } : {}),
     }),
   });
 }
@@ -24,24 +48,37 @@ export async function sendTelegramPoll(
   chatId: number | string,
   question: string,
   options: string[],
-  threadId?: string,
+  type?: MessageType,
 ): Promise<unknown> {
   if (!BOT_TOKEN) return null;
+
+  const targetChatId = CHAT_ID || chatId;
+  const threadId = type ? THREAD_TYPES[type] : undefined;
 
   const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPoll`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      chat_id: chatId,
+      chat_id: targetChatId,
       question,
       options,
       is_anonymous: false,
       allows_multiple_answers: false,
-      ...(threadId ? { message_thread_id: threadId } : {}),
+      ...(threadId ? { message_thread_id: Number(threadId) } : {}),
     }),
   });
 
   return res.json();
+}
+
+/**
+ * Check if a user is an admin (based on BOT_ADMIN_IDS env)
+ */
+export function isAdmin(userId: number): boolean {
+  const adminIds = process.env.BOT_ADMIN_IDS;
+  if (!adminIds) return false;
+  const adminList = adminIds.split(',').map(id => id.trim());
+  return adminList.includes(String(userId));
 }
 
 // ==========================================
