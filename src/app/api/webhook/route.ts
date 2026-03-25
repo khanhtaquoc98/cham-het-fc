@@ -83,9 +83,9 @@ export async function POST(request: Request) {
 
 ⚽ *Quản lý team:*
 • \`/chiateam\` - Chia 2 team (HOME / AWAY)
-• \`/chiateam3\` - Chia 3 team (HOME / AWAY / EXTRA)
+• \`/chiateam 3\` - Chia 3 team (HOME / AWAY / EXTRA)
 • \`/team\` - Xem 2 team
-• \`/team3\` - Xem 3 team
+• \`/team 3\` - Xem 3 team
 • \`/addtoteam HOME|AWAY|EXTRA\` - Thêm vào team
 • \`/clearteam\` - Xóa member khỏi team
 
@@ -239,69 +239,67 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
     }
 
     // ====================
-    // /chiateam - Chia 2 team
+    // /chiateam [3] - Chia team (mặc định 2, thêm 3 = chia 3 team)
     // ====================
-    else if (textLower === '/chiateam') {
-      const result = await splitInto2Teams();
-      if (!result) {
-        await reply('❗ Không đủ người để chia (cần ít nhất 2 người trong bench)');
+    else if (textLower === '/chiateam' || textLower === '/chiateam 3') {
+      const is3Team = textLower === '/chiateam 3';
+
+      if (is3Team) {
+        const result = await splitInto3Teams();
+        if (!result) {
+          await reply('❗ Cần ít nhất 3 người để chia 3 team');
+        } else {
+          await reply(
+            `🎲 *Chia 3 team* 🎲\n\n👤 *HOME:*\n${result.team3A.join('\n')}\n\n👤 *AWAY:*\n${result.team3B.join('\n')}\n\n👤 *EXTRA:*\n${result.team3C.join('\n')}`,
+            'Markdown',
+            'ANNOUNCEMENT'
+          );
+        }
       } else {
-        await reply(
-          `🎲 *Chia team* 🎲\n\n👤 *HOME:*\n${result.teamA.join('\n')}\n\n👤 *AWAY:*\n${result.teamB.join('\n')}`,
-          'Markdown',
-          'ANNOUNCEMENT'
-        );
+        const result = await splitInto2Teams();
+        if (!result) {
+          await reply('❗ Không đủ người để chia (cần ít nhất 2 người trong bench)');
+        } else {
+          await reply(
+            `🎲 *Chia team* 🎲\n\n👤 *HOME:*\n${result.teamA.join('\n')}\n\n👤 *AWAY:*\n${result.teamB.join('\n')}`,
+            'Markdown',
+            'ANNOUNCEMENT'
+          );
+        }
       }
     }
 
     // ====================
-    // /chiateam3 - Chia 3 team
+    // /team [3] - Xem team (mặc định 2, thêm 3 = xem 3 team)
     // ====================
-    else if (textLower === '/chiateam3') {
-      const result = await splitInto3Teams();
-      if (!result) {
-        await reply('❗ Cần ít nhất 3 người để chia 3 team');
+    else if ((textLower === '/team' || textLower === '/team 3') && !textLower.startsWith('/teamthua')) {
+      const is3Team = textLower === '/team 3';
+
+      if (is3Team) {
+        const team3A = await getTeamMembers('team3A');
+        const team3B = await getTeamMembers('team3B');
+        const team3C = await getTeamMembers('team3C');
+
+        if (team3A.length === 0 && team3B.length === 0 && team3C.length === 0) {
+          await reply('⚠️ Chưa có 3 team nào được chia. Dùng /chiateam 3 để chia');
+        } else {
+          await reply(
+            `🎲 *3 Team hiện tại* 🎲\n\n👤 *HOME:*\n${team3A.map(m => m.displayName).join('\n') || '(trống)'}\n\n👤 *AWAY:*\n${team3B.map(m => m.displayName).join('\n') || '(trống)'}\n\n👤 *EXTRA:*\n${team3C.map(m => m.displayName).join('\n') || '(trống)'}`,
+            'Markdown'
+          );
+        }
       } else {
-        await reply(
-          `🎲 *Chia 3 team* 🎲\n\n👤 *HOME:*\n${result.team3A.join('\n')}\n\n👤 *AWAY:*\n${result.team3B.join('\n')}\n\n👤 *EXTRA:*\n${result.team3C.join('\n')}`,
-          'Markdown',
-          'ANNOUNCEMENT'
-        );
-      }
-    }
+        const teamA = await getTeamMembers('teamA');
+        const teamB = await getTeamMembers('teamB');
 
-    // ====================
-    // /team - Xem 2 team
-    // ====================
-    else if (textLower === '/team' && !textLower.startsWith('/team ') && !textLower.startsWith('/teamthua')) {
-      const teamA = await getTeamMembers('teamA');
-      const teamB = await getTeamMembers('teamB');
-
-      if (teamA.length === 0 && teamB.length === 0) {
-        await reply('⚠️ Chưa có team nào được chia. Dùng /chiateam trước');
-      } else {
-        await reply(
-          `🎲 *Team hiện tại* 🎲\n\n👤 *HOME:*\n${teamA.map(m => m.displayName).join('\n') || '(trống)'}\n\n👤 *AWAY:*\n${teamB.map(m => m.displayName).join('\n') || '(trống)'}`,
-          'Markdown'
-        );
-      }
-    }
-
-    // ====================
-    // /team3 - Xem 3 team
-    // ====================
-    else if (textLower === '/team3') {
-      const team3A = await getTeamMembers('team3A');
-      const team3B = await getTeamMembers('team3B');
-      const team3C = await getTeamMembers('team3C');
-
-      if (team3A.length === 0 && team3B.length === 0 && team3C.length === 0) {
-        await reply('⚠️ Chưa có 3 team nào được chia. Dùng /chiateam3 để chia 3 team');
-      } else {
-        await reply(
-          `🎲 *3 Team hiện tại* 🎲\n\n👤 *HOME:*\n${team3A.map(m => m.displayName).join('\n') || '(trống)'}\n\n👤 *AWAY:*\n${team3B.map(m => m.displayName).join('\n') || '(trống)'}\n\n👤 *EXTRA:*\n${team3C.map(m => m.displayName).join('\n') || '(trống)'}`,
-          'Markdown'
-        );
+        if (teamA.length === 0 && teamB.length === 0) {
+          await reply('⚠️ Chưa có team nào được chia. Dùng /chiateam trước');
+        } else {
+          await reply(
+            `🎲 *Team hiện tại* 🎲\n\n👤 *HOME:*\n${teamA.map(m => m.displayName).join('\n') || '(trống)'}\n\n👤 *AWAY:*\n${teamB.map(m => m.displayName).join('\n') || '(trống)'}`,
+            'Markdown'
+          );
+        }
       }
     }
 
