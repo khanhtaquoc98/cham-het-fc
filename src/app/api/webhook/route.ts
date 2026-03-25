@@ -385,6 +385,21 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
       const teamMembers = await getTeamMembers(teamGroup);
       const selectedNames = selectedMembers.map(m => m.displayName);
 
+      // Sync matchData
+      let matchData = await getMatchData();
+      if (!matchData) {
+        matchData = { id: generateId(), teams: [], venue: {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      }
+      if (!matchData.teams) matchData.teams = [];
+      const tIndex = matchData.teams.findIndex(t => t.name === teamType);
+      if (tIndex === -1) {
+        matchData.teams.push({ name: teamType, players: teamMembers.map(m => ({name: m.displayName})) });
+      } else {
+        matchData.teams[tIndex].players = teamMembers.map(m => ({name: m.displayName}));
+      }
+      matchData.updatedAt = new Date().toISOString();
+      await saveMatchData(matchData);
+
       await reply(
         `✅ Đã thêm ${selectedNames.length} member(s) vào ${teamType}:\n${selectedNames.join('\n')}\n\n👤 *${teamType} hiện tại:*\n${teamMembers.map(m => m.displayName).join('\n')}`,
         'Markdown'
@@ -405,12 +420,23 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
           const team3A = await getTeamMembers('team3A');
           const team3B = await getTeamMembers('team3B');
           const team3C = await getTeamMembers('team3C');
+          const matchData = await getMatchData();
+          const hasMatchDataTeams = matchData && matchData.teams && matchData.teams.length > 0;
 
-          if (teamA.length === 0 && teamB.length === 0 && team3A.length === 0 && team3B.length === 0 && team3C.length === 0) {
+          if (teamA.length === 0 && teamB.length === 0 && team3A.length === 0 && team3B.length === 0 && team3C.length === 0 && !hasMatchDataTeams) {
             await reply('⚠️ Chưa chia team.');
           } else {
-            await clearAllTeams();
+            if (teamA.length > 0 || teamB.length > 0 || team3A.length > 0 || team3B.length > 0 || team3C.length > 0) {
+              await clearAllTeams();
+            }
             await reply('✅ Đã xóa toàn bộ team.');
+
+            // Sync matchData
+            if (matchData && hasMatchDataTeams) {
+              matchData.teams = [];
+              matchData.updatedAt = new Date().toISOString();
+              await saveMatchData(matchData);
+            }
           }
         }
         return NextResponse.json({ ok: true });
@@ -421,7 +447,17 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
       const teamGroup = teamType === 'HOME' ? 'teamA' : teamType === 'AWAY' ? 'teamB' : 'team3C';
       const teamMembers = await getTeamMembers(teamGroup);
 
-      if (teamMembers.length === 0) {
+      let matchData = await getMatchData();
+      let hasMatchDataTeam = false;
+      let tIndex = -1;
+      if (matchData && matchData.teams) {
+        tIndex = matchData.teams.findIndex(t => t.name === teamType);
+        if (tIndex >= 0 && matchData.teams[tIndex].players.length > 0) {
+          hasMatchDataTeam = true;
+        }
+      }
+
+      if (teamMembers.length === 0 && !hasMatchDataTeam) {
         await reply(`⚠️ ${teamType} trống.`);
         return NextResponse.json({ ok: true });
       }
@@ -439,6 +475,18 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
       if (selection.toLowerCase() === 'all') {
         await clearTeamGroup(teamGroup);
         await reply(`✅ Đã xóa toàn bộ ${teamType}.`);
+
+        // Sync matchData
+        matchData = await getMatchData();
+        if (matchData && matchData.teams) {
+          tIndex = matchData.teams.findIndex(t => t.name === teamType);
+          if (tIndex >= 0) {
+            matchData.teams[tIndex].players = [];
+            matchData.updatedAt = new Date().toISOString();
+            await saveMatchData(matchData);
+          }
+        }
+
         return NextResponse.json({ ok: true });
       }
 
@@ -450,6 +498,18 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
 
       const idsToRemove = selectedIndices.map(i => teamMembers[i].id);
       const removedNames = await removeTeamMembers(teamGroup, idsToRemove);
+
+      // Sync matchData
+      matchData = await getMatchData();
+      if (matchData && matchData.teams) {
+        tIndex = matchData.teams.findIndex(t => t.name === teamType);
+        if (tIndex >= 0) {
+          const updatedTeamMembers = await getTeamMembers(teamGroup);
+          matchData.teams[tIndex].players = updatedTeamMembers.map(m => ({name: m.displayName}));
+          matchData.updatedAt = new Date().toISOString();
+          await saveMatchData(matchData);
+        }
+      }
 
       await reply(
         `✅ Đã xóa ${removedNames.length} member(s) khỏi ${teamType}:\n${removedNames.join('\n')}`,
@@ -698,6 +758,8 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
     // ====================
     else if (textLower === '/reset') {
       await deleteMatchData();
+      await clearAllTeams();
+      await updateMatchState({ san: null, teamThua: null });
       await reply('🗑️ Đã xoá toàn bộ dữ liệu trận đấu!');
     }
 
