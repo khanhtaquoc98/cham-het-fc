@@ -84,8 +84,7 @@ export async function POST(request: Request) {
 ⚽ *Quản lý team:*
 • \`/chiateam\` - Chia 2 team (HOME / AWAY)
 • \`/chiateam 3\` - Chia 3 team (HOME / AWAY / EXTRA)
-• \`/team\` - Xem 2 team
-• \`/team 3\` - Xem 3 team
+• \`/team\` - Xem team hiện tại
 • \`/addtoteam HOME|AWAY|EXTRA\` - Thêm vào team
 • \`/clearteam\` - Xóa member khỏi team
 
@@ -240,6 +239,7 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
 
     // ====================
     // /chiateam [3] - Chia team (mặc định 2, thêm 3 = chia 3 team)
+    // Tự lưu vào match_data.teams
     // ====================
     else if (textLower === '/chiateam' || textLower === '/chiateam 3') {
       const is3Team = textLower === '/chiateam 3';
@@ -249,6 +249,21 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
         if (!result) {
           await reply('❗ Cần ít nhất 3 người để chia 3 team');
         } else {
+          // Save to match_data
+          const teams = [
+            { name: 'HOME', players: result.team3A.map(n => ({ name: n })) },
+            { name: 'AWAY', players: result.team3B.map(n => ({ name: n })) },
+            { name: 'EXTRA', players: result.team3C.map(n => ({ name: n })) },
+          ];
+          let matchData = await getMatchData();
+          const now = new Date().toISOString();
+          if (!matchData) {
+            matchData = { id: generateId(), teams: [], venue: {}, createdAt: now, updatedAt: now };
+          }
+          matchData.teams = teams;
+          matchData.updatedAt = now;
+          await saveMatchData(matchData);
+
           await reply(
             `🎲 *Chia 3 team* 🎲\n\n👤 *HOME:*\n${result.team3A.join('\n')}\n\n👤 *AWAY:*\n${result.team3B.join('\n')}\n\n👤 *EXTRA:*\n${result.team3C.join('\n')}`,
             'Markdown',
@@ -260,6 +275,20 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
         if (!result) {
           await reply('❗ Không đủ người để chia (cần ít nhất 2 người trong bench)');
         } else {
+          // Save to match_data
+          const teams = [
+            { name: 'HOME', players: result.teamA.map(n => ({ name: n })) },
+            { name: 'AWAY', players: result.teamB.map(n => ({ name: n })) },
+          ];
+          let matchData = await getMatchData();
+          const now = new Date().toISOString();
+          if (!matchData) {
+            matchData = { id: generateId(), teams: [], venue: {}, createdAt: now, updatedAt: now };
+          }
+          matchData.teams = teams;
+          matchData.updatedAt = now;
+          await saveMatchData(matchData);
+
           await reply(
             `🎲 *Chia team* 🎲\n\n👤 *HOME:*\n${result.teamA.join('\n')}\n\n👤 *AWAY:*\n${result.teamB.join('\n')}`,
             'Markdown',
@@ -270,36 +299,19 @@ Ví dụ: \`/add Nghia, Nghia 1, Nghia 2\``,
     }
 
     // ====================
-    // /team [3] - Xem team (mặc định 2, thêm 3 = xem 3 team)
+    // /team - Xem team từ match_data
     // ====================
-    else if ((textLower === '/team' || textLower === '/team 3') && !textLower.startsWith('/teamthua')) {
-      const is3Team = textLower === '/team 3';
+    else if (textLower === '/team' && !textLower.startsWith('/teamthua')) {
+      const matchData = await getMatchData();
+      const teams = matchData?.teams;
 
-      if (is3Team) {
-        const team3A = await getTeamMembers('team3A');
-        const team3B = await getTeamMembers('team3B');
-        const team3C = await getTeamMembers('team3C');
-
-        if (team3A.length === 0 && team3B.length === 0 && team3C.length === 0) {
-          await reply('⚠️ Chưa có 3 team nào được chia. Dùng /chiateam 3 để chia');
-        } else {
-          await reply(
-            `🎲 *3 Team hiện tại* 🎲\n\n👤 *HOME:*\n${team3A.map(m => m.displayName).join('\n') || '(trống)'}\n\n👤 *AWAY:*\n${team3B.map(m => m.displayName).join('\n') || '(trống)'}\n\n👤 *EXTRA:*\n${team3C.map(m => m.displayName).join('\n') || '(trống)'}`,
-            'Markdown'
-          );
-        }
+      if (!teams || teams.length === 0) {
+        await reply('⚠️ Chưa có team nào được chia. Dùng /chiateam trước');
       } else {
-        const teamA = await getTeamMembers('teamA');
-        const teamB = await getTeamMembers('teamB');
-
-        if (teamA.length === 0 && teamB.length === 0) {
-          await reply('⚠️ Chưa có team nào được chia. Dùng /chiateam trước');
-        } else {
-          await reply(
-            `🎲 *Team hiện tại* 🎲\n\n👤 *HOME:*\n${teamA.map(m => m.displayName).join('\n') || '(trống)'}\n\n👤 *AWAY:*\n${teamB.map(m => m.displayName).join('\n') || '(trống)'}`,
-            'Markdown'
-          );
-        }
+        const lines = teams.map(t =>
+          `👤 *${t.name}:*\n${t.players.map((p: { name: string }) => p.name).join('\n')}`
+        ).join('\n\n');
+        await reply(`🎲 *Team hiện tại* 🎲\n\n${lines}`, 'Markdown');
       }
     }
 
