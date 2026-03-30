@@ -10,6 +10,12 @@ interface PlayerConfig {
   jerseyNumber: number | null;
 }
 
+interface PlayerWithStats extends PlayerConfig {
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
 type EditingPlayer = {
   id: string;
   name: string;
@@ -18,8 +24,16 @@ type EditingPlayer = {
   jerseyNumber: string;
 };
 
+interface StatsSummary {
+  playerName: string;
+  playerId: string | null;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
 export default function PlayersPage() {
-  const [players, setPlayers] = useState<PlayerConfig[]>([]);
+  const [players, setPlayers] = useState<PlayerWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [newPlayer, setNewPlayer] = useState({ name: '', subNames: '', telegramHandle: '', jerseyNumber: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -28,9 +42,31 @@ export default function PlayersPage() {
 
   const fetchPlayers = useCallback(async () => {
     try {
-      const res = await fetch('/api/players');
-      const data = await res.json();
-      setPlayers(data);
+      const [playersRes, statsRes] = await Promise.all([
+        fetch('/api/players'),
+        fetch('/api/stats'),
+      ]);
+      const playersData: PlayerConfig[] = await playersRes.json();
+      const statsData: { players: StatsSummary[] } = await statsRes.json();
+
+      // Build a map: playerId -> stats
+      const statsMap = new Map<string, StatsSummary>();
+      for (const s of statsData.players) {
+        if (s.playerId) statsMap.set(s.playerId, s);
+      }
+
+      // Merge
+      const merged: PlayerWithStats[] = playersData.map((p) => {
+        const stat = statsMap.get(p.id);
+        return {
+          ...p,
+          wins: stat?.wins ?? 0,
+          losses: stat?.losses ?? 0,
+          draws: stat?.draws ?? 0,
+        };
+      });
+
+      setPlayers(merged);
     } catch (err) {
       console.error('Failed to fetch players:', err);
     } finally {
@@ -177,6 +213,9 @@ export default function PlayersPage() {
                 <th style={{ ...thStyle, textAlign: 'left', paddingLeft: '16px' }}>Tên</th>
                 <th style={{ ...thStyle, textAlign: 'left', paddingLeft: '16px' }}>Biệt danh</th>
                 <th style={{ ...thStyle, textAlign: 'left', paddingLeft: '16px' }}>Telegram</th>
+                <th style={{ ...thStyle, width: '50px' }}>W</th>
+                <th style={{ ...thStyle, width: '50px' }}>L</th>
+                <th style={{ ...thStyle, width: '50px' }}>D</th>
                 <th style={{ ...thStyle, width: '110px' }}>Thao tác</th>
               </tr>
             </thead>
@@ -203,6 +242,9 @@ export default function PlayersPage() {
                         <input style={{ ...inputCompact, width: '100%' }} value={editForm.telegramHandle}
                           onChange={e => setEditForm({ ...editForm, telegramHandle: e.target.value })} placeholder="@username" />
                       </td>
+                      <td style={tdCenter}><span style={statBadgeW}>{player.wins}</span></td>
+                      <td style={tdCenter}><span style={statBadgeL}>{player.losses}</span></td>
+                      <td style={tdCenter}><span style={statBadgeD}>{player.draws}</span></td>
                       <td style={tdCenter}>
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                           <button style={btnSave} onClick={handleUpdate}>Lưu</button>
@@ -252,6 +294,9 @@ export default function PlayersPage() {
                           </span>
                         )}
                       </td>
+                      <td style={tdCenter}><span style={statBadgeW}>{player.wins}</span></td>
+                      <td style={tdCenter}><span style={statBadgeL}>{player.losses}</span></td>
+                      <td style={tdCenter}><span style={statBadgeD}>{player.draws}</span></td>
                       <td style={tdCenter}>
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                           <button style={btnEdit} onClick={() => startEdit(player)}>Sửa</button>
@@ -343,4 +388,22 @@ const tdCenter: React.CSSProperties = {
 
 const tdLeft: React.CSSProperties = {
   padding: '12px 20px', fontSize: '14px', textAlign: 'left', verticalAlign: 'middle',
+};
+
+const statBadgeBase: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  minWidth: '28px', height: '24px', borderRadius: '6px',
+  fontSize: '13px', fontWeight: 700, padding: '0 6px',
+};
+
+const statBadgeW: React.CSSProperties = {
+  ...statBadgeBase, background: 'rgba(46,125,50,0.1)', color: '#2e7d32',
+};
+
+const statBadgeL: React.CSSProperties = {
+  ...statBadgeBase, background: 'rgba(198,40,40,0.1)', color: '#c62828',
+};
+
+const statBadgeD: React.CSSProperties = {
+  ...statBadgeBase, background: 'rgba(100,100,120,0.1)', color: '#6a6a8a',
 };
