@@ -15,15 +15,15 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name, subNames, telegramHandle, jerseyNumber } = body;
 
-    if (!name || jerseyNumber === undefined) {
-      return NextResponse.json({ error: 'name and jerseyNumber are required' }, { status: 400 });
+    if (!name) {
+      return NextResponse.json({ error: 'name is required' }, { status: 400 });
     }
 
     const player = await addPlayer({
       name,
       subNames: subNames || [],
       telegramHandle: telegramHandle || '',
-      jerseyNumber: Number(jerseyNumber),
+      jerseyNumber: jerseyNumber != null ? Number(jerseyNumber) : null,
     });
 
     return NextResponse.json(player, { status: 201 });

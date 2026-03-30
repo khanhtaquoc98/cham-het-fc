@@ -7,7 +7,7 @@ interface PlayerConfig {
   name: string;
   subNames: string[];
   telegramHandle: string;
-  jerseyNumber: number;
+  jerseyNumber: number | null;
 }
 
 type EditingPlayer = {
@@ -43,7 +43,7 @@ export default function PlayersPage() {
   }, [fetchPlayers]);
 
   const handleAdd = async () => {
-    if (!newPlayer.name || !newPlayer.jerseyNumber) return;
+    if (!newPlayer.name) return;
     setSaving(true);
     try {
       const res = await fetch('/api/players', {
@@ -53,7 +53,7 @@ export default function PlayersPage() {
           name: newPlayer.name,
           subNames: newPlayer.subNames.split(',').map(s => s.trim()).filter(Boolean),
           telegramHandle: newPlayer.telegramHandle,
-          jerseyNumber: parseInt(newPlayer.jerseyNumber),
+          jerseyNumber: newPlayer.jerseyNumber ? parseInt(newPlayer.jerseyNumber) : null,
         }),
       });
       if (res.ok) {
@@ -70,7 +70,7 @@ export default function PlayersPage() {
       name: player.name,
       subNames: player.subNames.join(', '),
       telegramHandle: player.telegramHandle || '',
-      jerseyNumber: String(player.jerseyNumber),
+      jerseyNumber: player.jerseyNumber != null ? String(player.jerseyNumber) : '',
     });
   };
 
@@ -88,7 +88,7 @@ export default function PlayersPage() {
           name: editForm.name,
           subNames: editForm.subNames.split(',').map(s => s.trim()).filter(Boolean),
           telegramHandle: editForm.telegramHandle,
-          jerseyNumber: parseInt(editForm.jerseyNumber),
+          jerseyNumber: editForm.jerseyNumber ? parseInt(editForm.jerseyNumber) : null,
         }),
       });
       if (res.ok) { setEditingId(null); setEditForm(null); await fetchPlayers(); }
@@ -137,11 +137,11 @@ export default function PlayersPage() {
           <button
             style={{
               ...btnPrimary,
-              opacity: (!newPlayer.name || !newPlayer.jerseyNumber) ? 0.5 : 1,
-              cursor: (!newPlayer.name || !newPlayer.jerseyNumber) ? 'not-allowed' : 'pointer',
+              opacity: !newPlayer.name ? 0.5 : 1,
+              cursor: !newPlayer.name ? 'not-allowed' : 'pointer',
             }}
             onClick={handleAdd}
-            disabled={saving || !newPlayer.name || !newPlayer.jerseyNumber}
+            disabled={saving || !newPlayer.name}
           >
             {saving ? '...' : 'Thêm'}
           </button>
@@ -219,10 +219,12 @@ export default function PlayersPage() {
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                           width: '34px', height: '34px', borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #e53935, #ef5350)',
+                          background: player.jerseyNumber != null
+                            ? 'linear-gradient(135deg, #e53935, #ef5350)'
+                            : 'linear-gradient(135deg, #9e9e9e, #bdbdbd)',
                           color: 'white', fontWeight: 800, fontSize: '14px',
                         }}>
-                          {player.jerseyNumber}
+                          {player.jerseyNumber != null ? player.jerseyNumber : '?'}
                         </span>
                       </td>
                       <td style={{ ...tdLeft, fontWeight: 600, color: '#1a1a2e' }}>{player.name}</td>
