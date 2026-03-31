@@ -142,7 +142,7 @@ function JerseyIcon({ label, team, isDark }: { label: string; team: 'home' | 'aw
         <path d="M21 12L24 16L27 12"
           stroke={c.collar} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
       </svg>
-      <span className="jersey-initial" style={{ color: c.text }}>{label}</span>
+      <span className="jersey-initial" style={{ color: c.text }}>{label ?? '?'}</span>
     </div>
   );
 }
