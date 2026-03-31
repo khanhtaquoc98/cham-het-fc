@@ -545,7 +545,6 @@ export default function Home() {
 
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '6px' }}>
-            <span style={{ fontSize: '36px' }} className="float-anim">⚽</span>
             <h1 style={{ fontSize: '30px', fontWeight: 900, letterSpacing: '2px', color: 'white', textShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
               FOOTBALL LINEUP
             </h1>
@@ -597,6 +596,12 @@ export default function Home() {
                   Số đội
                 </div>
               </div>
+              <a href="/match-now" className="stat-box" style={{ textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s ease' }}>
+                <div style={{ fontSize: '24px' }}>⚽</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
+                  Trận đấu
+                </div>
+              </a>
             </div>
 
             {/* Teams Grid */}
