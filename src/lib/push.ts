@@ -166,8 +166,37 @@ export async function checkAndSendAutoNotification(): Promise<{ sent: boolean; r
   }
 
   // Send the notification!
-  const title = '⚽ Sắp đến giờ đá!';
-  const body = `Trận đấu lúc ${venue.time} tại ${venue.venue || 'sân'}. Chuẩn bị lên đường! 🔥`;
+  const titles = [
+    '⚽ Sắp đến giờ đá!',
+    '🔥 Chuẩn bị ra sân thôi anh em!',
+    '⚡ Lên đồ đi đá bóng nào!',
+    '👟 Xách giày lên và đi!',
+    '⏰ Sắp tới giờ G rồi!'
+  ];
+  
+  const bodies = [
+    `Trận đấu lúc ${venue.time} tại ${venue.venue || 'sân'}. Chuẩn bị lên đường! 🔥`,
+    `Anh em nhớ có mặt lúc ${venue.time} ở ${venue.venue || 'sân'} nhé! 🚀`,
+    `Đừng quên kèo bóng lúc ${venue.time} tại ${venue.venue || 'sân'}. Khởi động kỹ nha! 💪`,
+    `Đã đến lúc tỏa sáng! Hẹn gặp anh em lúc ${venue.time} tại ${venue.venue || 'sân'}. ⚽`,
+    `Chiến thôi! Trận đấu bắt đầu lúc ${venue.time} tại ${venue.venue || 'sân'}. 🏃‍♂️`
+  ];
+
+  const title = titles[Math.floor(Math.random() * titles.length)];
+  const body = bodies[Math.floor(Math.random() * bodies.length)];
+
+  // Call summary-bot API
+  try {
+    await fetch('https://summary-bot-sepia.vercel.app/api/notify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title, body }),
+    });
+  } catch (error) {
+    console.error('Failed to notify summary-bot:', error);
+  }
 
   const result = await sendNotificationToAll(title, body);
 

@@ -16,10 +16,15 @@ export async function GET(request: Request) {
     }, { status: 400 });
   }
 
+  let finalUrl = url;
+  if (!finalUrl.endsWith('/api/webhook')) {
+    finalUrl = finalUrl.replace(/\/$/, '') + '/api/webhook';
+  }
+
   try {
     // Set webhook
     const setResponse = await fetch(
-      `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(url)}`
+      `https://api.telegram.org/bot${token}/setWebhook?url=${encodeURIComponent(finalUrl)}`
     );
     const setResult = await setResponse.json();
 
