@@ -142,7 +142,7 @@ function JerseyIcon({ label, team, isDark }: { label: string; team: 'home' | 'aw
         <path d="M21 12L24 16L27 12"
           stroke={c.collar} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
       </svg>
-      <span className="jersey-initial" style={{ color: c.text }}>{label ?? '?'}</span>
+      <span className="jersey-initial" style={{ color: c.text }}>{label || '?'}</span>
     </div>
   );
 }
@@ -187,7 +187,7 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats }: { team: T
       <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
         {team.players.map((player, i) => {
           const matched = findMatchingPlayer(player.name, player.telegramHandle, playerConfigs);
-          const jerseyLabel = matched ? String(matched.jerseyNumber) : getInitials(player.name);
+          const jerseyLabel = matched?.jerseyNumber ? String(matched.jerseyNumber) : '?';
 
           // Find stats for this player
           const stat = findPlayerStat(player.name, player.telegramHandle, playerConfigs, playerStats);
