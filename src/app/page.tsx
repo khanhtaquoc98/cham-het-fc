@@ -294,6 +294,92 @@ function MatchInfoSection({ matchData }: { matchData: MatchData }) {
 }
 
 /* =============================================
+   RULES SECTION
+   ============================================= */
+
+function RulesSection({ teamCount }: { teamCount: number }) {
+  const ruleStyle: React.CSSProperties = {
+    fontSize: 13,
+    color: 'var(--text-primary)',
+    lineHeight: 1.7,
+    padding: '4px 0',
+  };
+
+  const dividerStyle: React.CSSProperties = {
+    borderTop: '1px dashed var(--border-subtle)',
+    margin: '10px 0',
+  };
+
+  const sectionTitle: React.CSSProperties = {
+    fontSize: 12,
+    fontWeight: 700,
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+  };
+
+  return (
+    <div className="match-info-bar" style={{ marginTop: '24px', flexDirection: 'column' }}>
+      <div className="match-info-label" style={{ minWidth: 'unset', justifyContent: 'center' }}>
+        📋 Rule
+      </div>
+      <div style={{ padding: '16px 20px' }}>
+        {teamCount === 3 ? (
+          <>
+            {/* Điểm */}
+            <div style={sectionTitle}>Hệ thống tính điểm</div>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 4 }}>
+              <span style={{ ...ruleStyle, fontWeight: 700, color: '#2e7d32' }}>🏆 Thắng: 3đ</span>
+              <span style={{ ...ruleStyle, fontWeight: 700, color: 'var(--text-muted)' }}>🤝 Hoà: 1đ</span>
+              <span style={{ ...ruleStyle, fontWeight: 700, color: '#c62828' }}>❌ Thua: 0đ</span>
+            </div>
+
+            <div style={dividerStyle} />
+
+            {/* Luật chung */}
+            <div style={sectionTitle}>Luật thi đấu</div>
+            <div style={ruleStyle}>🔄 Thay người, Nằm sân, Cột giày → được <strong>dừng trận đấu</strong>, còn lại chưa chết thì vẫn phải đá</div>
+            <div style={ruleStyle}>📣 Thay người khi trái banh <strong>không còn nằm trong sân</strong> và phải <strong>&quot;La&quot;</strong> khi thay người</div>
+
+            <div style={dividerStyle} />
+
+            {/* Team out */}
+            <div style={sectionTitle}>Team out sau mỗi trận</div>
+            <div style={ruleStyle}>👉 Team nào vào sau, nếu <strong>hoà thì ở lại</strong></div>
+            <div style={ruleStyle}>⚽ Thua <strong>2 bàn = out</strong></div>
+            <div style={ruleStyle}>🎲 Trận đấu đầu tiên nếu hoà sẽ <strong>random 1 đội ra</strong></div>
+
+            <div style={dividerStyle} />
+
+            {/* Thời gian */}
+            <div style={sectionTitle}>Thời gian</div>
+            <div style={ruleStyle}>⏱️ <strong>7 phút / 1 trận</strong></div>
+
+            <div style={dividerStyle} />
+
+            {/* Tiền nước */}
+            <div style={sectionTitle}>Cách tính tiền nước</div>
+            <div style={ruleStyle}>💰 Nếu 2 team đồng top 1 → Tính thêm <strong>hệ số phụ: số trận ít hơn</strong></div>
+            <div style={ruleStyle}>🥤 Team <strong>ít điểm nhất</strong> sẽ trả <strong>100% tiền nước</strong></div>
+          </>
+        ) : (
+          <>
+            <div style={sectionTitle}>Luật thi đấu</div>
+            <div style={ruleStyle}>🥤 Team nào <strong>thua</strong> sẽ phải trả <strong>tiền nước</strong></div>
+
+            <div style={dividerStyle} />
+
+            <div style={ruleStyle}>🔄 Thay người, Nằm sân, Cột giày → được <strong>dừng trận đấu</strong>, còn lại chưa chết thì vẫn phải đá</div>
+            <div style={ruleStyle}>📣 Thay người khi trái banh <strong>không còn nằm trong sân</strong> và phải <strong>&quot;La&quot;</strong> khi thay người</div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =============================================
    EMPTY STATE
    ============================================= */
 
@@ -626,6 +712,8 @@ export default function Home() {
                 )
               )}
             </div>
+
+            <RulesSection teamCount={teamCount} />
           </>
         )}
       </main>
@@ -661,6 +749,7 @@ export default function Home() {
           </div>
         </div>
       )}
+
 
       <footer className="app-footer">
         Powered by Chấm Hết FC
