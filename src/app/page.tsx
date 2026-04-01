@@ -361,8 +361,8 @@ function RulesSection({ teamCount }: { teamCount: number }) {
             {/* Tiền nước */}
             <div style={sectionTitle}>Sau trận đấu</div>
             <div style={ruleStyle}>💰 Nếu 2 team đồng top 1 → Tính thêm <strong>hệ số phụ: số trận ít hơn, bàn thắng nhiều hơn</strong> để cộng vào Win-rate từng cá nhân</div>
-            <div style={ruleStyle}>💰 Nếu 2 team đồng hạng bét Để tìm hạng nhì → Tính thêm <strong>hệ số phụ: số trận ít hơn, bàn thắng nhiều hơn</strong></div>
-            <div style={ruleStyle}>🥤 Team <strong>bét</strong> sẽ trả <strong>70% tiền nước</strong> và Team <strong>nhì</strong> sẽ trả 30% tiền nước và mặc định <strong>2</strong> lốc nếu không hết trả lại</div>
+            <div style={ruleStyle}>💰 Nếu 2 team đồng hạng bét. Để tìm hạng nhì → Tính thêm <strong>hệ số phụ: số trận ít hơn, bàn thắng nhiều hơn</strong></div>
+            <div style={ruleStyle}>🥤 Team <strong>bét</strong> sẽ trả <strong>70% tiền nước</strong> và Team <strong>nhì</strong> sẽ trả <strong>30% tiền nước</strong> và mặc định <strong>2</strong> lốc nếu không hết trả lại</div>
             <div style={ruleStyle}>🥤 Ai đi vễ vẫn sẽ phải trả tiền nước nếu team mình thua, nên hãy uống nước trước khi về nhé!</div>
           </>
         ) : (
