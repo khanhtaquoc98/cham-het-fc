@@ -101,7 +101,7 @@ const TEAMS: Record<TeamColor, TeamInfo> = {
 };
 
 const ALL_COLORS: TeamColor[] = ["white", "black", "orange"];
-const MATCH_DURATION = 1/4 * 60; // 7 minutes in seconds
+const MATCH_DURATION = 7 * 60; // 7 minutes in seconds
 const WIN_GOALS = 2;
 
 /* ───────── helpers ───────── */
