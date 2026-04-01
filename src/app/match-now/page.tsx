@@ -58,7 +58,7 @@ const playBellSound = () => {
 };
 
 /* ───────── types ───────── */
-type TeamColor = "white" | "black" | "red";
+type TeamColor = "white" | "black" | "orange";
 
 interface TeamInfo {
   color: TeamColor;
@@ -89,8 +89,8 @@ const TEAMS: Record<TeamColor, TeamInfo> = {
     glowColor: "rgba(0,0,0,0.5)",
     emoji: "⚫",
   },
-  red: {
-    color: "red",
+  orange: {
+    color: "orange",
     label: "Cam",
     bg: "#ef6c00",
     textColor: "#ffffff",
@@ -100,8 +100,8 @@ const TEAMS: Record<TeamColor, TeamInfo> = {
   },
 };
 
-const ALL_COLORS: TeamColor[] = ["white", "black", "red"];
-const MATCH_DURATION = 7 * 60; // 7 minutes in seconds
+const ALL_COLORS: TeamColor[] = ["white", "black", "orange"];
+const MATCH_DURATION = 1/4 * 60; // 7 minutes in seconds
 const WIN_GOALS = 2;
 
 /* ───────── helpers ───────── */
@@ -111,40 +111,57 @@ function formatTime(totalSeconds: number) {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
+import { useLiveMatch, LiveMatchState, MatchEvent } from "@/hooks/useLiveMatch";
+
 /* ────────────────────────────────
    MAIN PAGE
    ──────────────────────────────── */
 export default function MatchNowPage() {
-  const [mode, setMode] = useState<2 | 3 | null>(null);
+  const { liveMatch, events, loading, updateMatch, scoreGoal, addEvent, clearEvents } = useLiveMatch();
 
+  if (loading) {
+    return (
+      <div className="match-now-root">
+        <header className="mn-header">
+          <h1 className="mn-title">Đang đồng bộ dữ liệu...</h1>
+        </header>
+      </div>
+    );
+  }
+
+  // Nếu DB liveMatch đang là '3-team' hoặc teams có 3 đội
+  const mode = liveMatch?.mode === '3-team' ? 3 : 2;
+
+  // Render dựa trên trạng thái (nhảy thẳng vào trận không cần chọn)
   return (
     <div className="match-now-root">
-      {/* Header */}
       <header className="mn-header">
         <Link href="/" className="mn-back-btn" title="Về trang chủ">
           ← Trang chủ
         </Link>
-        <h1 className="mn-title">Trận Đấu</h1>
-        <p className="mn-subtitle">Chọn số đội để bắt đầu</p>
+        <h1 className="mn-title">Trận Đấu {mode} Đội</h1>
       </header>
 
-      {!mode && (
-        <div className="mn-mode-select">
-          <button className="mn-mode-btn" onClick={() => setMode(2)}>
-            <span className="mn-mode-icon">⚔️</span>
-            <span className="mn-mode-label">2 Đội</span>
-            <span className="mn-mode-desc">Trắng vs Đen</span>
-          </button>
-          <button className="mn-mode-btn" onClick={() => setMode(3)}>
-            <span className="mn-mode-icon">🔥</span>
-            <span className="mn-mode-label">3 Đội</span>
-            <span className="mn-mode-desc">Trắng / Đen / Cam</span>
-          </button>
-        </div>
+      {mode === 2 && liveMatch && (
+        <TwoTeamMode
+          liveMatch={liveMatch}
+          events={events}
+          updateMatch={updateMatch}
+          scoreGoal={scoreGoal}
+          clearEvents={clearEvents}
+        />
       )}
-
-      {mode === 2 && <TwoTeamMode onBack={() => setMode(null)} />}
-      {mode === 3 && <ThreeTeamMode onBack={() => setMode(null)} />}
+      {mode === 3 && liveMatch && (
+        <ThreeTeamMode
+          liveMatch={liveMatch}
+          events={events}
+          updateMatch={updateMatch}
+          scoreGoal={scoreGoal}
+          addEvent={addEvent}
+          clearEvents={clearEvents}
+          onBack={() => {}} 
+        />
+      )}
     </div>
   );
 }
@@ -152,59 +169,177 @@ export default function MatchNowPage() {
 /* ────────────────────────────────
    2-TEAM MODE
    ──────────────────────────────── */
-function TwoTeamMode({ onBack }: { onBack: () => void }) {
-  const [scoreA, setScoreA] = useState(0);
-  const [scoreB, setScoreB] = useState(0);
+function TwoTeamMode({
+  liveMatch,
+  events,
+  updateMatch,
+  scoreGoal,
+  clearEvents
+}: {
+  liveMatch: LiveMatchState;
+  events: MatchEvent[];
+  updateMatch: (updates: Partial<LiveMatchState>) => Promise<void>;
+  scoreGoal: (color: string, scoreA: number, scoreB: number, t: string) => Promise<void>;
+  clearEvents: () => Promise<void>;
+}) {
+  const [localTime, setLocalTime] = useState(liveMatch.time_elapsed || 0);
   const [rippleA, setRippleA] = useState(false);
   const [rippleB, setRippleB] = useState(false);
+  const [scoringA, setScoringA] = useState(false);
+  const [scoringB, setScoringB] = useState(false);
 
-  const handleScore = (team: "A" | "B") => {
-    if (team === "A") {
-      setScoreA((p) => p + 1);
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (liveMatch.status === 'playing') {
+      interval = setInterval(() => setLocalTime(t => t + 1), 1000);
+    }
+    return () => clearInterval(interval);
+  }, [liveMatch.status]);
+
+  useEffect(() => {
+    if (liveMatch.status !== 'playing') {
+      setTimeout(() => setLocalTime(liveMatch.time_elapsed || 0), 0);
+    }
+  }, [liveMatch.time_elapsed, liveMatch.status]);
+
+  const handleScore = async (side: "A" | "B") => {
+    if (liveMatch.status !== 'playing') return;
+    
+    if (side === "A") {
+      if (scoringA) return;
+      setScoringA(true);
       setRippleA(true);
       setTimeout(() => setRippleA(false), 500);
+      await scoreGoal("white", liveMatch.score_a + 1, liveMatch.score_b, formatTime(localTime));
+      setTimeout(() => setScoringA(false), 600);
     } else {
-      setScoreB((p) => p + 1);
+      if (scoringB) return;
+      setScoringB(true);
       setRippleB(true);
       setTimeout(() => setRippleB(false), 500);
+      await scoreGoal("black", liveMatch.score_a, liveMatch.score_b + 1, formatTime(localTime));
+      setTimeout(() => setScoringB(false), 600);
     }
   };
 
+  const togglePlay = async () => {
+    if (liveMatch.status === 'playing') {
+      await updateMatch({ status: 'waiting', time_elapsed: localTime });
+    } else {
+      await updateMatch({ status: 'playing' });
+    }
+  };
+
+  const finishMatch = async () => {
+    await updateMatch({ status: 'finished', time_elapsed: localTime });
+  };
+
+  const resetScore = async () => {
+    clearEvents(); // Xóa lịch sử trên DB
+    await updateMatch({ score_a: 0, score_b: 0, time_elapsed: 0, status: 'waiting' });
+  };
+
+  if (liveMatch.status === 'finished') {
+    const goals = events.filter(e => e.event_type === 'goal');
+    return (
+      <div className="two-team-container" style={{ textAlign: "center" }}>
+        {/* Score */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, margin: '20px 0' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--text-primary)' }}>{liveMatch.score_a}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)' }}>⚪ {TEAMS.white.label}</div>
+          </div>
+          <div style={{ fontSize: 32, fontWeight: 800, color: 'var(--text-muted)' }}>-</div>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 48, fontWeight: 900, color: 'var(--text-primary)' }}>{liveMatch.score_b}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-secondary)' }}>⚫ {TEAMS.black.label}</div>
+          </div>
+        </div>
+
+        {/* Goal Timeline - Home / Away */}
+        <div style={{ maxWidth: 420, margin: '0 auto', background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ maxHeight: '50vh', overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border-subtle)', position: 'sticky', top: 0, background: 'var(--bg-card)', zIndex: 1 }}>
+                  <th style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text-primary)', fontWeight: 700, width: '40%' }}>Home</th>
+                  <th style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600, width: '20%' }}></th>
+                  <th style={{ padding: '10px 16px', textAlign: 'right', color: 'var(--text-primary)', fontWeight: 700, width: '40%' }}>Away</th>
+                </tr>
+              </thead>
+              <tbody>
+                {goals.map((g, idx) => {
+                  const isHome = g.team_color === 'white';
+                  return (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <td style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text-primary)', fontWeight: isHome ? 700 : 400 }}>
+                        {isHome && <span>⚽</span>}
+                      </td>
+                      <td style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, fontFamily: "'Outfit', monospace" }}>
+                        {g.timestamp_minute}
+                      </td>
+                      <td style={{ padding: '10px 16px', textAlign: 'right', color: 'var(--text-primary)', fontWeight: !isHome ? 700 : 400 }}>
+                        {!isHome && <span>⚽</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {goals.length === 0 && (
+              <div style={{ color: 'var(--text-muted)', fontSize: 14, padding: 24, textAlign: 'center' }}>Không có bàn thắng nào.</div>
+            )}
+          </div>
+        </div>
+
+        <button className="mn-reset-score-btn" onClick={resetScore} style={{ marginTop: 24 }}>
+          🔄 Chơi lại từ đầu
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="two-team-container">
-      <button className="mn-reset-btn" onClick={onBack}>
-        ← Chọn lại
-      </button>
+      {/* Top bar: buttons left, timer right */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button className="mn-play-btn" onClick={togglePlay} style={{ fontSize: 13, padding: '8px 16px' }}>
+            {liveMatch.status === 'playing' ? "⏸ Dừng" : "▶ Bắt Đầu"}
+          </button>
+          <button className="mn-reset-btn" onClick={finishMatch} style={{ background: '#d32f2f', color: 'white', border: 'none', fontSize: 12, padding: '6px 12px' }}>
+             Kết thúc
+          </button>
+          <button className="mn-reset-btn" onClick={resetScore} style={{ fontSize: 12, padding: '6px 12px' }}>
+            🔄
+          </button>
+        </div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Outfit', monospace", letterSpacing: 2 }}>
+          {formatTime(localTime)}
+        </div>
+      </div>
 
       <div className="two-team-grid">
         <button
           className={`two-team-box two-team-white ${rippleA ? "ripple" : ""}`}
           onClick={() => handleScore("A")}
+          disabled={scoringA}
         >
-          <span className="two-team-box-score">{scoreA}</span>
+          <span className="two-team-box-score">{liveMatch.score_a}</span>
           <span className="two-team-box-label">⚪ {TEAMS.white.label}</span>
-          <span className="two-team-tap-hint">Chạm để ghi bàn</span>
+          {scoringA && <span style={{ position: 'absolute', top: 8, right: 12, fontSize: 18, color: '#2e7d32', fontWeight: 900, animation: 'fadeIn 0.3s' }}>✓</span>}
         </button>
 
         <button
           className={`two-team-box two-team-black ${rippleB ? "ripple" : ""}`}
           onClick={() => handleScore("B")}
+          disabled={scoringB}
         >
-          <span className="two-team-box-score">{scoreB}</span>
+          <span className="two-team-box-score">{liveMatch.score_b}</span>
           <span className="two-team-box-label">⚫ {TEAMS.black.label}</span>
-          <span className="two-team-tap-hint">Chạm để ghi bàn</span>
+          {scoringB && <span style={{ position: 'absolute', top: 8, right: 12, fontSize: 18, color: '#4caf50', fontWeight: 900, animation: 'fadeIn 0.3s' }}>✓</span>}
         </button>
       </div>
-
-      <button
-        className="mn-reset-score-btn"
-        onClick={() => {
-          setScoreA(0);
-          setScoreB(0);
-        }}
-      >
-        🔄 Reset tỉ số
-      </button>
     </div>
   );
 }
@@ -212,27 +347,49 @@ function TwoTeamMode({ onBack }: { onBack: () => void }) {
 /* ────────────────────────────────
    3-TEAM MODE
    ──────────────────────────────── */
-type Phase = "pick" | "playing" | "result";
+type Phase = "pick" | "playing" | "result" | "finished";
 
-interface MatchRecord {
-  team1: TeamColor;
-  team2: TeamColor;
-  score1: number;
-  score2: number;
-  winner: TeamColor | "draw";
-  matchNumber: number;
-}
 
-function ThreeTeamMode({ onBack }: { onBack: () => void }) {
+
+function ThreeTeamMode({
+  onBack,
+  liveMatch,
+  events,
+  updateMatch,
+  scoreGoal,
+  addEvent,
+  clearEvents
+}: {
+  onBack: () => void;
+  liveMatch: LiveMatchState;
+  events: MatchEvent[];
+  updateMatch: (updates: Partial<LiveMatchState>) => Promise<void>;
+  scoreGoal: (color: string, scoreA: number, scoreB: number, t: string) => Promise<void>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addEvent: (e: any) => Promise<void>;
+  clearEvents: () => Promise<void>;
+}) {
+  // Silence linter until full DB integration
+  if (false) console.log(liveMatch, updateMatch, scoreGoal);
   const [wins, setWins] = useState<Record<TeamColor, number>>({
     white: 0,
     black: 0,
-    red: 0,
+    orange: 0,
   });
   const [losses, setLosses] = useState<Record<TeamColor, number>>({
     white: 0,
     black: 0,
-    red: 0,
+    orange: 0,
+  });
+  const [draws, setDraws] = useState<Record<TeamColor, number>>({
+    white: 0,
+    black: 0,
+    orange: 0,
+  });
+  const [points, setPoints] = useState<Record<TeamColor, number>>({
+    white: 0,
+    black: 0,
+    orange: 0,
   });
 
   const [phase, setPhase] = useState<Phase>("pick");
@@ -250,15 +407,15 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
   const [rippleA, setRippleA] = useState(false);
   const [rippleB, setRippleB] = useState(false);
 
-  // Track entry order: the team that entered later (replacement) stays on draw
-  // "first" = was already on field; "second" = just entered
+  // Track entry order: the team that enteorange later (replacement) stays on draw
+  // "first" = was already on field; "second" = just enteorange
   const [entryOrder, setEntryOrder] = useState<{
     first: TeamColor;
     second: TeamColor;
   } | null>(null);
 
   const [matchNumber, setMatchNumber] = useState(1);
-  const [matchHistory, setMatchHistory] = useState<MatchRecord[]>([]);
+
   const [isFirstMatch, setIsFirstMatch] = useState(true);
 
   // Result overlay
@@ -324,7 +481,10 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
     playBellSound();
     
     if (scoreA === scoreB) {
-      // Draw
+      // Draw → mỗi đội +1 điểm
+      setDraws((prev) => ({ ...prev, [teamA]: prev[teamA] + 1, [teamB]: prev[teamB] + 1 }));
+      setPoints((prev) => ({ ...prev, [teamA]: prev[teamA] + 1, [teamB]: prev[teamB] + 1 }));
+
       if (isFirstMatch) {
         // First match draw → random team exits, not counted as loss
         const randomSide = Math.random() < 0.5 ? "A" : "B";
@@ -332,35 +492,52 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
         const leaveTeam = randomSide === "A" ? teamA : teamB;
         const waiting = getWaitingTeam();
 
-        addMatchRecord(teamA, teamB, scoreA, scoreB, "draw");
-
         setResultEmoji("🎲");
         setResultMsg(
-          `Hoà ${scoreA}-${scoreB}!\n Trận đầu tiên → Random: ${TEAMS[leaveTeam].emoji} ${TEAMS[leaveTeam].label} ra. ${TEAMS[waiting].emoji} ${TEAMS[waiting].label} vào thay.`
+          `Hoà ${scoreA}-${scoreB}! (+1đ mỗi đội)\n Trận đầu tiên → Random: ${TEAMS[leaveTeam].emoji} ${TEAMS[leaveTeam].label} ra. ${TEAMS[waiting].emoji} ${TEAMS[waiting].label} vào thay.`
         );
         setPhase("result");
+
+        // LƯU LỊCH SỬ: Trận hoà đầu tiên
+        addEvent({
+          event_type: 'end',
+          team_color: 'draw',
+          current_score_a: scoreA,
+          current_score_b: scoreB,
+          timestamp_minute: `${teamA}|${teamB}`
+        });
 
         // Next match: stayTeam vs waiting
         setTimeout(() => {
           setupNextMatch(stayTeam, waiting, stayTeam);
         }, 100);
       } else {
-        // Not first match → team that entered earlier (first) loses
+        // Not first match → team that enteorange earlier (first) loses
         const first = entryOrder?.first;
         const second = entryOrder?.second;
         if (first && second) {
           const waiting = getWaitingTeam();
 
-          // first team loses
+          // first team loses (0đ), second wins (+3đ)
           setLosses((prev) => ({ ...prev, [first]: prev[first] + 1 }));
           setWins((prev) => ({ ...prev, [second]: prev[second] + 1 }));
-          addMatchRecord(teamA, teamB, scoreA, scoreB, second);
+          setPoints((prev) => ({ ...prev, [second]: prev[second] + 3 }));
+
 
           setResultEmoji("⏱️");
           setResultMsg(
             `Hết giờ! Hoà ${scoreA}-${scoreB}.\n ${TEAMS[first].emoji} ${TEAMS[first].label} vào trước → thua. ${TEAMS[waiting].emoji} ${TEAMS[waiting].label} vào thay.`
           );
           setPhase("result");
+
+          // LƯU LỊCH SỬ: Hoà nhưng đội vào trước thua
+          addEvent({
+            event_type: 'end',
+            team_color: second,
+            current_score_a: scoreA,
+            current_score_b: scoreB,
+            timestamp_minute: `${teamA}|${teamB}`
+          });
 
           setTimeout(() => {
             setupNextMatch(second, waiting, second);
@@ -375,19 +552,23 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
 
       setWins((prev) => ({ ...prev, [winner]: prev[winner] + 1 }));
       setLosses((prev) => ({ ...prev, [loser]: prev[loser] + 1 }));
-      addMatchRecord(
-        teamA,
-        teamB,
-        scoreA,
-        scoreB,
-        winner
-      );
+      setPoints((prev) => ({ ...prev, [winner]: prev[winner] + 3 }));
+
 
       setResultEmoji("🏆");
       setResultMsg(
         `Hết giờ! ${TEAMS[winner].emoji} ${TEAMS[winner].label} thắng ${scoreA > scoreB ? scoreA : scoreB}-${scoreA > scoreB ? scoreB : scoreA}.\n ${TEAMS[waiting].emoji} ${TEAMS[waiting].label} vào thay ${TEAMS[loser].emoji} ${TEAMS[loser].label}.`
       );
       setPhase("result");
+
+      // LƯU LỊCH SỬ: Thắng theo thời gian
+      addEvent({
+        event_type: 'end',
+        team_color: winner,
+        current_score_a: scoreA,
+        current_score_b: scoreB,
+        timestamp_minute: `${teamA}|${teamB}`
+      });
 
       setTimeout(() => {
         setupNextMatch(winner, waiting, winner);
@@ -408,7 +589,8 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
 
     setWins((prev) => ({ ...prev, [winner]: prev[winner] + 1 }));
     setLosses((prev) => ({ ...prev, [loser]: prev[loser] + 1 }));
-    addMatchRecord(tA, tB, sA, sB, winner);
+    setPoints((prev) => ({ ...prev, [winner]: prev[winner] + 3 }));
+
 
     setResultEmoji("⚽");
     setResultMsg(
@@ -416,23 +598,21 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
     );
     setPhase("result");
 
+    // LƯU LỊCH SỬ VÀO SUPABASE
+    addEvent({
+      event_type: 'end',
+      team_color: winner,
+      current_score_a: sA,
+      current_score_b: sB,
+      timestamp_minute: `${tA}|${tB}`
+    });
+
     setTimeout(() => {
       setupNextMatch(winner, waiting, winner);
     }, 100);
   };
 
-  const addMatchRecord = (
-    t1: TeamColor,
-    t2: TeamColor,
-    s1: number,
-    s2: number,
-    winner: TeamColor | "draw"
-  ) => {
-    setMatchHistory((prev) => [
-      ...prev,
-      { team1: t1, team2: t2, score1: s1, score2: s2, winner, matchNumber },
-    ]);
-  };
+
 
   const setupNextMatch = (
     staying: TeamColor,
@@ -480,11 +660,14 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
 
   const resetAll = () => {
     stopBellSound();
+    clearEvents(); // Xóa lịch sử trên DB
     setPhase("pick");
     setPickedTeams([]);
-    setWins({ white: 0, black: 0, red: 0 });
-    setLosses({ white: 0, black: 0, red: 0 });
-    setMatchHistory([]);
+    setWins({ white: 0, black: 0, orange: 0 });
+    setLosses({ white: 0, black: 0, orange: 0 });
+    setDraws({ white: 0, black: 0, orange: 0 });
+    setPoints({ white: 0, black: 0, orange: 0 });
+
     setMatchNumber(1);
     setIsFirstMatch(true);
     setScoreA(0);
@@ -498,20 +681,20 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
   if (phase === "pick") {
     return (
       <div className="three-team-container">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ padding: '8px 0' }}>
           <button className="mn-reset-btn" onClick={() => { stopBellSound(); onBack(); }}>
             ← Chọn lại
           </button>
-          <div className="mn-stats-bar">
+        </div>
+        <div className="mn-stats-bar" style={{ marginBottom: 8 }}>
             {ALL_COLORS.map((c) => (
               <div key={c} className="mn-stat-chip" style={{ borderColor: TEAMS[c].bg === "#f5f5f5" ? "#ccc" : TEAMS[c].bg }}>
                 <span>{TEAMS[c].emoji}</span>
                 <span className="mn-stat-name">{TEAMS[c].label}</span>
-                <span className="mn-stat-wins">🏆{wins[c]}</span>
-                <span className="mn-stat-losses">❌{losses[c]}</span>
+                <span style={{color:'var(--text-primary)',fontWeight:'bold'}}>{points[c]}đ</span>
+                <span style={{color:'var(--text-muted)',fontSize:'0.85em'}}>| {wins[c]}W-{losses[c]}L-{draws[c]}D</span>
               </div>
             ))}
-          </div>
         </div>
 
         <div className="mn-pick-title">
@@ -563,18 +746,7 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
             <span className="mn-result-emoji">{resultEmoji}</span>
             <p className="mn-result-msg">{resultMsg}</p>
 
-            <div className="mn-stats-bar" style={{ marginTop: 20 }}>
-              {ALL_COLORS.map((c) => (
-                <div key={c} className="mn-stat-chip" style={{ borderColor: TEAMS[c].bg === "#f5f5f5" ? "#ccc" : TEAMS[c].bg }}>
-                  <span>{TEAMS[c].emoji}</span>
-                  <span className="mn-stat-name">{TEAMS[c].label}</span>
-                  <span className="mn-stat-wins">🏆 {wins[c]}</span>
-                  <span className="mn-stat-losses">❌ {losses[c]}</span>
-                </div>
-              ))}
-            </div>
-
-            <button className="mn-start-btn" onClick={continueToNextMatch}>
+            <button className="mn-start-btn" onClick={continueToNextMatch} style={{ marginTop: 20 }}>
               ▶ Trận tiếp theo #{matchNumber}
             </button>
 
@@ -591,6 +763,66 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
     );
   }
 
+  /* ── Render: Finished Phase ── */
+  if (phase === "finished") {
+    return (
+      <div className="three-team-container" style={{ textAlign: "center" }}>        
+        <div className="mn-stats-bar" style={{ marginTop: 10, minHeight: 30, justifyContent: 'center' }}>
+          {ALL_COLORS.map((c) => (
+            <div key={c} className="mn-stat-chip" style={{ borderColor: TEAMS[c].bg === "#f5f5f5" ? "#ccc" : TEAMS[c].bg }}>
+              <span>{TEAMS[c].emoji}</span>
+              <span className="mn-stat-name">{TEAMS[c].label}</span>
+              <span style={{color:'var(--text-primary)',fontWeight:'bold'}}>{points[c]}đ</span>
+              <span style={{color:'var(--text-muted)',fontSize:'0.85em'}}>| {wins[c]}W-{losses[c]}L-{draws[c]}D</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 30, maxWidth: 500, marginLeft: 'auto', marginRight: 'auto', background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+           <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+               <thead>
+                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', position: 'sticky', top: 0, background: 'var(--bg-card)' }}>
+                   <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Trận</th>
+                   <th style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>Tỉ số</th>
+                   <th style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>Kết quả</th>
+                 </tr>
+               </thead>
+               <tbody>
+                 {events.filter(e => e.event_type === 'end').map((ev, i) => {
+                   const parts = (ev.timestamp_minute || '').split('|');
+                   const tA = parts[0] as TeamColor;
+                   const tB = parts[1] as TeamColor;
+                   const isDraw = ev.team_color === 'draw';
+                   const winnerLabel = isDraw ? 'Hoà' : `${TEAMS[ev.team_color as TeamColor]?.label} Thắng`;
+                   const matchLabel = (TEAMS[tA] && TEAMS[tB])
+                     ? `${TEAMS[tA].label} - ${TEAMS[tB].label}`
+                     : '---';
+                   return (
+                     <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                       <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
+                         <span style={{ color: 'var(--text-muted)', marginRight: 4 }}>#{i + 1}:</span> {matchLabel}
+                       </td>
+                       <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                         {ev.current_score_a} - {ev.current_score_b}
+                       </td>
+                       <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 'bold', color: isDraw ? 'var(--text-muted)' : '#2e7d32' }}>
+                         {!isDraw && TEAMS[ev.team_color as TeamColor]?.emoji} {winnerLabel}
+                       </td>
+                     </tr>
+                   );
+                 })}
+               </tbody>
+             </table>
+             {events.filter(e => e.event_type === 'end').length === 0 && (
+               <div style={{ color: 'var(--text-muted)', fontSize: 14, padding: 16, textAlign: 'center' }}>Chưa có trận đấu nào.</div>
+             )}
+           </div>
+        </div>
+      </div>
+    );
+  }
+
   /* ── Render: Playing Phase ── */
   const waiting = getWaitingTeam();
   const timerPercent = (timeLeft / MATCH_DURATION) * 100;
@@ -598,21 +830,24 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="three-team-container">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', flexWrap: 'wrap' }}>
-        <button className="mn-reset-btn" onClick={() => { stopBellSound(); setRunning(false); setPhase("pick"); }}>
-          ← Quay lại
-        </button>
-        <div className="mn-stats-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0' }}>
+          <button className="mn-reset-btn" onClick={() => { stopBellSound(); setRunning(false); setPhase("pick"); }}>
+            ← Quay lại
+          </button>
+          <button className="mn-reset-btn" onClick={() => { stopBellSound(); setRunning(false); setPhase("finished"); }} style={{ background: '#d32f2f', color: '#fff', border: 'none' }}>
+             Kết thúc giải
+          </button>
+        </div>
+        <div className="mn-stats-bar" style={{ marginBottom: 8 }}>
           {ALL_COLORS.map((c) => (
             <div key={c} className="mn-stat-chip" style={{ borderColor: TEAMS[c].bg === "#f5f5f5" ? "#ccc" : TEAMS[c].bg }}>
               <span>{TEAMS[c].emoji}</span>
               <span className="mn-stat-name">{TEAMS[c].label}</span>
-              <span className="mn-stat-wins">🏆{wins[c]}</span>
-              <span className="mn-stat-losses">❌{losses[c]}</span>
+              <span style={{color:'var(--text-primary)',fontWeight:'bold'}}>{points[c]}đ</span>
+              <span style={{color:'var(--text-muted)',fontSize:'0.85em'}}>| {wins[c]}W-{losses[c]}L-{draws[c]}D</span>
             </div>
           ))}
         </div>
-      </div>
 
       {/* Match info and Progress */}
       <div className="mn-match-info" style={{ marginBottom: '8px' }}>
@@ -647,9 +882,7 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
           <span className="two-team-box-label">
             {TEAMS[teamA].emoji} {TEAMS[teamA].label}
           </span>
-          <span className="two-team-tap-hint">
-            {running ? "Chạm để ghi bàn" : "Nhấn Play để bắt đầu"}
-          </span>
+        
         </button>
 
         {/* Middle Column: Timer + Play btn */}
@@ -684,9 +917,6 @@ function ThreeTeamMode({ onBack }: { onBack: () => void }) {
           <span className="two-team-box-score">{scoreB}</span>
           <span className="two-team-box-label">
             {TEAMS[teamB].emoji} {TEAMS[teamB].label}
-          </span>
-          <span className="two-team-tap-hint">
-            {running ? "Chạm để ghi bàn" : "Nhấn Play để bắt đầu"}
           </span>
         </button>
 

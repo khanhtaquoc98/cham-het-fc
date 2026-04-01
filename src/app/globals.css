@@ -1080,19 +1080,21 @@ a.venue-link:hover {
   display: flex;
   flex-direction: column;
   padding: 0 12px 12px;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
 }
 
 /* Stats bar */
 .mn-stats-bar {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: nowrap;
   align-items: center;
   overflow-x: auto;
-  padding-bottom: 2px;
-  justify-content: center;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+  scrollbar-width: none;
 }
 
 .mn-stats-bar::-webkit-scrollbar {
@@ -1100,16 +1102,18 @@ a.venue-link:hover {
 }
 
 .mn-stat-chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
+  padding: 4px 8px;
   border-radius: 8px;
   background: var(--bg-card);
   border: 1.5px solid;
   font-size: 11px;
   font-weight: 600;
   box-shadow: var(--shadow-soft);
+  white-space: nowrap !important;
+  flex: 0 0 auto;
 }
 
 .mn-stat-name {
@@ -1563,7 +1567,7 @@ a.venue-link:hover {
   }
 
   .two-team-box-score {
-    font-size: min(50vh, 28vw);
+    font-size: min(45vh, 28vw);
   }
 
   .two-team-box-label {

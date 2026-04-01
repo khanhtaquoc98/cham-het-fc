@@ -123,10 +123,6 @@ function MatchHistoryList() {
 
   return (
     <div style={cardStyle}>
-      <h2 style={{ ...sectionTitleStyle, marginBottom: '16px' }}>
-        Lịch sử trận đấu ({total})
-      </h2>
-
       {loading ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#8a8aaa' }}>Đang tải...</div>
       ) : matches.length === 0 ? (
