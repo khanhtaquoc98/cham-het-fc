@@ -355,13 +355,15 @@ function RulesSection({ teamCount }: { teamCount: number }) {
             {/* Thời gian */}
             <div style={sectionTitle}>Thời gian</div>
             <div style={ruleStyle}>⏱️ <strong>7 phút / 1 trận</strong></div>
-
+            <div style={ruleStyle}>🥤 Team đá trận cuối cùng <strong>kết quả</strong> sẽ được tính tại thời điểm hết tiền sân</div>
             <div style={dividerStyle} />
 
             {/* Tiền nước */}
-            <div style={sectionTitle}>Cách tính tiền nước</div>
-            <div style={ruleStyle}>💰 Nếu 2 team đồng top 1 → Tính thêm <strong>hệ số phụ: số trận ít hơn</strong></div>
-            <div style={ruleStyle}>🥤 Team <strong>ít điểm nhất</strong> sẽ trả <strong>100% tiền nước</strong></div>
+            <div style={sectionTitle}>Sau trận đấu</div>
+            <div style={ruleStyle}>💰 Nếu 2 team đồng top 1 → Tính thêm <strong>hệ số phụ: số trận ít hơn, bàn thắng nhiều hơn</strong> để cộng vào Win-rate từng cá nhân</div>
+            <div style={ruleStyle}>💰 Nếu 2 team đồng hạng bét Để tìm hạng nhì → Tính thêm <strong>hệ số phụ: số trận ít hơn, bàn thắng nhiều hơn</strong></div>
+            <div style={ruleStyle}>🥤 Team <strong>bét</strong> sẽ trả <strong>70% tiền nước</strong> và Team <strong>nhì</strong> sẽ trả 30% tiền nước và mặc định <strong>2</strong> lốc nếu không hết trả lại</div>
+            <div style={ruleStyle}>🥤 Ai đi vễ vẫn sẽ phải trả tiền nước nếu team mình thua, nên hãy uống nước trước khi về nhé!</div>
           </>
         ) : (
           <>
@@ -372,6 +374,8 @@ function RulesSection({ teamCount }: { teamCount: number }) {
 
             <div style={ruleStyle}>🔄 Thay người, Nằm sân, Cột giày → được <strong>dừng trận đấu</strong>, còn lại chưa chết thì vẫn phải đá</div>
             <div style={ruleStyle}>📣 Thay người khi trái banh <strong>không còn nằm trong sân</strong> và phải <strong>&quot;La&quot;</strong> khi thay người</div>
+            <div style={ruleStyle}>🥤 Team <strong>thua</strong> sẽ trả <strong>100% tiền nước</strong> và mặc định <strong>1</strong> lốc nếu không hết trả lại</div>
+            <div style={ruleStyle}>🥤 Ai đi vễ vẫn sẽ phải trả tiền nước nếu team mình thua, nên hãy uống nước trước khi về nhé!</div>
           </>
         )}
       </div>
