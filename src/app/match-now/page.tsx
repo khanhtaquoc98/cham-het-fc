@@ -148,6 +148,7 @@ export default function MatchNowPage() {
           events={events}
           updateMatch={updateMatch}
           scoreGoal={scoreGoal}
+          addEvent={addEvent}
           clearEvents={clearEvents}
         />
       )}
@@ -174,12 +175,15 @@ function TwoTeamMode({
   events,
   updateMatch,
   scoreGoal,
+  addEvent,
   clearEvents
 }: {
   liveMatch: LiveMatchState;
   events: MatchEvent[];
   updateMatch: (updates: Partial<LiveMatchState>) => Promise<void>;
   scoreGoal: (color: string, scoreA: number, scoreB: number, t: string) => Promise<void>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addEvent: (e: any) => Promise<void>;
   clearEvents: () => Promise<void>;
 }) {
   const [localTime, setLocalTime] = useState(liveMatch.time_elapsed || 0);
@@ -231,6 +235,14 @@ function TwoTeamMode({
   };
 
   const finishMatch = async () => {
+    // Lưu step lịch sử khi kết thúc trận 2 đội
+    addEvent({
+      event_type: 'end',
+      team_color: liveMatch.score_a > liveMatch.score_b ? 'white' : liveMatch.score_b > liveMatch.score_a ? 'black' : 'draw',
+      current_score_a: liveMatch.score_a,
+      current_score_b: liveMatch.score_b,
+      timestamp_minute: `${TEAMS.white.color}|${TEAMS.black.color}`
+    });
     await updateMatch({ status: 'finished', time_elapsed: localTime });
   };
 
@@ -370,7 +382,7 @@ function ThreeTeamMode({
   clearEvents: () => Promise<void>;
 }) {
   // Silence linter until full DB integration
-  if (false) console.log(liveMatch, updateMatch, scoreGoal);
+  if (false) console.log(liveMatch, scoreGoal);
   const [wins, setWins] = useState<Record<TeamColor, number>>({
     white: 0,
     black: 0,
@@ -392,16 +404,23 @@ function ThreeTeamMode({
     orange: 0,
   });
 
-  const [phase, setPhase] = useState<Phase>("pick");
+  // Khởi tạo phase từ DB status
+  const initialPhase = (): Phase => {
+    if (liveMatch.status === 'finished') return 'finished';
+    if (liveMatch.status === 'playing' && liveMatch.team_a_color && liveMatch.team_b_color) return 'playing';
+    return 'pick';
+  };
+
+  const [phase, setPhase] = useState<Phase>(initialPhase);
 
   // Picking
   const [pickedTeams, setPickedTeams] = useState<TeamColor[]>([]);
 
-  // Playing
-  const [teamA, setTeamA] = useState<TeamColor>("white");
-  const [teamB, setTeamB] = useState<TeamColor>("black");
-  const [scoreA, setScoreA] = useState(0);
-  const [scoreB, setScoreB] = useState(0);
+  // Playing - khôi phục từ DB nếu có
+  const [teamA, setTeamA] = useState<TeamColor>((liveMatch.team_a_color as TeamColor) || "white");
+  const [teamB, setTeamB] = useState<TeamColor>((liveMatch.team_b_color as TeamColor) || "black");
+  const [scoreA, setScoreA] = useState(liveMatch.score_a || 0);
+  const [scoreB, setScoreB] = useState(liveMatch.score_b || 0);
   const [timeLeft, setTimeLeft] = useState(MATCH_DURATION);
   const [running, setRunning] = useState(false);
   const [rippleA, setRippleA] = useState(false);
@@ -423,6 +442,45 @@ function ThreeTeamMode({
   const [resultEmoji, setResultEmoji] = useState("");
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Rehydrate wins/losses/draws/points từ events đã lưu trên DB khi mount
+  useEffect(() => {
+    const endEvents = events.filter(e => e.event_type === 'end');
+    if (endEvents.length === 0) return;
+
+    const newWins: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
+    const newLosses: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
+    const newDraws: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
+    const newPoints: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
+
+    for (const ev of endEvents) {
+      const parts = (ev.timestamp_minute || '').split('|');
+      const tA = parts[0] as TeamColor;
+      const tB = parts[1] as TeamColor;
+      if (!TEAMS[tA] || !TEAMS[tB]) continue;
+
+      if (ev.team_color === 'draw') {
+        newDraws[tA]++;
+        newDraws[tB]++;
+        newPoints[tA] += 1;
+        newPoints[tB] += 1;
+      } else {
+        const winner = ev.team_color as TeamColor;
+        const loser = winner === tA ? tB : tA;
+        newWins[winner]++;
+        newLosses[loser]++;
+        newPoints[winner] += 3;
+      }
+    }
+
+    setWins(newWins);
+    setLosses(newLosses);
+    setDraws(newDraws);
+    setPoints(newPoints);
+    setMatchNumber(endEvents.length + 1);
+    if (endEvents.length > 0) setIsFirstMatch(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Chỉ chạy 1 lần khi mount
 
   /* Timer */
   useEffect(() => {
@@ -458,6 +516,9 @@ function ThreeTeamMode({
       setScoreA(newScore);
       setRippleA(true);
       setTimeout(() => setRippleA(false), 500);
+      
+      // Update DB real-time
+      updateMatch({ score_a: newScore, score_b: scoreB, team_a_color: teamA, team_b_color: teamB });
 
       if (newScore >= WIN_GOALS) {
         setRunning(false);
@@ -468,6 +529,9 @@ function ThreeTeamMode({
       setScoreB(newScore);
       setRippleB(true);
       setTimeout(() => setRippleB(false), 500);
+
+      // Update DB real-time
+      updateMatch({ score_a: scoreA, score_b: newScore, team_a_color: teamA, team_b_color: teamB });
 
       if (newScore >= WIN_GOALS) {
         setRunning(false);
@@ -628,6 +692,9 @@ function ThreeTeamMode({
     setEntryOrder({ first: firstTeam, second: incoming });
     setMatchNumber((n) => n + 1);
     setIsFirstMatch(false);
+    
+    // Cập nhật đội mới reset điểm DB
+    updateMatch({ score_a: 0, score_b: 0, team_a_color: staying, team_b_color: incoming });
   };
 
   /* Handle picking teams */
@@ -651,6 +718,9 @@ function ThreeTeamMode({
     setIsFirstMatch(true);
     setMatchNumber(1);
     setPhase("playing");
+    
+    // Đồng bộ lên DB đội đầu tiên ra sân và status playing
+    updateMatch({ status: 'playing', score_a: 0, score_b: 0, team_a_color: pickedTeams[0], team_b_color: pickedTeams[1] });
   };
 
   const continueToNextMatch = () => {
@@ -779,7 +849,7 @@ function ThreeTeamMode({
         </div>
 
         <div style={{ marginTop: 30, maxWidth: 500, marginLeft: 'auto', marginRight: 'auto', background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
-           <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+           <div style={{ maxHeight: '66vh', overflowY: 'auto' }}>
              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                <thead>
                  <tr style={{ borderBottom: '1px solid var(--border-subtle)', position: 'sticky', top: 0, background: 'var(--bg-card)' }}>
@@ -834,7 +904,23 @@ function ThreeTeamMode({
           <button className="mn-reset-btn" onClick={() => { stopBellSound(); setRunning(false); setPhase("pick"); }}>
             ← Quay lại
           </button>
-          <button className="mn-reset-btn" onClick={() => { stopBellSound(); setRunning(false); setPhase("finished"); }} style={{ background: '#d32f2f', color: '#fff', border: 'none' }}>
+          <button className="mn-reset-btn" onClick={() => { 
+            stopBellSound(); 
+            setRunning(false); 
+            // Lưu trận đang dang dở (nếu có điểm) vào lịch sử để hiển thị step lịch sử
+            if (scoreA > 0 || scoreB > 0 || timeLeft < MATCH_DURATION) {
+              const winner = scoreA > scoreB ? teamA : scoreB > scoreA ? teamB : 'draw';
+              addEvent({
+                event_type: 'end',
+                team_color: winner,
+                current_score_a: scoreA,
+                current_score_b: scoreB,
+                timestamp_minute: `${teamA}|${teamB}`
+              });
+            }
+            updateMatch({ status: 'finished' });
+            setPhase("finished"); 
+          }} style={{ background: '#d32f2f', color: '#fff', border: 'none' }}>
              Kết thúc giải
           </button>
         </div>

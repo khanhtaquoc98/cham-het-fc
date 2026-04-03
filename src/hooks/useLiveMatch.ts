@@ -31,6 +31,7 @@ export interface MatchEvent {
 export function useLiveMatch() {
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [liveMatch, setLiveMatch] = useState<LiveMatchState | null>(null);
+  console.log("🚀 ~ useLiveMatch ~ liveMatch:", liveMatch)
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(true);
 

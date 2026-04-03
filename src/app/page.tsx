@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import { MatchData, Team } from '@/types/match';
 import { PlayerConfig } from '@/types/player';
+import Link from 'next/link';
 
 interface PlayerStatsSummary {
   playerName: string;
@@ -686,12 +687,12 @@ export default function Home() {
                   Số đội
                 </div>
               </div>
-              <a href="/match-now" className="stat-box" style={{ textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s ease' }}>
+              <Link href="/match-now" className="stat-box" style={{ textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s ease' }}>
                 <div style={{ fontSize: '24px' }}>⚽</div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
                   Trận đấu
                 </div>
-              </a>
+              </Link>
             </div>
 
             {/* Teams Grid */}
