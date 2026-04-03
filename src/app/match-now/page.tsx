@@ -443,10 +443,9 @@ function ThreeTeamMode({
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Rehydrate wins/losses/draws/points từ events đã lưu trên DB khi mount
+  // Rehydrate wins/losses/draws/points từ events (chạy lại khi events thay đổi từ realtime)
   useEffect(() => {
     const endEvents = events.filter(e => e.event_type === 'end');
-    if (endEvents.length === 0) return;
 
     const newWins: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
     const newLosses: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
@@ -479,8 +478,35 @@ function ThreeTeamMode({
     setPoints(newPoints);
     setMatchNumber(endEvents.length + 1);
     if (endEvents.length > 0) setIsFirstMatch(false);
+  }, [events]);
+
+  // Đồng bộ scores từ liveMatch realtime (khi thiết bị khác ghi bàn)
+  useEffect(() => {
+    if (phase === 'playing') {
+      setScoreA(liveMatch.score_a || 0);
+      setScoreB(liveMatch.score_b || 0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Chỉ chạy 1 lần khi mount
+  }, [liveMatch.score_a, liveMatch.score_b]);
+
+  // Đồng bộ teams từ liveMatch realtime
+  useEffect(() => {
+    if (liveMatch.team_a_color) setTeamA(liveMatch.team_a_color as TeamColor);
+    if (liveMatch.team_b_color) setTeamB(liveMatch.team_b_color as TeamColor);
+  }, [liveMatch.team_a_color, liveMatch.team_b_color]);
+
+  // Đồng bộ phase/status từ liveMatch realtime
+  useEffect(() => {
+    if (liveMatch.status === 'finished' && phase !== 'finished' && phase !== 'result') {
+      setPhase('finished');
+      setRunning(false);
+    } else if (liveMatch.status === 'waiting' && !liveMatch.team_a_color && !liveMatch.team_b_color && phase !== 'pick') {
+      // Full reset from another device
+      setPhase('pick');
+      setRunning(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveMatch.status, liveMatch.team_a_color, liveMatch.team_b_color]);
 
   /* Timer */
   useEffect(() => {
@@ -748,6 +774,9 @@ function ThreeTeamMode({
     setTimeLeft(MATCH_DURATION);
     setRunning(false);
     setEntryOrder(null);
+
+    // Đồng bộ trạng thái reset lên DB để thiết bị khác thấy
+    updateMatch({ score_a: 0, score_b: 0, status: 'waiting', team_a_color: null, team_b_color: null, time_elapsed: 0 });
   };
 
   /* ── Render: Pick Phase ── */

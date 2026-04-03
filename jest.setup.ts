@@ -33,6 +33,5 @@ if (typeof globalThis.Headers === 'undefined') {
 }
 
 if (typeof globalThis.fetch === 'undefined') {
-  // @ts-expect-error - minimal polyfill for jest environment
-  globalThis.fetch = () => Promise.resolve(new Response());
+  globalThis.fetch = (() => Promise.resolve(new Response())) as typeof fetch;
 }

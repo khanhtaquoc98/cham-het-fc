@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { MatchData } from '@/types/match';
 
@@ -31,42 +31,54 @@ export interface MatchEvent {
 export function useLiveMatch() {
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [liveMatch, setLiveMatch] = useState<LiveMatchState | null>(null);
-  console.log("🚀 ~ useLiveMatch ~ liveMatch:", liveMatch)
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  // Bump to force full re-initialization (e.g. when match_data changes)
+  const [initKey, setInitKey] = useState(0);
 
-  // 1. Lấy dữ liệu trận đấu và thiết lập Live Match
+  const channelsRef = useRef<ReturnType<typeof supabase.channel>[]>([]);
+  const matchDataIdRef = useRef<string | null>(null);
+  const liveMatchIdRef = useRef<string | null>(null);
+
+  const cleanupChannels = useCallback(() => {
+    for (const ch of channelsRef.current) {
+      supabase.removeChannel(ch);
+    }
+    channelsRef.current = [];
+  }, []);
+
+  // ── Main init ──
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel>;
+    let cancelled = false;
 
     async function init() {
-      // Fetch match_data
+      setLoading(true);
+
       const res = await fetch('/api/match');
       const data = await res.json();
       const currentMatchData: MatchData = data.matchData;
-      
+
       if (!currentMatchData || !currentMatchData.teams || currentMatchData.teams.length < 2) {
         setLoading(false);
         return;
       }
-      
+      if (cancelled) return;
+
       setMatchData(currentMatchData);
+      matchDataIdRef.current = currentMatchData.id;
 
       const mode = currentMatchData.teams.length === 2 ? '2-team' : '3-team';
 
-      // Load or Create live_match for this matchData
+      // Load or create live_match
       let { data: liveData } = await supabase
         .from('live_matches')
         .select('*')
         .eq('match_data_id', currentMatchData.id)
         .single();
 
-      // Check mode mismatch: if teams changed (2→3 or 3→2), reset live_match
       if (liveData && liveData.mode !== mode) {
         console.log(`Mode mismatch: DB=${liveData.mode}, current=${mode}. Re-syncing...`);
-        // Delete old events
         await supabase.from('match_events').delete().eq('live_match_id', liveData.id);
-        // Delete old live_match
         await supabase.from('live_matches').delete().eq('id', liveData.id);
         liveData = null;
       }
@@ -74,88 +86,140 @@ export function useLiveMatch() {
       if (!liveData) {
         const { data: newLive, error } = await supabase
           .from('live_matches')
-          .insert({
-            match_data_id: currentMatchData.id,
-            mode,
-            status: 'waiting',
-          })
+          .insert({ match_data_id: currentMatchData.id, mode, status: 'waiting' })
           .select()
           .single();
-        
-        if (error) console.error("Create live_match error:", error);
+        if (error) console.error('Create live_match error:', error);
         liveData = newLive;
       }
 
+      if (cancelled) return;
       setLiveMatch(liveData as LiveMatchState);
+      liveMatchIdRef.current = liveData?.id || null;
 
-      // Fetch existing events
+      // Fetch events
       if (liveData) {
         const { data: eventData } = await supabase
           .from('match_events')
           .select('*')
           .eq('live_match_id', liveData.id)
           .order('created_at', { ascending: true });
-        
-        if (eventData) setEvents(eventData as MatchEvent[]);
+        if (!cancelled && eventData) setEvents(eventData as MatchEvent[]);
       }
 
-      setLoading(false);
+      if (!cancelled) setLoading(false);
 
-      // 2. Đăng ký Realtime
-      if (liveData) {
-        channel = supabase.channel(`match_${liveData.id}`)
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'live_matches', filter: `id=eq.${liveData.id}` }, (payload) => {
-            setLiveMatch(payload.new as LiveMatchState);
-          })
-          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_events', filter: `live_match_id=eq.${liveData.id}` }, (payload) => {
-            setEvents(prev => [...prev, payload.new as MatchEvent]);
+      // ── Realtime subscriptions ──
+      cleanupChannels();
+
+      if (liveData && !cancelled) {
+        // 1) live_match updates + event inserts
+        const liveCh = supabase
+          .channel(`match_${liveData.id}_${Date.now()}`)
+          .on('postgres_changes', {
+            event: 'UPDATE', schema: 'public', table: 'live_matches',
+            filter: `id=eq.${liveData.id}`,
+          }, (payload) => { if (!cancelled) setLiveMatch(payload.new as LiveMatchState); })
+          .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'match_events',
+            filter: `live_match_id=eq.${liveData.id}`,
+          }, (payload) => { if (!cancelled) setEvents(prev => [...prev, payload.new as MatchEvent]); })
+          .subscribe();
+        channelsRef.current.push(liveCh);
+      }
+
+      // 2) match_data changes → auto re-init
+      if (!cancelled) {
+        const mdCh = supabase
+          .channel(`md_sync_${Date.now()}`)
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'match_data',
+          }, async () => {
+            if (cancelled) return;
+            console.log('🔄 match_data changed on DB');
+            try {
+              const r = await fetch('/api/match');
+              const d = await r.json();
+              const newMd: MatchData = d.matchData;
+              if (!newMd) return;
+              if (newMd.id !== matchDataIdRef.current) {
+                console.log('🔄 New match_data detected → re-init');
+                setInitKey(k => k + 1);
+              } else {
+                // same id but content may have changed (e.g. mode)
+                const newMode = newMd.teams?.length === 2 ? '2-team' : '3-team';
+                const curMode = liveData?.mode;
+                if (newMode !== curMode) setInitKey(k => k + 1);
+                else setMatchData(newMd);
+              }
+            } catch (e) { console.error('md sync failed', e); }
           })
           .subscribe();
+        channelsRef.current.push(mdCh);
       }
     }
 
     init();
+    return () => { cancelled = true; cleanupChannels(); };
+  }, [initKey, cleanupChannels]);
 
-    return () => {
-      if (channel) supabase.removeChannel(channel);
+  // ── Re-sync when page becomes visible again ──
+  useEffect(() => {
+    const onVisible = async () => {
+      if (document.visibilityState !== 'visible') return;
+      console.log('👀 Page visible → syncing');
+
+      try {
+        const res = await fetch('/api/match');
+        const data = await res.json();
+        const freshMd: MatchData = data.matchData;
+
+        if (freshMd && freshMd.id !== matchDataIdRef.current) {
+          console.log('👀 match_data changed while away → re-init');
+          setInitKey(k => k + 1);
+          return;
+        }
+
+        if (liveMatchIdRef.current) {
+          const { data: freshLive } = await supabase
+            .from('live_matches').select('*')
+            .eq('id', liveMatchIdRef.current).single();
+          if (freshLive) setLiveMatch(freshLive as LiveMatchState);
+
+          const { data: freshEv } = await supabase
+            .from('match_events').select('*')
+            .eq('live_match_id', liveMatchIdRef.current)
+            .order('created_at', { ascending: true });
+          if (freshEv) setEvents(freshEv as MatchEvent[]);
+        }
+      } catch (e) { console.error('visibility sync failed', e); }
     };
+
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, []);
 
-  // 3. Các hàm tương tác
+  // ── Actions ──
   const updateMatch = async (updates: Partial<LiveMatchState>) => {
     if (!liveMatch) return;
-    // Optimistic update
     setLiveMatch({ ...liveMatch, ...updates });
     await supabase.from('live_matches').update(updates).eq('id', liveMatch.id);
   };
 
   const addEvent = async (event: Omit<MatchEvent, 'id' | 'live_match_id' | 'created_at'>) => {
     if (!liveMatch) return;
-    await supabase.from('match_events').insert({
-      live_match_id: liveMatch.id,
-      ...event
-    });
+    await supabase.from('match_events').insert({ live_match_id: liveMatch.id, ...event });
   };
 
   const scoreGoal = async (team_color: string, score_a: number, score_b: number, formattedTime: string) => {
     if (!liveMatch) return;
-    
-    // Tạo 1 event ghi bàn
-    await addEvent({
-      event_type: 'goal',
-      team_color,
-      current_score_a: score_a,
-      current_score_b: score_b,
-      timestamp_minute: formattedTime
-    });
-
-    // Cập nhật tổng tỉ số
+    await addEvent({ event_type: 'goal', team_color, current_score_a: score_a, current_score_b: score_b, timestamp_minute: formattedTime });
     await updateMatch({ score_a, score_b });
   };
 
   const clearEvents = async () => {
     if (!liveMatch) return;
-    setEvents([]); // Clear UI ngay lập tức
+    setEvents([]);
     await supabase.from('match_events').delete().eq('live_match_id', liveMatch.id);
   };
 
