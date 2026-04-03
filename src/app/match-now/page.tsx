@@ -520,6 +520,9 @@ function ThreeTeamMode({
       // Update DB real-time
       updateMatch({ score_a: newScore, score_b: scoreB, team_a_color: teamA, team_b_color: teamB });
 
+      // Sync score to DB realtime
+      updateMatch({ score_a: newScore, score_b: scoreB });
+
       if (newScore >= WIN_GOALS) {
         setRunning(false);
         finishMatch(teamA, teamB, newScore, scoreB);
@@ -889,6 +892,10 @@ function ThreeTeamMode({
              )}
            </div>
         </div>
+
+        <button className="mn-reset-score-btn" onClick={resetAll} style={{ marginTop: 24 }}>
+          🔄 Chơi lại từ đầu
+        </button>
       </div>
     );
   }
@@ -901,7 +908,7 @@ function ThreeTeamMode({
   return (
     <div className="three-team-container">
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0' }}>
-          <button className="mn-reset-btn" onClick={() => { stopBellSound(); setRunning(false); setPhase("pick"); }}>
+          <button className="mn-reset-btn" onClick={() => { stopBellSound(); setRunning(false); updateMatch({ status: 'waiting' }); setPhase("pick"); }}>
             ← Quay lại
           </button>
           <button className="mn-reset-btn" onClick={() => { 
@@ -978,7 +985,7 @@ function ThreeTeamMode({
           </span>
           <button
             className="mn-play-round-btn"
-            onClick={() => setRunning(!running)}
+            onClick={() => { const next = !running; setRunning(next); updateMatch({ status: next ? 'playing' : 'waiting' }); }}
             style={{
                background: running ? 'linear-gradient(135deg, #c62828, #e53935)' : 'linear-gradient(135deg, #2e7d32, #4caf50)',
                boxShadow: running ? '0 4px 12px rgba(229, 57, 53, 0.4)' : '0 4px 12px rgba(76, 175, 80, 0.4)'
