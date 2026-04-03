@@ -943,7 +943,7 @@ function ThreeTeamMode({
           <button className="mn-reset-btn" onClick={() => { 
             stopBellSound(); 
             setRunning(false); 
-            // Lưu trận đang dang dở (nếu có điểm) vào lịch sử để hiển thị step lịch sử
+            // Chỉ lưu trận dang dở nếu đã nhấn Bắt đầu (timer đã chạy) hoặc có bàn thắng
             if (scoreA > 0 || scoreB > 0 || timeLeft < MATCH_DURATION) {
               const winner = scoreA > scoreB ? teamA : scoreB > scoreA ? teamB : 'draw';
               addEvent({
