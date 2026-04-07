@@ -68,7 +68,18 @@ export async function saveMatchHistory(
   // Determine result
   let result: MatchResult;
   if (extraScore !== null && extraScore !== undefined) {
-    result = 'extra_win';
+    // 3-team mode: compare all scores to find actual winner
+    const scores = [
+      { team: 'home_win' as MatchResult, score: homeScore },
+      { team: 'away_win' as MatchResult, score: awayScore },
+      { team: 'extra_win' as MatchResult, score: extraScore },
+    ];
+    scores.sort((a, b) => b.score - a.score);
+    if (scores[0].score > scores[1].score) {
+      result = scores[0].team;
+    } else {
+      result = 'draw';
+    }
   } else if (homeScore > awayScore) {
     result = 'home_win';
   } else if (awayScore > homeScore) {

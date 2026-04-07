@@ -49,7 +49,17 @@ export async function POST(request: Request) {
         // Determine result text
         let resultText = '';
         if (extraScore !== null) {
-          resultText = `⚽ EXTRA thắng!\n🏠 HOME: ${homeScore} ❌\n✈️ AWAY: ${awayScore} ❌\n⭐ EXTRA: ${extraScore} ✅`;
+          // 3-team: find actual winner
+          const scores = [
+            { name: 'HOME', emoji: '🏠', score: homeScore },
+            { name: 'AWAY', emoji: '✈️', score: awayScore },
+            { name: 'EXTRA', emoji: '⭐', score: extraScore },
+          ];
+          scores.sort((a, b) => b.score - a.score);
+          const winner = scores[0].score > scores[1].score ? scores[0] : null;
+          resultText = winner
+            ? `⚽ ${winner.name} thắng!\n` + scores.map(s => `${s.emoji} ${s.name}: ${s.score} ${s === winner ? '✅' : '❌'}`).join('\n')
+            : `⚽ Hoà!\n` + scores.map(s => `${s.emoji} ${s.name}: ${s.score} 🤝`).join('\n');
         } else if (homeScore > awayScore) {
           resultText = `⚽ HOME thắng!\n🏠 HOME: ${homeScore} ✅\n✈️ AWAY: ${awayScore} ❌`;
         } else if (awayScore > homeScore) {
