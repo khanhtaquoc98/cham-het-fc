@@ -251,6 +251,11 @@ function TwoTeamMode({
     await updateMatch({ score_a: 0, score_b: 0, time_elapsed: 0, status: 'waiting' });
   };
 
+  const resetCurrentMatch = async () => {
+    if (!confirm('Reset tỉ số trận hiện tại về 0-0?')) return;
+    await updateMatch({ score_a: 0, score_b: 0 });
+  };
+
   if (liveMatch.status === 'finished') {
     const goals = events.filter(e => e.event_type === 'goal');
     return (
@@ -321,6 +326,9 @@ function TwoTeamMode({
           </button>
           <button className="mn-reset-btn" onClick={finishMatch} style={{ background: '#d32f2f', color: 'white', border: 'none', fontSize: 12, padding: '6px 12px' }}>
              Kết thúc
+          </button>
+          <button className="mn-reset-btn" onClick={resetCurrentMatch} style={{ fontSize: 12, padding: '6px 12px' }}>
+            ↩ Reset trận
           </button>
           <button className="mn-reset-btn" onClick={resetScore} style={{ fontSize: 12, padding: '6px 12px' }}>
             🔄
@@ -779,6 +787,13 @@ function ThreeTeamMode({
     updateMatch({ score_a: 0, score_b: 0, status: 'waiting', team_a_color: null, team_b_color: null, time_elapsed: 0 });
   };
 
+  const resetCurrentMatch = () => {
+    if (!confirm('Reset tỉ số trận hiện tại về 0-0?')) return;
+    setScoreA(0);
+    setScoreB(0);
+    updateMatch({ score_a: 0, score_b: 0 });
+  };
+
   /* ── Render: Pick Phase ── */
   if (phase === "pick") {
     return (
@@ -939,6 +954,9 @@ function ThreeTeamMode({
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0' }}>
           <button className="mn-reset-btn" onClick={() => { stopBellSound(); setRunning(false); updateMatch({ status: 'waiting' }); setPhase("pick"); }}>
             ← Quay lại
+          </button>
+          <button className="mn-reset-btn" onClick={resetCurrentMatch} style={{ background: 'rgba(255,152,0,0.15)', color: '#e65100', border: '1px solid rgba(255,152,0,0.3)' }}>
+            ↩ Reset trận
           </button>
           <button className="mn-reset-btn" onClick={() => { 
             stopBellSound(); 

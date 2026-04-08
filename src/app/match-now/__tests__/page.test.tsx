@@ -546,6 +546,74 @@ describe('TwoTeamMode', () => {
       });
     });
   });
+
+  describe('Reset trận hiện tại (2-team)', () => {
+    it('hiển thị nút "↩ Reset trận"', () => {
+      mockLiveMatchData = createMockLiveMatch({ status: 'playing', score_a: 1, score_b: 0 });
+      render(<MatchNowPage />);
+      expect(screen.getByText('↩ Reset trận')).toBeInTheDocument();
+    });
+
+    it('click "↩ Reset trận" hiện confirm dialog', async () => {
+      mockLiveMatchData = createMockLiveMatch({ status: 'playing', score_a: 2, score_b: 1 });
+      render(<MatchNowPage />);
+
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('↩ Reset trận'));
+      });
+
+      expect(confirmSpy).toHaveBeenCalledWith('Reset tỉ số trận hiện tại về 0-0?');
+      confirmSpy.mockRestore();
+    });
+
+    it('confirm → gọi updateMatch chỉ reset score, KHÔNG reset time', async () => {
+      mockLiveMatchData = createMockLiveMatch({ status: 'playing', score_a: 3, score_b: 1, time_elapsed: 120 });
+      render(<MatchNowPage />);
+
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('↩ Reset trận'));
+      });
+
+      expect(mockUpdateMatch).toHaveBeenCalledWith({ score_a: 0, score_b: 0 });
+      // Không reset time_elapsed, không đổi status
+      expect(mockUpdateMatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ time_elapsed: 0 })
+      );
+      window.confirm = jest.fn();
+    });
+
+    it('confirm → KHÔNG gọi clearEvents (giữ lịch sử)', async () => {
+      mockLiveMatchData = createMockLiveMatch({ status: 'playing', score_a: 2, score_b: 2 });
+      render(<MatchNowPage />);
+
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('↩ Reset trận'));
+      });
+
+      expect(mockClearEvents).not.toHaveBeenCalled();
+      window.confirm = jest.fn();
+    });
+
+    it('cancel confirm → không gọi updateMatch', async () => {
+      mockLiveMatchData = createMockLiveMatch({ status: 'playing', score_a: 1, score_b: 1 });
+      render(<MatchNowPage />);
+
+      jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('↩ Reset trận'));
+      });
+
+      expect(mockUpdateMatch).not.toHaveBeenCalled();
+      window.confirm = jest.fn();
+    });
+  });
 });
 
 // ────────────────────────────────
@@ -821,6 +889,106 @@ describe('ThreeTeamMode', () => {
       render(<MatchNowPage />);
 
       expect(screen.getByText('← Quay lại')).toBeInTheDocument();
+    });
+
+    it('hiển thị nút "↩ Reset trận" trong playing phase', () => {
+      mockLiveMatchData = createMockLiveMatch({
+        mode: '3-team',
+        status: 'playing',
+        team_a_color: 'white',
+        team_b_color: 'black',
+        score_a: 1,
+        score_b: 0,
+      });
+      render(<MatchNowPage />);
+      expect(screen.getByText('↩ Reset trận')).toBeInTheDocument();
+    });
+
+    it('click "↩ Reset trận" hiện confirm dialog (3-team)', async () => {
+      mockLiveMatchData = createMockLiveMatch({
+        mode: '3-team',
+        status: 'playing',
+        team_a_color: 'white',
+        team_b_color: 'black',
+        score_a: 1,
+        score_b: 1,
+      });
+      render(<MatchNowPage />);
+
+      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('↩ Reset trận'));
+      });
+
+      expect(confirmSpy).toHaveBeenCalledWith('Reset tỉ số trận hiện tại về 0-0?');
+      confirmSpy.mockRestore();
+    });
+
+    it('confirm reset → chỉ reset score, giữ nguyên timer (3-team)', async () => {
+      mockLiveMatchData = createMockLiveMatch({
+        mode: '3-team',
+        status: 'playing',
+        team_a_color: 'white',
+        team_b_color: 'black',
+        score_a: 1,
+        score_b: 1,
+      });
+      render(<MatchNowPage />);
+
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('↩ Reset trận'));
+      });
+
+      expect(mockUpdateMatch).toHaveBeenCalledWith({ score_a: 0, score_b: 0 });
+      expect(mockUpdateMatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({ time_elapsed: expect.anything() })
+      );
+      window.confirm = jest.fn();
+    });
+
+    it('confirm reset → KHÔNG gọi clearEvents (giữ lịch sử giải, 3-team)', async () => {
+      mockLiveMatchData = createMockLiveMatch({
+        mode: '3-team',
+        status: 'playing',
+        team_a_color: 'white',
+        team_b_color: 'black',
+        score_a: 2,
+        score_b: 0,
+      });
+      render(<MatchNowPage />);
+
+      jest.spyOn(window, 'confirm').mockReturnValue(true);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('↩ Reset trận'));
+      });
+
+      expect(mockClearEvents).not.toHaveBeenCalled();
+      window.confirm = jest.fn();
+    });
+
+    it('cancel confirm → không thay đổi gì (3-team)', async () => {
+      mockLiveMatchData = createMockLiveMatch({
+        mode: '3-team',
+        status: 'playing',
+        team_a_color: 'white',
+        team_b_color: 'black',
+        score_a: 1,
+        score_b: 0,
+      });
+      render(<MatchNowPage />);
+
+      jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('↩ Reset trận'));
+      });
+
+      expect(mockUpdateMatch).not.toHaveBeenCalled();
+      window.confirm = jest.fn();
     });
   });
 
