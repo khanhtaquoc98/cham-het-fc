@@ -410,18 +410,19 @@ function findPlayerStat(
   playerConfigs: PlayerConfig[],
   playerStats: PlayerStatsSummary[],
 ): PlayerStatsSummary | null {
-  // Try to find stats by matching player name (case-insensitive)
-  const normalized = playerName.trim().toLowerCase();
-  for (const stat of playerStats) {
-    if (stat.playerName.trim().toLowerCase() === normalized) return stat;
-  }
-
-  // Try to find via registered player -> match by playerId
+  // Priority 1: Find via registered player -> match by playerId
+  // (stats are now grouped by player_id, so this is the most reliable match)
   const matched = findMatchingPlayer(playerName, telegramHandle, playerConfigs);
   if (matched) {
     for (const stat of playerStats) {
       if (stat.playerId === matched.id) return stat;
     }
+  }
+
+  // Priority 2: Try to find stats by matching player name (case-insensitive)
+  const normalized = playerName.trim().toLowerCase();
+  for (const stat of playerStats) {
+    if (stat.playerName.trim().toLowerCase() === normalized) return stat;
   }
 
   return null;

@@ -124,7 +124,7 @@ export default function PlayersPage() {
           name: editForm.name,
           subNames: editForm.subNames.split(',').map(s => s.trim()).filter(Boolean),
           telegramHandle: editForm.telegramHandle,
-          jerseyNumber: editForm.jerseyNumber ? parseInt(editForm.jerseyNumber) : null,
+          jerseyNumber: !!editForm.jerseyNumber ? parseInt(editForm.jerseyNumber) : null,
         }),
       });
       if (res.ok) { setEditingId(null); setEditForm(null); await fetchPlayers(); }

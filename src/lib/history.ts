@@ -227,11 +227,17 @@ export async function getPlayerStatsSummary(page: number = 1, pageSize: number =
     return { players: [], total: 0, page, pageSize, totalPages: 0 };
   }
 
-  // Group by player_name (using distinct name)
+  // Group by player_id (for registered players) or player_name (for unregistered)
+  // This ensures all name variants (e.g. "Tu" vs "Tú") of the same registered player
+  // are consolidated into one stats entry.
   const playerMap = new Map<string, PlayerStatsSummary>();
 
   for (const row of data) {
-    const key = row.player_name.toLowerCase().trim();
+    // Use player_id as key if available, otherwise fall back to player_name
+    const key = row.player_id
+      ? `id:${row.player_id}`
+      : `name:${row.player_name.toLowerCase().trim()}`;
+
     let summary = playerMap.get(key);
     if (!summary) {
       summary = {
