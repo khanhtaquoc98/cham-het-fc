@@ -152,7 +152,7 @@ function JerseyIcon({ label, team, isDark }: { label: string; team: 'home' | 'aw
    TEAM CARD
    ============================================= */
 
-function TeamCard({ team, index, playerConfigs, isDark, playerStats }: { team: Team; index: number; playerConfigs: PlayerConfig[]; isDark: boolean; playerStats: PlayerStatsSummary[] }) {
+function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoading }: { team: Team; index: number; playerConfigs: PlayerConfig[]; isDark: boolean; playerStats: PlayerStatsSummary[]; statsLoading: boolean }) {
   const color = getTeamColor(team.name);
   const borderClass = getTeamBorderClass(team.name);
   const tooltip = getTeamTooltip(team.name);
@@ -214,7 +214,25 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats }: { team: T
                   </div>
                 )}
               </div>
-              {stat && stat.totalMatches > 0 && (
+              {statsLoading ? (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  flexShrink: 0,
+                }}>
+                  <span className="stat-skeleton" style={{
+                    width: '36px',
+                    height: '18px',
+                    borderRadius: '6px',
+                  }} />
+                  <span className="stat-skeleton" style={{
+                    width: '62px',
+                    height: '14px',
+                    borderRadius: '4px',
+                  }} />
+                </div>
+              ) : stat && stat.totalMatches > 0 ? (
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -242,7 +260,7 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats }: { team: T
                     <span style={{ color: '#c62828' }}>{stat.losses}L</span>
                   </span>
                 </div>
-              )}
+              ) : null}
             </div>
           );
         })}
@@ -433,6 +451,7 @@ export default function Home() {
   const [playerConfigs, setPlayerConfigs] = useState<PlayerConfig[]>([]);
   const [playerStats, setPlayerStats] = useState<PlayerStatsSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
 
@@ -564,22 +583,29 @@ export default function Home() {
   }, []);
 
   const fetchData = useCallback(async () => {
+    // Phase 1: Fetch match data first (teams render immediately)
     try {
-      const [matchRes, statsRes] = await Promise.all([
-        fetch('/api/match', { cache: 'no-store' }),
-        fetch('/api/stats', { cache: 'no-store' }),
-      ]);
+      const matchRes = await fetch('/api/match', { cache: 'no-store' });
       const data = await matchRes.json();
-      const statsData = await statsRes.json();
       setMatchData(data.matchData);
       setPlayerConfigs(data.players || []);
-      setPlayerStats(statsData.players || []);
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch:', err);
+      console.error('Failed to fetch match:', err);
       setError('Không thể tải dữ liệu');
     } finally {
       setLoading(false);
+    }
+
+    // Phase 2: Fetch stats lazily (W/D/L shows skeleton until ready)
+    try {
+      const statsRes = await fetch('/api/stats', { cache: 'no-store' });
+      const statsData = await statsRes.json();
+      setPlayerStats(statsData.players || []);
+    } catch (err) {
+      console.error('Failed to fetch stats:', err);
+    } finally {
+      setStatsLoading(false);
     }
   }, []);
 
@@ -706,7 +732,7 @@ export default function Home() {
               {matchData.teams.map((team, i) =>
                 teamCount === 2 ? (
                   <div key={team.name} style={{ display: 'contents' }}>
-                    <TeamCard team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} />
+                    <TeamCard team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} />
                     {i === 0 && (
                       <div className="vs-badge-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', alignSelf: 'center' }}>
                         <div className="vs-badge">VS</div>
@@ -714,7 +740,7 @@ export default function Home() {
                     )}
                   </div>
                 ) : (
-                  <TeamCard key={team.name} team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} />
+                  <TeamCard key={team.name} team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} />
                 )
               )}
             </div>
