@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { PaymentSummary, LosingTeam } from '@/types/payment';
 import { Team } from '@/types/match';
+import toast, { Toaster } from 'react-hot-toast';
 
 interface MatchInfo {
   id: string;
@@ -128,6 +129,7 @@ export default function PublicPaymentPage() {
   // Ready - show payment page
   return (
     <div style={rootStyle}>
+      <Toaster position="top-center" />
       <div style={containerStyle}>
         <Link href="/" style={backLinkStyle}>← Trang chủ</Link>
 
@@ -323,12 +325,12 @@ export default function PublicPaymentPage() {
                     if (data.checkoutUrl) {
                       window.location.href = data.checkoutUrl;
                     } else {
-                      alert('Lỗi tạo link thanh toán: ' + (data.error || 'Unknown error'));
+                      toast.error('Lỗi tạo link thanh toán: ' + (data.error || 'Unknown error'));
                       setPaying(false);
                     }
                   } catch (err) {
                     console.error(err);
-                    alert('Lỗi kết nối. Vui lòng thử lại.');
+                    toast.error('Lỗi kết nối. Vui lòng thử lại.');
                     setPaying(false);
                   }
                 }}

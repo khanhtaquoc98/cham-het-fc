@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { PlayerPayment, LosingTeam, PaymentSummary } from '@/types/payment';
 import { Team } from '@/types/match';
+import toast, { Toaster } from 'react-hot-toast';
 
 interface MatchInfo {
   id: string;
@@ -15,7 +16,6 @@ export default function PaymentPage() {
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
 
   // Editable fields
   const [fieldCost, setFieldCost] = useState('');
@@ -72,11 +72,6 @@ export default function PaymentPage() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const showStatus = (msg: string) => {
-    setStatus(msg);
-    setTimeout(() => setStatus(null), 2500);
-  };
 
   // Tự động tính losingTeams từ scores
   const computeLosingTeams = (newScores: Record<string, number>): LosingTeam[] => {
@@ -141,10 +136,10 @@ export default function PaymentPage() {
       });
       const data = await res.json();
       setSummary(data);
-      showStatus('✅ Đã lưu & tính toán!');
+      toast.success('Đã lưu & tính toán!');
     } catch (err) {
       console.error(err);
-      showStatus('❌ Lỗi khi lưu');
+      toast.error('Lỗi khi lưu');
     } finally {
       setSaving(false);
     }
@@ -159,8 +154,10 @@ export default function PaymentPage() {
         body: JSON.stringify({ action, paymentId: pp.id }),
       });
       await fetchData();
+      toast.success(pp.isPaid ? 'Bỏ đánh dấu thanh toán' : 'Đã đánh dấu thanh toán');
     } catch (err) {
       console.error(err);
+      toast.error('Lỗi khi cập nhật trạng thái');
     }
   };
 
@@ -178,11 +175,11 @@ export default function PaymentPage() {
 
   return (
     <div>
+      <Toaster position="top-center" />
       {/* Thông tin tiền sân & nước */}
       <div style={cardStyle}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <h2 style={sectionTitleStyle}>💰 Thanh toán trận đấu</h2>
-          {status && <span style={statusBadgeStyle}>{status}</span>}
         </div>
 
         {matchInfo?.venue?.date && (
@@ -364,11 +361,6 @@ const cardStyle: React.CSSProperties = {
 
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: '15px', fontWeight: 700, color: '#c62828', margin: 0,
-};
-
-const statusBadgeStyle: React.CSSProperties = {
-  fontSize: '12px', color: '#e53935', fontWeight: 600,
-  background: 'rgba(229,57,53,0.08)', padding: '4px 10px', borderRadius: 6,
 };
 
 const labelStyle: React.CSSProperties = {
