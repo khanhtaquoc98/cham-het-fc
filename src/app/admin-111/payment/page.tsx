@@ -145,6 +145,32 @@ export default function PaymentPage() {
     }
   };
 
+  const handleReset = async () => {
+    if (!window.confirm('Bạn có chắc muốn xoá toàn bộ dữ liệu thanh toán trận này? Tiền sân và nước sẽ về 0, tất cả khoản thu đều bị xoá.')) {
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch('/api/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reset' }),
+      });
+      const data = await res.json();
+      setSummary(data);
+      setFieldCost('');
+      setDrinkCost('');
+      setScores({});
+      setLosingTeams([]);
+      toast.success('Đã xoá trắng dữ liệu!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi xoá dữ liệu');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleTogglePaid = async (pp: PlayerPayment) => {
     const action = pp.isPaid ? 'mark-unpaid' : 'mark-paid';
     try {
@@ -243,13 +269,26 @@ export default function PaymentPage() {
           </div>
         )}
 
-        <button
-          style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Đang lưu...' : '💾 Lưu & Tính toán'}
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button
+            style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? '⏳ Đang lưu...' : '💾 Lưu & Tính toán'}
+          </button>
+          <button
+            style={{ 
+              padding: '12px 20px', borderRadius: 12, fontSize: 13, fontWeight: 700, 
+              cursor: 'pointer', background: '#f5f5f5', color: '#4a4a6a', border: '1px solid #ddd',
+              opacity: saving ? 0.6 : 1
+            }}
+            onClick={handleReset}
+            disabled={saving}
+          >
+            🔄 Xoá dữ liệu làm lại
+          </button>
+        </div>
       </div>
 
       {/* Danh sách thanh toán */}

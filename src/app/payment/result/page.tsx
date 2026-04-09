@@ -20,7 +20,9 @@ function PaymentResultContent() {
 
   const orderCode = searchParams.get('orderCode');
   const orderId = searchParams.get('orderId');
-  const cancelled = searchParams.get('status') === 'cancelled';
+  const cancelled = 
+    searchParams.get('cancel') === 'true' || 
+    searchParams.get('status')?.toUpperCase() === 'CANCELLED';
 
   useEffect(() => {
     if (!orderId) {

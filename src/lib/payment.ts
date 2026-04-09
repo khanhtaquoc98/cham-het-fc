@@ -111,6 +111,20 @@ export async function markPlayerUnpaid(paymentId: string): Promise<boolean> {
 // CALCULATE & GENERATE PLAYER PAYMENTS
 // ==========================================
 
+export async function resetPaymentsForMatch(matchDataId: string): Promise<boolean> {
+  const mp = await getMatchPaymentByMatchId(matchDataId);
+  if (!mp) return false;
+
+  await updateMatchPayment(mp.id, { fieldCost: 0, drinkCost: 0, losingTeams: [] });
+  
+  await supabase
+    .from('player_payments')
+    .delete()
+    .eq('match_payment_id', mp.id);
+
+  return true;
+}
+
 /**
  * Tính toán tiền thanh toán cho từng cầu thủ và lưu vào DB.
  * Chỉ gọi khi đã có đủ thông tin (fieldCost, losingTeams).

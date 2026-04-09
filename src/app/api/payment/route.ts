@@ -6,6 +6,7 @@ import {
   calculateAndSavePlayerPayments,
   markPlayerPaid,
   markPlayerUnpaid,
+  resetPaymentsForMatch,
 } from '@/lib/payment';
 import { getMatchData } from '@/lib/storage';
 
@@ -74,6 +75,12 @@ export async function POST(request: Request) {
       if (!matchData) return NextResponse.json({ error: 'No match data' }, { status: 400 });
       const mp = await getOrCreateMatchPayment(matchData.id);
       await calculateAndSavePlayerPayments(mp.id);
+      const summary = await getPaymentSummary();
+      return NextResponse.json(summary);
+    } else if (action === 'reset') {
+      const matchData = await getMatchData();
+      if (!matchData) return NextResponse.json({ error: 'No match data' }, { status: 400 });
+      await resetPaymentsForMatch(matchData.id);
       const summary = await getPaymentSummary();
       return NextResponse.json(summary);
     }
