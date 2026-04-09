@@ -290,7 +290,7 @@ export default function PaymentPage() {
                   fontSize: 13, fontWeight: 700, color: isLosingTeam ? '#c62828' : '#2e7d32',
                   marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6,
                 }}>
-                  {team.name === 'HOME' ? '⚪' : team.name === 'AWAY' ? '⚫' : '🟠'}
+                  {team.name === 'HOME' ? '⚪ ' : team.name === 'AWAY' ? '⚫ ' : '🟠 '}
                   {team.name} ({teamPlayers.length} người)
                   {isLosingTeam && losingInfo && (
                     <span style={{ fontSize: 11, color: '#e65100', fontWeight: 600 }}>

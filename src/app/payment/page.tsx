@@ -16,6 +16,7 @@ export default function PublicPaymentPage() {
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [paying, setPaying] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -180,7 +181,7 @@ export default function PublicPaymentPage() {
                     alignItems: 'center', gap: 6,
                     color: isLosing ? '#c62828' : '#2e7d32',
                   }}>
-                    {team.name === 'HOME' ? '⚪' : team.name === 'AWAY' ? '⚫' : '🟠'}
+                    {team.name === 'HOME' ? '⚪ ' : team.name === 'AWAY' ? '⚫ ' : '🟠 '}
                     {team.name}
                     {isLosing ? (
                       <span style={{ fontSize: 11, color: '#e65100' }}>
@@ -308,10 +309,31 @@ export default function PublicPaymentPage() {
               </div>
 
               <button
-                style={payBtnStyle}
-                onClick={() => alert('Tính năng PayOS đang được phát triển. Vui lòng thanh toán trực tiếp cho Captain.')}
+                style={{ ...payBtnStyle, opacity: paying ? 0.6 : 1 }}
+                disabled={paying}
+                onClick={async () => {
+                  setPaying(true);
+                  try {
+                    const res = await fetch('/api/payment/checkout', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ playerPaymentIds: Array.from(selectedIds) }),
+                    });
+                    const data = await res.json();
+                    if (data.checkoutUrl) {
+                      window.location.href = data.checkoutUrl;
+                    } else {
+                      alert('Lỗi tạo link thanh toán: ' + (data.error || 'Unknown error'));
+                      setPaying(false);
+                    }
+                  } catch (err) {
+                    console.error(err);
+                    alert('Lỗi kết nối. Vui lòng thử lại.');
+                    setPaying(false);
+                  }
+                }}
               >
-                💳 Thanh toán {formatVND(invoiceTotal)}
+                {paying ? '⏳ Đang tạo link...' : `💳 Thanh toán ${formatVND(invoiceTotal)}`}
               </button>
             </div>
           )}
