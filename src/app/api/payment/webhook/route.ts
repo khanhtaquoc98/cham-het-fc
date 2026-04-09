@@ -51,17 +51,16 @@ export async function POST(request: Request) {
 
           if (playerNames) {
             try {
-              // Escape MarkdownV2 characters (., -, !, etc) to avoid Telegram 400 errors
-              const safeSenderName = senderName.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
-              const safeFormattedAmount = formattedAmount.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
-              const safePlayerNames = playerNames.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
+              // Escape cho Markdown (V1) của Telegram: chỉ cần escape các ký tự markdown cơ bản
+              const safeSenderName = senderName.replace(/([_*\[\]`])/g, '\\$1');
+              const safePlayerNames = playerNames.replace(/([_*\[\]`])/g, '\\$1');
 
               await fetch('https://summary-bot-sepia.vercel.app/api/notify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   title: 'Thanh toán thành công',
-                  body: `${safeSenderName} đã thanh toán ${safeFormattedAmount} cho ${safePlayerNames}`
+                  body: `${safeSenderName} đã thanh toán ${formattedAmount} cho ${safePlayerNames}`
                 })
               });
             } catch (err) {
