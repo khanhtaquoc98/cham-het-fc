@@ -450,6 +450,8 @@ export default function Home() {
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [playerConfigs, setPlayerConfigs] = useState<PlayerConfig[]>([]);
   const [playerStats, setPlayerStats] = useState<PlayerStatsSummary[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [paymentSummary, setPaymentSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -597,11 +599,17 @@ export default function Home() {
       setLoading(false);
     }
 
-    // Phase 2: Fetch stats lazily (W/D/L shows skeleton until ready)
+    // Phase 2: Fetch stats & payment lazily
     try {
-      const statsRes = await fetch('/api/stats', { cache: 'no-store' });
+      const [statsRes, paymentRes] = await Promise.all([
+        fetch('/api/stats', { cache: 'no-store' }),
+        fetch('/api/payment', { cache: 'no-store' }),
+      ]);
       const statsData = await statsRes.json();
       setPlayerStats(statsData.players || []);
+      
+      const paymentData = await paymentRes.json();
+      setPaymentSummary(paymentData);
     } catch (err) {
       console.error('Failed to fetch stats:', err);
     } finally {
@@ -721,6 +729,22 @@ export default function Home() {
                 </div>
               </Link>
             </div>
+
+            {/* Thanh toán Button (nếu đủ thông tin) */}
+            {paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+                <Link href="/payment" style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  background: 'linear-gradient(135deg, #e53935, #ef5350)',
+                  color: 'white', padding: '12px 24px', borderRadius: '12px',
+                  textDecoration: 'none', fontWeight: 700, fontSize: '15px',
+                  boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
+                  transition: 'transform 0.2s ease'
+                }}>
+                  💳 Thanh toán trận này
+                </Link>
+              </div>
+            )}
 
             {/* Teams Grid */}
             <div className="teams-grid" style={{

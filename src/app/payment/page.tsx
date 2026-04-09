@@ -221,16 +221,18 @@ export default function PublicPaymentPage() {
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             {/* Checkbox */}
-                            <div style={{
-                              width: 22, height: 22, borderRadius: 6,
-                              border: `2px solid ${pp.isPaid ? '#2e7d32' : isSelected ? '#e53935' : '#ccc'}`,
-                              background: pp.isPaid ? '#2e7d32' : isSelected ? '#e53935' : 'white',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 13, color: 'white', fontWeight: 700,
-                              transition: 'all 0.15s', flexShrink: 0,
-                            }}>
-                              {(pp.isPaid || isSelected) && '✓'}
-                            </div>
+                            {!pp.isPaid && (
+                              <div style={{
+                                width: 22, height: 22, borderRadius: 6,
+                                border: `2px solid ${isSelected ? '#e53935' : '#ccc'}`,
+                                background: isSelected ? '#e53935' : 'white',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 13, color: 'white', fontWeight: 700,
+                                transition: 'all 0.15s', flexShrink: 0,
+                              }}>
+                                {isSelected && '✓'}
+                              </div>
+                            )}
 
                             <div>
                               <div style={{
@@ -241,7 +243,7 @@ export default function PublicPaymentPage() {
                                 {pp.playerName}
                               </div>
                               {pp.isPaid && (
-                                <div style={{ fontSize: 10, color: '#2e7d32', marginTop: 2 }}>
+                                <div style={{ fontSize: 11, color: '#2e7d32', marginTop: 2, fontWeight: 600 }}>
                                   ✅ Đã thanh toán
                                 </div>
                               )}
