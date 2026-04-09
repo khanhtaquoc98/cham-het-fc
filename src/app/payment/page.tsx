@@ -19,24 +19,32 @@ export default function PublicPaymentPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
 
+  const [checkPaidData, setCheckPaidData] = useState<any>(null);
+  const [checkPaidLoading, setCheckPaidLoading] = useState(true);
+
   const fetchData = useCallback(async () => {
+    setCheckPaidLoading(true);
     try {
-      const [matchRes, paymentRes] = await Promise.all([
+      const [matchRes, paymentRes, checkPaidRes] = await Promise.all([
         fetch('/api/match'),
         fetch('/api/payment'),
+        fetch('/api/payment/check-paid'),
       ]);
       const matchJson = await matchRes.json();
       const md = matchJson.matchData;
       const paymentData: PaymentSummary = await paymentRes.json();
+      const checkData = await checkPaidRes.json();
 
       if (md) {
         setMatchInfo({ id: md.id, teams: md.teams || [], venue: md.venue || {} });
       }
       setSummary(paymentData);
+      setCheckPaidData(checkData);
     } catch (err) {
       console.error('Failed to fetch:', err);
     } finally {
       setLoading(false);
+      setCheckPaidLoading(false);
     }
   }, []);
 
@@ -206,6 +214,31 @@ export default function PublicPaymentPage() {
             <div style={{ fontSize: 10, color: '#8a8aaa', textTransform: 'uppercase', letterSpacing: 1 }}>Sân/người</div>
             <div style={{ fontSize: 15, fontWeight: 700, color: '#2e7d32' }}>{formatVND(summary!.fieldPerPerson)}</div>
           </div>
+        </div>
+
+        {/* Check Paid Summary */}
+        <div style={{ marginBottom: 24 }}>
+          {checkPaidLoading ? (
+            <div style={{ padding: '16px 20px', borderRadius: 14, background: 'rgba(0,0,0,0.03)', animation: 'pulse 1.5s infinite' }}>
+              <div style={{ width: '40%', height: 14, background: '#e0e0e0', borderRadius: 4, marginBottom: 12 }}></div>
+              <div style={{ width: '100%', height: 6, background: '#e0e0e0', borderRadius: 3 }}></div>
+            </div>
+          ) : checkPaidData ? (
+            <div style={{ padding: '16px 20px', borderRadius: 14, background: 'white', border: '1px solid rgba(198,40,40,0.1)', boxShadow: '0 2px 8px rgba(198,40,40,0.04)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 10, color: '#4a4a6a', fontWeight: 600 }}>
+                <span>{checkPaidData.paidCount}/{checkPaidData.totalCount} đã thanh toán</span>
+                <span style={{ color: '#2e7d32' }}>{formatVND(checkPaidData.paidAmount)} / {formatVND(checkPaidData.totalAmount)}</span>
+              </div>
+              <div style={{ width: '100%', height: 6, background: '#f0f0f5', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${checkPaidData.totalAmount > 0 ? (checkPaidData.paidAmount / checkPaidData.totalAmount) * 100 : 0}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, #4caf50, #2e7d32)',
+                  transition: 'width 1s ease-in-out'
+                }}></div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Main content: 2 columns on desktop, stacked on mobile */}
