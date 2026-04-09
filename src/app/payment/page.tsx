@@ -130,6 +130,49 @@ export default function PublicPaymentPage() {
   return (
     <div style={rootStyle}>
       <Toaster position="top-center" />
+      <style dangerouslySetInnerHTML={{__html: `
+        .main-grid {
+          display: flex;
+          gap: 20px;
+          align-items: flex-start;
+          flex-wrap: wrap;
+        }
+        .left-col {
+          flex: 1;
+          min-width: 300px;
+        }
+        .invoice-card {
+          width: 320px;
+          padding: 20px;
+          background: white;
+          border-radius: 16px;
+          border: 1px solid rgba(198,40,40,0.1);
+          box-shadow: 0 4px 16px rgba(198,40,40,0.08);
+          position: sticky;
+          top: 20px;
+          flex-shrink: 0;
+        }
+        @media (max-width: 768px) {
+          .invoice-card {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            top: auto;
+            border-radius: 24px 24px 0 0;
+            z-index: 50;
+            box-shadow: 0 -8px 24px rgba(0,0,0,0.1);
+            max-height: 60vh;
+            overflow-y: auto;
+            border-bottom: none;
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+          }
+          .main-grid {
+            padding-bottom: 240px;
+          }
+        }
+      `}} />
       <div style={containerStyle}>
         <Link href="/" style={backLinkStyle}>← Trang chủ</Link>
 
@@ -166,9 +209,9 @@ export default function PublicPaymentPage() {
         </div>
 
         {/* Main content: 2 columns on desktop, stacked on mobile */}
-        <div style={mainGridStyle}>
+        <div className="main-grid">
           {/* Left: Player list by team */}
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="left-col">
             {teams.map(team => {
               const teamPlayers = playerPayments.filter(p => p.teamName === team.name);
               if (teamPlayers.length === 0) return null;
@@ -273,7 +316,7 @@ export default function PublicPaymentPage() {
 
           {/* Right: Invoice */}
           {selectedPlayers.length > 0 && (
-            <div style={invoiceCardStyle}>
+            <div className="invoice-card">
               <div style={{ fontSize: 14, fontWeight: 700, color: '#1a1a2e', marginBottom: 12 }}>
                 🧾 Hoá đơn ({selectedPlayers.length} người)
               </div>
@@ -403,23 +446,6 @@ const summaryBarStyle: React.CSSProperties = {
   background: 'white',
   border: '1px solid rgba(198,40,40,0.1)',
   boxShadow: '0 2px 8px rgba(198,40,40,0.04)',
-};
-
-const mainGridStyle: React.CSSProperties = {
-  display: 'flex', gap: 20, alignItems: 'flex-start',
-  flexWrap: 'wrap',
-};
-
-const invoiceCardStyle: React.CSSProperties = {
-  width: 280,
-  padding: '20px',
-  background: 'white',
-  borderRadius: 16,
-  border: '1px solid rgba(198,40,40,0.1)',
-  boxShadow: '0 4px 16px rgba(198,40,40,0.08)',
-  position: 'sticky',
-  top: 20,
-  flexShrink: 0,
 };
 
 const payBtnStyle: React.CSSProperties = {
