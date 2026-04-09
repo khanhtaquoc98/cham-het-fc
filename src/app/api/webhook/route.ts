@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getMatchData, saveMatchData, generateId, deleteMatchData } from '@/lib/storage';
 import { parseTeamMessage, parseVenueMessage } from '@/lib/parser';
 import { saveMatchHistory } from '@/lib/history';
+import { getOrCreateMatchPayment, updateMatchPayment, parsePrice } from '@/lib/payment';
 
 export async function POST(request: Request) {
   try {
@@ -103,10 +104,20 @@ export async function POST(request: Request) {
       }
     }
 
-    // Handle /San command - venue info or team lineup
+    // Handle /San command - venue info, team lineup, or field cost
     else if (textLower.startsWith('/san')) {
+      const sanArg = text.replace(/^\/san\s*/i, '').trim();
+
+      // Check if it's a price (e.g. /san 580k, /san 580000)
+      const price = parsePrice(sanArg);
+      if (price !== null && price > 0) {
+        const mp = await getOrCreateMatchPayment(matchData.id);
+        await updateMatchPayment(mp.id, { fieldCost: price });
+        const formatted = new Intl.NumberFormat('vi-VN').format(price);
+        replyText = `✅ Đã lưu tiền sân: ${formatted}đ`;
+      }
       // Check if it contains team lineup (has 👤)
-      if (text.includes('👤')) {
+      else if (text.includes('⚪') || text.includes('⚫') || text.includes('🟠')) {
         const teams = parseTeamMessage(text);
         if (teams.length > 0) {
           matchData.teams = teams;
@@ -135,6 +146,20 @@ export async function POST(request: Request) {
         } else {
           replyText = '❌ Không parse được thông tin sân. Format: /San 12/3 - 19h15 - Sân số 8';
         }
+      }
+    }
+
+    // Handle /nuoc command - drink cost
+    else if (textLower.startsWith('/nuoc')) {
+      const nuocArg = text.replace(/^\/nuoc\s*/i, '').trim();
+      const price = parsePrice(nuocArg);
+      if (price !== null && price > 0) {
+        const mp = await getOrCreateMatchPayment(matchData.id);
+        await updateMatchPayment(mp.id, { drinkCost: price });
+        const formatted = new Intl.NumberFormat('vi-VN').format(price);
+        replyText = `✅ Đã lưu tiền nước: ${formatted}đ`;
+      } else {
+        replyText = '❌ Format sai! Dùng: /nuoc 160k hoặc /nuoc 160000';
       }
     }
 

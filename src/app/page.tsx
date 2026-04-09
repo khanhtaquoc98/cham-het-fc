@@ -650,9 +650,9 @@ export default function Home() {
       )}
 
       {/* Theme Toggle */}
-      <button className="theme-toggle" onClick={toggleTheme} title={isDark ? 'Chuyển sang sáng' : 'Chuyển sang tối'}>
+      {/* <button className="theme-toggle" onClick={toggleTheme} title={isDark ? 'Chuyển sang sáng' : 'Chuyển sang tối'}>
         {isDark ? '☀️' : '🌙'}
-      </button>
+      </button> */}
 
       {/* Header */}
       <header className="field-header">

@@ -8,6 +8,7 @@ const navItems = [
   { href: '/admin-111/notifications', label: 'Thông báo', icon: '🔔' },
   { href: '/admin-111/players', label: 'Cầu thủ', icon: '👤' },
   { href: '/admin-111/history', label: 'Lịch sử', icon: '📊' },
+  { href: '/admin-111/payment', label: 'Thanh toán', icon: '💰' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
