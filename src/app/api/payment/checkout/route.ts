@@ -80,8 +80,8 @@ export async function POST(request: Request) {
       orderCode,
       orderId: orderData.id,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('Checkout error:', err);
-    return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 });
+    return NextResponse.json({ error: err?.message || 'Failed to create payment' }, { status: 500 });
   }
 }
