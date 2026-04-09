@@ -51,13 +51,17 @@ export async function POST(request: Request) {
 
           if (playerNames) {
             try {
+              // Escape MarkdownV2 characters (., -, !, etc) to avoid Telegram 400 errors
+              const safeSenderName = senderName.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
+              const safeFormattedAmount = formattedAmount.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
+              const safePlayerNames = playerNames.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, '\\$1');
+
               await fetch('https://summary-bot-sepia.vercel.app/api/notify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // Use absolute no-cors if needed, but normally it's server-to-server so it's fine
                 body: JSON.stringify({
                   title: 'Thanh toán thành công',
-                  body: `${senderName} đã thanh toán ${formattedAmount} cho ${playerNames}`
+                  body: `${safeSenderName} đã thanh toán ${safeFormattedAmount} cho ${safePlayerNames}`
                 })
               });
             } catch (err) {
