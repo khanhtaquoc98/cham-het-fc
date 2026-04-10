@@ -367,16 +367,12 @@ function TwoTeamMode({
 /* ────────────────────────────────
    3-TEAM MODE
    ──────────────────────────────── */
-type Phase = "pick" | "playing" | "result" | "finished";
-
-
+type Phase = "pick" | "playing" | "scoring" | "confirm" | "finished";
 
 function ThreeTeamMode({
-  onBack,
   liveMatch,
   events,
   updateMatch,
-  scoreGoal,
   addEvent,
   clearEvents
 }: {
@@ -389,30 +385,11 @@ function ThreeTeamMode({
   addEvent: (e: any) => Promise<void>;
   clearEvents: () => Promise<void>;
 }) {
-  // Silence linter until full DB integration
-  if (false) console.log(liveMatch, scoreGoal);
-  const [wins, setWins] = useState<Record<TeamColor, number>>({
-    white: 0,
-    black: 0,
-    orange: 0,
-  });
-  const [losses, setLosses] = useState<Record<TeamColor, number>>({
-    white: 0,
-    black: 0,
-    orange: 0,
-  });
-  const [draws, setDraws] = useState<Record<TeamColor, number>>({
-    white: 0,
-    black: 0,
-    orange: 0,
-  });
-  const [points, setPoints] = useState<Record<TeamColor, number>>({
-    white: 0,
-    black: 0,
-    orange: 0,
-  });
+  const [wins, setWins] = useState<Record<TeamColor, number>>({ white: 0, black: 0, orange: 0 });
+  const [losses, setLosses] = useState<Record<TeamColor, number>>({ white: 0, black: 0, orange: 0 });
+  const [draws, setDraws] = useState<Record<TeamColor, number>>({ white: 0, black: 0, orange: 0 });
+  const [points, setPoints] = useState<Record<TeamColor, number>>({ white: 0, black: 0, orange: 0 });
 
-  // Khởi tạo phase từ DB status
   const initialPhase = (): Phase => {
     if (liveMatch.status === 'finished') return 'finished';
     if (liveMatch.status === 'playing' && liveMatch.team_a_color && liveMatch.team_b_color) return 'playing';
@@ -420,45 +397,38 @@ function ThreeTeamMode({
   };
 
   const [phase, setPhase] = useState<Phase>(initialPhase);
-
-  // Picking
   const [pickedTeams, setPickedTeams] = useState<TeamColor[]>([]);
-
-  // Playing - khôi phục từ DB nếu có
   const [teamA, setTeamA] = useState<TeamColor>((liveMatch.team_a_color as TeamColor) || "white");
   const [teamB, setTeamB] = useState<TeamColor>((liveMatch.team_b_color as TeamColor) || "black");
-  const [scoreA, setScoreA] = useState(liveMatch.score_a || 0);
-  const [scoreB, setScoreB] = useState(liveMatch.score_b || 0);
   const [timeLeft, setTimeLeft] = useState(MATCH_DURATION);
   const [running, setRunning] = useState(false);
-  const [rippleA, setRippleA] = useState(false);
-  const [rippleB, setRippleB] = useState(false);
-
-  // Track entry order: the team that enteorange later (replacement) stays on draw
-  // "first" = was already on field; "second" = just enteorange
-  const [entryOrder, setEntryOrder] = useState<{
-    first: TeamColor;
-    second: TeamColor;
-  } | null>(null);
-
   const [matchNumber, setMatchNumber] = useState(1);
-
   const [isFirstMatch, setIsFirstMatch] = useState(true);
 
-  // Result overlay
-  const [resultMsg, setResultMsg] = useState("");
-  const [resultEmoji, setResultEmoji] = useState("");
+  // Manual point offsets (for editing points)
+  const [manualOffsets, setManualOffsets] = useState<Record<TeamColor, number>>({ white: 0, black: 0, orange: 0 });
+  const [editingTeam, setEditingTeam] = useState<TeamColor | null>(null);
+  const [editValue, setEditValue] = useState(0);
+
+  // Score selection
+  const [selectedScore, setSelectedScore] = useState<{ a: number; b: number } | null>(null);
+
+  // Next match teams (editable in confirm modal)
+  const [nextA, setNextA] = useState<TeamColor>("white");
+  const [nextB, setNextB] = useState<TeamColor>("black");
+
+  // Track entry order for draw logic
+  const [entryOrder, setEntryOrder] = useState<{ first: TeamColor; second: TeamColor } | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Rehydrate wins/losses/draws/points từ events (chạy lại khi events thay đổi từ realtime)
+  // ──── Rehydrate stats from events ────
   useEffect(() => {
     const endEvents = events.filter(e => e.event_type === 'end');
-
-    const newWins: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
-    const newLosses: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
-    const newDraws: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
-    const newPoints: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
+    const w: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
+    const l: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
+    const d: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
+    const p: Record<TeamColor, number> = { white: 0, black: 0, orange: 0 };
 
     for (const ev of endEvents) {
       const parts = (ev.timestamp_minute || '').split('|');
@@ -467,277 +437,125 @@ function ThreeTeamMode({
       if (!TEAMS[tA] || !TEAMS[tB]) continue;
 
       if (ev.team_color === 'draw') {
-        newDraws[tA]++;
-        newDraws[tB]++;
-        newPoints[tA] += 1;
-        newPoints[tB] += 1;
+        d[tA]++; d[tB]++;
+        p[tA] += 1; p[tB] += 1;
       } else {
         const winner = ev.team_color as TeamColor;
         const loser = winner === tA ? tB : tA;
-        newWins[winner]++;
-        newLosses[loser]++;
-        newPoints[winner] += 3;
+        w[winner]++; l[loser]++;
+        p[winner] += 3;
       }
     }
-
-    setWins(newWins);
-    setLosses(newLosses);
-    setDraws(newDraws);
-    setPoints(newPoints);
+    setWins(w); setLosses(l); setDraws(d); setPoints(p);
     setMatchNumber(endEvents.length + 1);
     if (endEvents.length > 0) setIsFirstMatch(false);
   }, [events]);
 
-  // Đồng bộ scores từ liveMatch realtime (khi thiết bị khác ghi bàn)
-  useEffect(() => {
-    if (phase === 'playing') {
-      setScoreA(liveMatch.score_a || 0);
-      setScoreB(liveMatch.score_b || 0);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveMatch.score_a, liveMatch.score_b]);
-
-  // Đồng bộ teams từ liveMatch realtime
+  // Sync teams from liveMatch realtime
   useEffect(() => {
     if (liveMatch.team_a_color) setTeamA(liveMatch.team_a_color as TeamColor);
     if (liveMatch.team_b_color) setTeamB(liveMatch.team_b_color as TeamColor);
   }, [liveMatch.team_a_color, liveMatch.team_b_color]);
 
-  // Đồng bộ phase/status từ liveMatch realtime
+  // Sync phase from liveMatch realtime
   useEffect(() => {
-    if (liveMatch.status === 'finished' && phase !== 'finished' && phase !== 'result') {
-      setPhase('finished');
-      setRunning(false);
+    if (liveMatch.status === 'finished' && phase !== 'finished') {
+      setPhase('finished'); setRunning(false);
     } else if (liveMatch.status === 'waiting' && !liveMatch.team_a_color && !liveMatch.team_b_color && phase !== 'pick') {
-      // Full reset from another device
-      setPhase('pick');
-      setRunning(false);
+      setPhase('pick'); setRunning(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveMatch.status, liveMatch.team_a_color, liveMatch.team_b_color]);
 
-  /* Timer */
+  // ──── Timer ────
   useEffect(() => {
     if (running && timeLeft > 0) {
-      timerRef.current = setInterval(() => {
-        setTimeLeft((t) => t - 1);
-      }, 1000);
+      timerRef.current = setInterval(() => setTimeLeft(t => t - 1), 1000);
     }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [running, timeLeft]);
 
-  /* Time up detection */
   useEffect(() => {
     if (timeLeft <= 0 && running) {
       setRunning(false);
-      handleTimeUp();
+      playBellSound();
+      setPhase("scoring");
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [timeLeft, running]);
 
   const getWaitingTeam = useCallback((): TeamColor => {
-    return ALL_COLORS.find((c) => c !== teamA && c !== teamB)!;
+    return ALL_COLORS.find(c => c !== teamA && c !== teamB)!;
   }, [teamA, teamB]);
 
-  /* Handle scoring */
-  const handleGoal = (side: "A" | "B") => {
-    if (!running) return;
+  const getDisplayPoints = (c: TeamColor) => points[c] + (manualOffsets[c] || 0);
 
-    if (side === "A") {
-      const newScore = scoreA + 1;
-      setScoreA(newScore);
-      setRippleA(true);
-      setTimeout(() => setRippleA(false), 500);
-      
-      // Update DB real-time
-      updateMatch({ score_a: newScore, score_b: scoreB, team_a_color: teamA, team_b_color: teamB });
-
-      // Sync score to DB realtime
-      updateMatch({ score_a: newScore, score_b: scoreB });
-
-      if (newScore >= WIN_GOALS) {
-        setRunning(false);
-        finishMatch(teamA, teamB, newScore, scoreB);
-      }
-    } else {
-      const newScore = scoreB + 1;
-      setScoreB(newScore);
-      setRippleB(true);
-      setTimeout(() => setRippleB(false), 500);
-
-      // Update DB real-time
-      updateMatch({ score_a: scoreA, score_b: newScore, team_a_color: teamA, team_b_color: teamB });
-
-      if (newScore >= WIN_GOALS) {
-        setRunning(false);
-        finishMatch(teamA, teamB, scoreA, newScore);
-      }
-    }
+  // ──── End current match manually ────
+  const handleEndMatch = () => {
+    stopBellSound();
+    setRunning(false);
+    setPhase("scoring");
   };
 
-  /* Time up logic */
-  const handleTimeUp = () => {
-    playBellSound();
-    
-    if (scoreA === scoreB) {
-      // Draw → mỗi đội +1 điểm
-      setDraws((prev) => ({ ...prev, [teamA]: prev[teamA] + 1, [teamB]: prev[teamB] + 1 }));
-      setPoints((prev) => ({ ...prev, [teamA]: prev[teamA] + 1, [teamB]: prev[teamB] + 1 }));
+  // ──── Select score → compute next teams → go to confirm ────
+  const handleScoreSelect = (sA: number, sB: number) => {
+    setSelectedScore({ a: sA, b: sB });
 
+    let staying: TeamColor;
+
+    if (sA > sB) {
+      staying = teamA;
+    } else if (sB > sA) {
+      staying = teamB;
+    } else {
+      // DRAW
       if (isFirstMatch) {
-        // First match draw → random team exits, not counted as loss
-        const randomSide = Math.random() < 0.5 ? "A" : "B";
-        const stayTeam = randomSide === "A" ? teamB : teamA;
-        const leaveTeam = randomSide === "A" ? teamA : teamB;
-        const waiting = getWaitingTeam();
-
-        setResultEmoji("🎲");
-        setResultMsg(
-          `Hoà ${scoreA}-${scoreB}! (+1đ mỗi đội)\n Trận đầu tiên → Random: ${TEAMS[leaveTeam].emoji} ${TEAMS[leaveTeam].label} ra. ${TEAMS[waiting].emoji} ${TEAMS[waiting].label} vào thay.`
-        );
-        setPhase("result");
-
-        // LƯU LỊCH SỬ: Trận hoà đầu tiên
-        addEvent({
-          event_type: 'end',
-          team_color: 'draw',
-          current_score_a: scoreA,
-          current_score_b: scoreB,
-          timestamp_minute: `${teamA}|${teamB}`
-        });
-
-        // Next match: stayTeam vs waiting
-        setTimeout(() => {
-          setupNextMatch(stayTeam, waiting, stayTeam);
-        }, 100);
+        staying = Math.random() < 0.5 ? teamA : teamB;
       } else {
-        // Not first match → team that enteorange earlier (first) loses
-        const first = entryOrder?.first;
-        const second = entryOrder?.second;
-        if (first && second) {
-          const waiting = getWaitingTeam();
-
-          // first team loses (0đ), second wins (+3đ)
-          setLosses((prev) => ({ ...prev, [first]: prev[first] + 1 }));
-          setWins((prev) => ({ ...prev, [second]: prev[second] + 1 }));
-          setPoints((prev) => ({ ...prev, [second]: prev[second] + 3 }));
-
-
-          setResultEmoji("⏱️");
-          setResultMsg(
-            `Hết giờ! Hoà ${scoreA}-${scoreB}.\n ${TEAMS[first].emoji} ${TEAMS[first].label} vào trước → thua. ${TEAMS[waiting].emoji} ${TEAMS[waiting].label} vào thay.`
-          );
-          setPhase("result");
-
-          // LƯU LỊCH SỬ: Hoà nhưng đội vào trước thua
-          addEvent({
-            event_type: 'end',
-            team_color: second,
-            current_score_a: scoreA,
-            current_score_b: scoreB,
-            timestamp_minute: `${teamA}|${teamB}`
-          });
-
-          setTimeout(() => {
-            setupNextMatch(second, waiting, second);
-          }, 100);
-        }
+        // Team mới vào (second) được giữ lại
+        staying = entryOrder?.second === teamA ? teamA : teamB;
       }
-    } else {
-      // Someone won on time
-      const winner = scoreA > scoreB ? teamA : teamB;
-      const loser = scoreA > scoreB ? teamB : teamA;
-      const waiting = getWaitingTeam();
-
-      setWins((prev) => ({ ...prev, [winner]: prev[winner] + 1 }));
-      setLosses((prev) => ({ ...prev, [loser]: prev[loser] + 1 }));
-      setPoints((prev) => ({ ...prev, [winner]: prev[winner] + 3 }));
-
-
-      setResultEmoji("🏆");
-      setResultMsg(
-        `Hết giờ! ${TEAMS[winner].emoji} ${TEAMS[winner].label} thắng ${scoreA > scoreB ? scoreA : scoreB}-${scoreA > scoreB ? scoreB : scoreA}.\n ${TEAMS[waiting].emoji} ${TEAMS[waiting].label} vào thay ${TEAMS[loser].emoji} ${TEAMS[loser].label}.`
-      );
-      setPhase("result");
-
-      // LƯU LỊCH SỬ: Thắng theo thời gian
-      addEvent({
-        event_type: 'end',
-        team_color: winner,
-        current_score_a: scoreA,
-        current_score_b: scoreB,
-        timestamp_minute: `${teamA}|${teamB}`
-      });
-
-      setTimeout(() => {
-        setupNextMatch(winner, waiting, winner);
-      }, 100);
     }
+
+    const waiting = getWaitingTeam();
+    setNextA(staying);
+    setNextB(waiting);
+    setPhase("confirm");
   };
 
-  /* Finish match when someone scores 2 goals */
-  const finishMatch = (
-    tA: TeamColor,
-    tB: TeamColor,
-    sA: number,
-    sB: number
-  ) => {
-    const winner = sA >= WIN_GOALS ? tA : tB;
-    const loser = sA >= WIN_GOALS ? tB : tA;
-    const waiting = getWaitingTeam();
+  // ──── Confirm result → save event & setup next ────
+  const handleConfirm = () => {
+    if (!selectedScore) return;
+    const { a: sA, b: sB } = selectedScore;
+    const winner = sA > sB ? teamA : sB > sA ? teamB : 'draw';
 
-    setWins((prev) => ({ ...prev, [winner]: prev[winner] + 1 }));
-    setLosses((prev) => ({ ...prev, [loser]: prev[loser] + 1 }));
-    setPoints((prev) => ({ ...prev, [winner]: prev[winner] + 3 }));
-
-
-    setResultEmoji("⚽");
-    setResultMsg(
-      `${TEAMS[winner].emoji} ${TEAMS[winner].label} ghi ${WIN_GOALS} bàn trước!\n Thắng ${sA >= WIN_GOALS ? sA : sB}-${sA >= WIN_GOALS ? sB : sA}. ${TEAMS[waiting].emoji} ${TEAMS[waiting].label} vào thay ${TEAMS[loser].emoji} ${TEAMS[loser].label}.`
-    );
-    setPhase("result");
-
-    // LƯU LỊCH SỬ VÀO SUPABASE
     addEvent({
       event_type: 'end',
       team_color: winner,
       current_score_a: sA,
       current_score_b: sB,
-      timestamp_minute: `${tA}|${tB}`
+      timestamp_minute: `${teamA}|${teamB}`
     });
 
-    setTimeout(() => {
-      setupNextMatch(winner, waiting, winner);
-    }, 100);
-  };
-
-
-
-  const setupNextMatch = (
-    staying: TeamColor,
-    incoming: TeamColor,
-    firstTeam: TeamColor
-  ) => {
-    setTeamA(staying);
-    setTeamB(incoming);
-    setScoreA(0);
-    setScoreB(0);
+    // Setup next match
+    setTeamA(nextA);
+    setTeamB(nextB);
     setTimeLeft(MATCH_DURATION);
     setRunning(false);
-    setEntryOrder({ first: firstTeam, second: incoming });
-    setMatchNumber((n) => n + 1);
+    setEntryOrder({ first: nextA, second: nextB });
+    setMatchNumber(n => n + 1);
     setIsFirstMatch(false);
-    
-    // Cập nhật đội mới reset điểm DB
-    updateMatch({ score_a: 0, score_b: 0, team_a_color: staying, team_b_color: incoming });
+    updateMatch({ score_a: 0, score_b: 0, team_a_color: nextA, team_b_color: nextB });
+
+    setSelectedScore(null);
+    setPhase("playing");
+    stopBellSound();
   };
 
-  /* Handle picking teams */
+  // ──── Pick phase ────
   const togglePick = (c: TeamColor) => {
-    setPickedTeams((prev) => {
-      if (prev.includes(c)) return prev.filter((x) => x !== c);
+    setPickedTeams(prev => {
+      if (prev.includes(c)) return prev.filter(x => x !== c);
       if (prev.length >= 2) return prev;
       return [...prev, c];
     });
@@ -747,133 +565,229 @@ function ThreeTeamMode({
     if (pickedTeams.length !== 2) return;
     setTeamA(pickedTeams[0]);
     setTeamB(pickedTeams[1]);
-    setScoreA(0);
-    setScoreB(0);
     setTimeLeft(MATCH_DURATION);
     setRunning(false);
     setEntryOrder(null);
     setIsFirstMatch(true);
     setMatchNumber(1);
     setPhase("playing");
-    
-    // Đồng bộ lên DB đội đầu tiên ra sân và status playing
     updateMatch({ status: 'playing', score_a: 0, score_b: 0, team_a_color: pickedTeams[0], team_b_color: pickedTeams[1] });
-  };
-
-  const continueToNextMatch = () => {
-    stopBellSound();
-    setPhase("playing");
   };
 
   const resetAll = () => {
     stopBellSound();
-    clearEvents(); // Xóa lịch sử trên DB
+    clearEvents();
     setPhase("pick");
     setPickedTeams([]);
     setWins({ white: 0, black: 0, orange: 0 });
     setLosses({ white: 0, black: 0, orange: 0 });
     setDraws({ white: 0, black: 0, orange: 0 });
     setPoints({ white: 0, black: 0, orange: 0 });
-
+    setManualOffsets({ white: 0, black: 0, orange: 0 });
     setMatchNumber(1);
     setIsFirstMatch(true);
-    setScoreA(0);
-    setScoreB(0);
     setTimeLeft(MATCH_DURATION);
     setRunning(false);
     setEntryOrder(null);
-
-    // Đồng bộ trạng thái reset lên DB để thiết bị khác thấy
     updateMatch({ score_a: 0, score_b: 0, status: 'waiting', team_a_color: null, team_b_color: null, time_elapsed: 0 });
   };
 
-  const resetCurrentMatch = () => {
-    if (!confirm('Reset tỉ số trận hiện tại về 0-0?')) return;
-    setScoreA(0);
-    setScoreB(0);
-    updateMatch({ score_a: 0, score_b: 0 });
+  // ──── Stats bar (reusable) ────
+  const StatsBar = () => (
+    <div className="mn-stats-bar" style={{ marginBottom: 8, marginTop: 12 }}>
+      {ALL_COLORS.map(c => (
+        <div key={c} className="mn-stat-chip" style={{ borderColor: TEAMS[c].bg === "#f5f5f5" ? "#ccc" : TEAMS[c].bg }}>
+          <span>{TEAMS[c].emoji}</span>
+          <span className="mn-stat-name">{TEAMS[c].label}</span>
+          <span
+            style={{ color: 'var(--text-primary)', fontWeight: 'bold', cursor: 'pointer', borderBottom: '1px dashed currentColor' }}
+            onClick={() => { setEditingTeam(c); setEditValue(getDisplayPoints(c)); }}
+          >
+            {getDisplayPoints(c)}đ
+          </span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>| {wins[c]}W-{losses[c]}L-{draws[c]}D</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  // ──── Edit points modal ────
+  const EditPointsModal = () => {
+    if (!editingTeam) return null;
+    return (
+      <div className="mn-result-overlay" onClick={() => setEditingTeam(null)}>
+        <div className="mn-result-card" onClick={e => e.stopPropagation()} style={{ padding: '28px 24px' }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>{TEAMS[editingTeam].emoji}</div>
+          <h3 style={{ marginTop: 0, marginBottom: 20, fontSize: 16, fontWeight: 700 }}>Sửa điểm {TEAMS[editingTeam].label}</h3>
+          <input
+            type="number"
+            value={editValue}
+            onChange={e => setEditValue(parseInt(e.target.value) || 0)}
+            autoFocus
+            style={{ fontSize: 32, padding: '12px 16px', textAlign: 'center', width: 100, borderRadius: 12, border: '2px solid var(--border-subtle)', marginBottom: 24, outline: 'none', fontWeight: 700 }}
+          />
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={() => setEditingTeam(null)} className="mn-reset-btn" style={{ flex: 1, padding: '12px 24px', fontSize: 14, borderRadius: 12 }}>Huỷ</button>
+            <button
+              onClick={() => {
+                setManualOffsets(prev => ({ ...prev, [editingTeam!]: editValue - points[editingTeam!] }));
+                setEditingTeam(null);
+              }}
+              className="mn-start-btn"
+              style={{ flex: 1, padding: '12px 24px', fontSize: 14, borderRadius: 12 }}
+            >
+              ✅ Lưu
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   /* ── Render: Pick Phase ── */
   if (phase === "pick") {
     return (
       <div className="three-team-container">
-        <div style={{ padding: '8px 0' }}>
-          <button className="mn-reset-btn" onClick={() => { stopBellSound(); onBack(); }}>
-            ← Chọn lại
-          </button>
-        </div>
-        <div className="mn-stats-bar" style={{ marginBottom: 8 }}>
-            {ALL_COLORS.map((c) => (
-              <div key={c} className="mn-stat-chip" style={{ borderColor: TEAMS[c].bg === "#f5f5f5" ? "#ccc" : TEAMS[c].bg }}>
-                <span>{TEAMS[c].emoji}</span>
-                <span className="mn-stat-name">{TEAMS[c].label}</span>
-                <span style={{color:'var(--text-primary)',fontWeight:'bold'}}>{points[c]}đ</span>
-                <span style={{color:'var(--text-muted)',fontSize:'0.85em'}}>| {wins[c]}W-{losses[c]}L-{draws[c]}D</span>
-              </div>
-            ))}
-        </div>
+        <EditPointsModal />
+        <StatsBar />
 
         <div className="mn-pick-title">
           🏟️ Chọn 2 đội đá trận {matchNumber > 1 ? `#${matchNumber}` : "đầu tiên"}
         </div>
 
         <div className="mn-pick-grid">
-          {ALL_COLORS.map((c) => (
+          {ALL_COLORS.map(c => (
             <button
               key={c}
               className={`mn-pick-card ${pickedTeams.includes(c) ? "picked" : ""}`}
               style={{
                 background: TEAMS[c].bg,
                 color: TEAMS[c].textColor,
-                borderColor: pickedTeams.includes(c)
-                  ? "#ffd700"
-                  : TEAMS[c].borderColor,
+                borderColor: pickedTeams.includes(c) ? "#ffd700" : TEAMS[c].borderColor,
               }}
               onClick={() => togglePick(c)}
             >
               <span className="mn-pick-emoji">{TEAMS[c].emoji}</span>
               <span className="mn-pick-name">{TEAMS[c].label}</span>
-              {pickedTeams.includes(c) && (
-                <span className="mn-pick-check">✓</span>
-              )}
+              {pickedTeams.includes(c) && <span className="mn-pick-check">✓</span>}
             </button>
           ))}
         </div>
 
-        <button
-          className="mn-start-btn"
-          disabled={pickedTeams.length !== 2}
-          onClick={startFirstMatch}
-        >
+        <button className="mn-start-btn" disabled={pickedTeams.length !== 2} onClick={startFirstMatch}>
           ⚽ Bắt đầu trận đấu
         </button>
-
-
       </div>
     );
   }
 
-  /* ── Render: Result Phase ── */
-  if (phase === "result") {
+  /* ── Render: Scoring Phase ── */
+  if (phase === "scoring") {
+    const SCORES: [number, number][] = [[0,0],[1,0],[1,1],[2,0],[2,1],[1,2],[0,1],[0,2]];
     return (
       <div className="three-team-container">
+        <EditPointsModal />
+        <StatsBar />
+
         <div className="mn-result-overlay">
-          <div className="mn-result-card">
-            <span className="mn-result-emoji">{resultEmoji}</span>
-            <p className="mn-result-msg">{resultMsg}</p>
+          <div className="mn-result-card" style={{ padding: '28px 24px' }}>
+            <h2 style={{ margin: '0 0 8px 0', fontSize: 17, fontWeight: 800, color: 'var(--text-primary)' }}>
+              Chọn tỉ số trận #{matchNumber}
+            </h2>
+            <p style={{ margin: '0 0 20px 0', fontSize: 14, color: 'var(--text-muted)' }}>
+              {TEAMS[teamA].emoji} {TEAMS[teamA].label} vs {TEAMS[teamB].emoji} {TEAMS[teamB].label}
+            </p>
 
-            <button className="mn-start-btn" onClick={continueToNextMatch} style={{ marginTop: 20 }}>
-              ▶ Trận tiếp theo #{matchNumber}
-            </button>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+              {SCORES.map(([sA, sB]) => (
+                <button
+                  key={`${sA}-${sB}`}
+                  className="mn-score-btn"
+                  onClick={() => handleScoreSelect(sA, sB)}
+                >
+                  {sA} - {sB}
+                </button>
+              ))}
+            </div>
 
-            <button
-              className="mn-reset-btn"
-              style={{ marginTop: 10 }}
-              onClick={resetAll}
-            >
-              🔄 Reset tất cả
+            <button className="mn-reset-btn" onClick={() => setPhase("playing")} style={{ marginTop: 16, width: '100%', padding: '12px', borderRadius: 12, fontSize: 14 }}>
+              ← Quay lại trận đấu
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Render: Confirm Phase ── */
+  if (phase === "confirm" && selectedScore) {
+    const { a: sA, b: sB } = selectedScore;
+    const isDraw = sA === sB;
+    const resultText = isDraw
+      ? "Hoà"
+      : sA > sB
+        ? `${TEAMS[teamA].emoji} ${TEAMS[teamA].label} Thắng`
+        : `${TEAMS[teamB].emoji} ${TEAMS[teamB].label} Thắng`;
+
+    return (
+      <div className="three-team-container">
+        <EditPointsModal />
+
+        <div className="mn-result-overlay">
+          <div className="mn-result-card" onClick={e => e.stopPropagation()} style={{ padding: '28px 24px' }}>
+            <h2 style={{ marginTop: 0, marginBottom: 20, textAlign: 'center', fontSize: 17, fontWeight: 800 }}>Xác nhận kết quả</h2>
+
+            {/* Score display */}
+            <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', background: isDraw ? 'linear-gradient(135deg, #f5f5f5, #eeeeee)' : sA > sB ? `linear-gradient(135deg, ${TEAMS[teamA].bg}15, ${TEAMS[teamA].bg}08)` : `linear-gradient(135deg, ${TEAMS[teamB].bg}08, ${TEAMS[teamB].bg}15)`, padding: '20px 16px', borderRadius: 16, marginBottom: 12, border: '1px solid var(--border-subtle)' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 32 }}>{TEAMS[teamA].emoji}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>{TEAMS[teamA].label}</div>
+              </div>
+              <div style={{ fontSize: 40, fontWeight: 900, letterSpacing: 6, color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                {sA} - {sB}
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 32 }}>{TEAMS[teamB].emoji}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 4 }}>{TEAMS[teamB].label}</div>
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: isDraw ? '#f57c00' : '#2e7d32', marginBottom: 20, padding: '6px 16px', borderRadius: 20, background: isDraw ? 'rgba(245,124,0,0.08)' : 'rgba(46,125,50,0.08)', display: 'inline-block' }}>
+              {isDraw ? '🤝 ' : '🏆 '}{resultText}
+            </div>
+
+            {/* Next match editor */}
+            <div style={{ background: 'rgba(0,0,0,0.03)', padding: '14px 16px', borderRadius: 14, marginBottom: 24, border: '1px solid rgba(0,0,0,0.04)' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Trận tiếp theo #{matchNumber + 1}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <select
+                  value={nextA}
+                  onChange={e => setNextA(e.target.value as TeamColor)}
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', fontSize: 14, background: 'white', fontWeight: 600 }}
+                >
+                  {ALL_COLORS.map(c => <option key={c} value={c}>{TEAMS[c].emoji} {TEAMS[c].label}</option>)}
+                </select>
+                <span style={{ fontWeight: 800, color: '#bbb', fontSize: 12 }}>VS</span>
+                <select
+                  value={nextB}
+                  onChange={e => setNextB(e.target.value as TeamColor)}
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-subtle)', fontSize: 14, background: 'white', fontWeight: 600 }}
+                >
+                  {ALL_COLORS.map(c => <option key={c} value={c}>{TEAMS[c].emoji} {TEAMS[c].label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+              <button onClick={() => { setSelectedScore(null); setPhase("scoring"); }} className="mn-reset-btn" style={{ flex: 1, padding: '14px', borderRadius: 12, fontSize: 14 }}>
+                Quay lại
+              </button>
+              <button onClick={handleConfirm} className="mn-start-btn" style={{ flex: 1, padding: '14px', borderRadius: 12, fontSize: 14 }}>
+                ✅ Xác nhận
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -883,58 +797,50 @@ function ThreeTeamMode({
   /* ── Render: Finished Phase ── */
   if (phase === "finished") {
     return (
-      <div className="three-team-container" style={{ textAlign: "center" }}>        
-        <div className="mn-stats-bar" style={{ marginTop: 10, minHeight: 30, justifyContent: 'center' }}>
-          {ALL_COLORS.map((c) => (
-            <div key={c} className="mn-stat-chip" style={{ borderColor: TEAMS[c].bg === "#f5f5f5" ? "#ccc" : TEAMS[c].bg }}>
-              <span>{TEAMS[c].emoji}</span>
-              <span className="mn-stat-name">{TEAMS[c].label}</span>
-              <span style={{color:'var(--text-primary)',fontWeight:'bold'}}>{points[c]}đ</span>
-              <span style={{color:'var(--text-muted)',fontSize:'0.85em'}}>| {wins[c]}W-{losses[c]}L-{draws[c]}D</span>
-            </div>
-          ))}
-        </div>
+      <div className="three-team-container" style={{ textAlign: "center" }}>
+        <EditPointsModal />
+        <StatsBar />
 
-        <div style={{ marginTop: 30, maxWidth: 500, marginLeft: 'auto', marginRight: 'auto', background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
-           <div style={{ maxHeight: '66vh', overflowY: 'auto' }}>
-             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-               <thead>
-                 <tr style={{ borderBottom: '1px solid var(--border-subtle)', position: 'sticky', top: 0, background: 'var(--bg-card)' }}>
-                   <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Trận</th>
-                   <th style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>Tỉ số</th>
-                   <th style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>Kết quả</th>
-                 </tr>
-               </thead>
-               <tbody>
-                 {events.filter(e => e.event_type === 'end').map((ev, i) => {
-                   const parts = (ev.timestamp_minute || '').split('|');
-                   const tA = parts[0] as TeamColor;
-                   const tB = parts[1] as TeamColor;
-                   const isDraw = ev.team_color === 'draw';
-                   const winnerLabel = isDraw ? 'Hoà' : `${TEAMS[ev.team_color as TeamColor]?.label} Thắng`;
-                   const matchLabel = (TEAMS[tA] && TEAMS[tB])
-                     ? `${TEAMS[tA].label} - ${TEAMS[tB].label}`
-                     : '---';
-                   return (
-                     <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                       <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
-                         <span style={{ color: 'var(--text-muted)', marginRight: 4 }}>#{i + 1}:</span> {matchLabel}
-                       </td>
-                       <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                         {ev.current_score_a} - {ev.current_score_b}
-                       </td>
-                       <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 'bold', color: isDraw ? 'var(--text-muted)' : '#2e7d32' }}>
-                         {!isDraw && TEAMS[ev.team_color as TeamColor]?.emoji} {winnerLabel}
-                       </td>
-                     </tr>
-                   );
-                 })}
-               </tbody>
-             </table>
-             {events.filter(e => e.event_type === 'end').length === 0 && (
-               <div style={{ color: 'var(--text-muted)', fontSize: 14, padding: 16, textAlign: 'center' }}>Chưa có trận đấu nào.</div>
-             )}
-           </div>
+        <div style={{ marginTop: 20, maxWidth: 500, marginLeft: 'auto', marginRight: 'auto', background: 'var(--bg-card)', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ maxHeight: '66vh', overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--border-subtle)', position: 'sticky', top: 0, background: 'var(--bg-card)' }}>
+                  <th style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text-muted)', fontWeight: 600 }}>Trận</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>Tỉ số</th>
+                  <th style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--text-muted)', fontWeight: 600 }}>Kết quả</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.filter(e => e.event_type === 'end').map((ev, i) => {
+                  const parts = (ev.timestamp_minute || '').split('|');
+                  const tA = parts[0] as TeamColor;
+                  const tB = parts[1] as TeamColor;
+                  const isDraw = ev.team_color === 'draw';
+                  const winnerLabel = isDraw ? 'Hoà' : `${TEAMS[ev.team_color as TeamColor]?.label} Thắng`;
+                  const matchLabel = (TEAMS[tA] && TEAMS[tB])
+                    ? `${TEAMS[tA].label} - ${TEAMS[tB].label}`
+                    : '---';
+                  return (
+                    <tr key={i} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                      <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
+                        <span style={{ color: 'var(--text-muted)', marginRight: 4 }}>#{i + 1}:</span> {matchLabel}
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                        {ev.current_score_a} - {ev.current_score_b}
+                      </td>
+                      <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 'bold', color: isDraw ? 'var(--text-muted)' : '#2e7d32' }}>
+                        {!isDraw && TEAMS[ev.team_color as TeamColor]?.emoji} {winnerLabel}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {events.filter(e => e.event_type === 'end').length === 0 && (
+              <div style={{ color: 'var(--text-muted)', fontSize: 14, padding: 16, textAlign: 'center' }}>Chưa có trận đấu nào.</div>
+            )}
+          </div>
         </div>
 
         <button className="mn-reset-score-btn" onClick={resetAll} style={{ marginTop: 24 }}>
@@ -951,81 +857,56 @@ function ThreeTeamMode({
 
   return (
     <div className="three-team-container">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0' }}>
-          <button className="mn-reset-btn" onClick={() => { stopBellSound(); setRunning(false); updateMatch({ status: 'waiting' }); setPhase("pick"); }}>
-            ← Quay lại
-          </button>
-          <button className="mn-reset-btn" onClick={resetCurrentMatch} style={{ background: 'rgba(255,152,0,0.15)', color: '#e65100', border: '1px solid rgba(255,152,0,0.3)' }}>
-            ↩ Reset trận
-          </button>
-          <button className="mn-reset-btn" onClick={() => { 
-            stopBellSound(); 
-            setRunning(false); 
-            // Chỉ lưu trận dang dở nếu đã nhấn Bắt đầu (timer đã chạy) hoặc có bàn thắng
-            if (scoreA > 0 || scoreB > 0 || timeLeft < MATCH_DURATION) {
-              const winner = scoreA > scoreB ? teamA : scoreB > scoreA ? teamB : 'draw';
-              addEvent({
-                event_type: 'end',
-                team_color: winner,
-                current_score_a: scoreA,
-                current_score_b: scoreB,
-                timestamp_minute: `${teamA}|${teamB}`
-              });
-            }
-            updateMatch({ status: 'finished' });
-            setPhase("finished"); 
-          }} style={{ background: '#d32f2f', color: '#fff', border: 'none' }}>
-             Kết thúc giải
-          </button>
-        </div>
-        <div className="mn-stats-bar" style={{ marginBottom: 8 }}>
-          {ALL_COLORS.map((c) => (
-            <div key={c} className="mn-stat-chip" style={{ borderColor: TEAMS[c].bg === "#f5f5f5" ? "#ccc" : TEAMS[c].bg }}>
-              <span>{TEAMS[c].emoji}</span>
-              <span className="mn-stat-name">{TEAMS[c].label}</span>
-              <span style={{color:'var(--text-primary)',fontWeight:'bold'}}>{points[c]}đ</span>
-              <span style={{color:'var(--text-muted)',fontSize:'0.85em'}}>| {wins[c]}W-{losses[c]}L-{draws[c]}D</span>
-            </div>
-          ))}
-        </div>
+      <EditPointsModal />
 
-      {/* Match info and Progress */}
+      {/* Top bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', flexWrap: 'wrap' }}>
+        <button className="mn-reset-btn" onClick={() => { stopBellSound(); setRunning(false); updateMatch({ status: 'waiting' }); setPhase("pick"); }}>
+          ← Quay lại
+        </button>
+        <button className="mn-reset-btn" onClick={handleEndMatch} style={{ background: '#d32f2f', color: '#fff', border: 'none' }}>
+          ⏹ Kết thúc trận
+        </button>
+        <button className="mn-reset-btn" onClick={() => {
+          stopBellSound(); setRunning(false);
+          if (timeLeft < MATCH_DURATION) {
+            addEvent({ event_type: 'end', team_color: 'draw', current_score_a: 0, current_score_b: 0, timestamp_minute: `${teamA}|${teamB}` });
+          }
+          updateMatch({ status: 'finished' }); setPhase("finished");
+        }} style={{ background: 'rgba(255,152,0,0.15)', color: '#e65100', border: '1px solid rgba(255,152,0,0.3)' }}>
+          🏁 Kết thúc giải
+        </button>
+      </div>
+
+      <StatsBar />
+
+      {/* Match info */}
       <div className="mn-match-info" style={{ marginBottom: '8px' }}>
         <span>Trận #{matchNumber}</span>
         <span className="mn-waiting-badge">
           {TEAMS[waiting].emoji} {TEAMS[waiting].label} đang chờ
         </span>
       </div>
+
+      {/* Timer bar */}
       <div className="mn-timer-bar" style={{ marginBottom: '16px' }}>
-        <div
-          className="mn-timer-fill"
-          style={{ width: `${timerPercent}%` }}
-        />
+        <div className="mn-timer-fill" style={{ width: `${timerPercent}%` }} />
       </div>
 
-      {/* Main Grid: 3 Parts */}
+      {/* Main grid: Team A | Timer + Controls | Team B */}
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto minmax(0,1fr)', gap: '12px', flex: 1, minHeight: 0 }}>
-        
         {/* Team A */}
-        <button
-          className={`two-team-box ${rippleA ? "ripple" : ""}`}
-          style={{
-            background: TEAMS[teamA].bg,
-            color: TEAMS[teamA].textColor,
-            borderColor: TEAMS[teamA].borderColor,
-            height: '100%'
-          }}
-          onClick={() => handleGoal("A")}
-          disabled={!running}
+        <div
+          className="two-team-box"
+          style={{ background: TEAMS[teamA].bg, color: TEAMS[teamA].textColor, borderColor: TEAMS[teamA].borderColor, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'default' }}
         >
-          <span className="two-team-box-score">{scoreA}</span>
-          <span className="two-team-box-label">
-            {TEAMS[teamA].emoji} {TEAMS[teamA].label}
+          <span className="two-team-box-label" style={{ textAlign: 'center', lineHeight: 1.4 }}>
+            <span style={{ fontSize: 36 }}>{TEAMS[teamA].emoji}</span><br/>
+            {TEAMS[teamA].label}
           </span>
-        
-        </button>
+        </div>
 
-        {/* Middle Column: Timer + Play btn */}
+        {/* Center: Timer + Play */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '0 8px' }}>
           <span className={`mn-timer-text ${isUrgent ? "urgent" : ""}`} style={{ fontSize: 'min(40px, 8vw)', padding: 0 }}>
             {formatTime(timeLeft)}
@@ -1034,8 +915,8 @@ function ThreeTeamMode({
             className="mn-play-round-btn"
             onClick={() => { const next = !running; setRunning(next); updateMatch({ status: next ? 'playing' : 'waiting' }); }}
             style={{
-               background: running ? 'linear-gradient(135deg, #c62828, #e53935)' : 'linear-gradient(135deg, #2e7d32, #4caf50)',
-               boxShadow: running ? '0 4px 12px rgba(229, 57, 53, 0.4)' : '0 4px 12px rgba(76, 175, 80, 0.4)'
+              background: running ? 'linear-gradient(135deg, #c62828, #e53935)' : 'linear-gradient(135deg, #2e7d32, #4caf50)',
+              boxShadow: running ? '0 4px 12px rgba(229, 57, 53, 0.4)' : '0 4px 12px rgba(76, 175, 80, 0.4)'
             }}
           >
             {running ? "⏸ Tạm dừng" : "▶ Bắt đầu"}
@@ -1043,24 +924,18 @@ function ThreeTeamMode({
         </div>
 
         {/* Team B */}
-        <button
-          className={`two-team-box ${rippleB ? "ripple" : ""}`}
-          style={{
-            background: TEAMS[teamB].bg,
-            color: TEAMS[teamB].textColor,
-            borderColor: TEAMS[teamB].borderColor,
-            height: '100%'
-          }}
-          onClick={() => handleGoal("B")}
-          disabled={!running}
+        <div
+          className="two-team-box"
+          style={{ background: TEAMS[teamB].bg, color: TEAMS[teamB].textColor, borderColor: TEAMS[teamB].borderColor, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'default' }}
         >
-          <span className="two-team-box-score">{scoreB}</span>
-          <span className="two-team-box-label">
-            {TEAMS[teamB].emoji} {TEAMS[teamB].label}
+          <span className="two-team-box-label" style={{ textAlign: 'center', lineHeight: 1.4 }}>
+            <span style={{ fontSize: 36 }}>{TEAMS[teamB].emoji}</span><br/>
+            {TEAMS[teamB].label}
           </span>
-        </button>
-
+        </div>
       </div>
     </div>
   );
 }
+
+

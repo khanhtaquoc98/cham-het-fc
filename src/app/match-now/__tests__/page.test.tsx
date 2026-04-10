@@ -837,7 +837,7 @@ describe('ThreeTeamMode', () => {
       expect(screen.getByText('06:55')).toBeInTheDocument();
     });
 
-    it('nút score bị disabled khi timer chưa bắt đầu', () => {
+    it('team boxes hiển thị dạng div (không phải button ghi bàn)', () => {
       mockLiveMatchData = createMockLiveMatch({
         mode: '3-team',
         status: 'playing',
@@ -846,13 +846,9 @@ describe('ThreeTeamMode', () => {
       });
       render(<MatchNowPage />);
 
-      const scoreButtons = screen.getAllByRole('button').filter(
-        (btn) => btn.classList.contains('two-team-box')
-      );
-
-      scoreButtons.forEach((btn) => {
-        expect(btn).toBeDisabled();
-      });
+      // Team boxes are divs now, not clickable buttons
+      const teamBoxes = document.querySelectorAll('.two-team-box');
+      expect(teamBoxes.length).toBe(2);
     });
 
     it('hiển thị match number "Trận #1"', () => {
@@ -867,7 +863,7 @@ describe('ThreeTeamMode', () => {
       expect(screen.getByText('Trận #1')).toBeInTheDocument();
     });
 
-    it('hiển thị nút "Kết thúc giải"', () => {
+    it('hiển thị nút "⏹ Kết thúc trận" và "🏁 Kết thúc giải"', () => {
       mockLiveMatchData = createMockLiveMatch({
         mode: '3-team',
         status: 'playing',
@@ -876,6 +872,7 @@ describe('ThreeTeamMode', () => {
       });
       render(<MatchNowPage />);
 
+      expect(screen.getByText(/Kết thúc trận/)).toBeInTheDocument();
       expect(screen.getByText(/Kết thúc giải/)).toBeInTheDocument();
     });
 
@@ -891,186 +888,160 @@ describe('ThreeTeamMode', () => {
       expect(screen.getByText('← Quay lại')).toBeInTheDocument();
     });
 
-    it('hiển thị nút "↩ Reset trận" trong playing phase', () => {
+    it('click "⏹ Kết thúc trận" → chuyển sang scoring phase', async () => {
       mockLiveMatchData = createMockLiveMatch({
         mode: '3-team',
         status: 'playing',
         team_a_color: 'white',
         team_b_color: 'black',
-        score_a: 1,
-        score_b: 0,
       });
       render(<MatchNowPage />);
-      expect(screen.getByText('↩ Reset trận')).toBeInTheDocument();
-    });
-
-    it('click "↩ Reset trận" hiện confirm dialog (3-team)', async () => {
-      mockLiveMatchData = createMockLiveMatch({
-        mode: '3-team',
-        status: 'playing',
-        team_a_color: 'white',
-        team_b_color: 'black',
-        score_a: 1,
-        score_b: 1,
-      });
-      render(<MatchNowPage />);
-
-      const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(false);
 
       await act(async () => {
-        fireEvent.click(screen.getByText('↩ Reset trận'));
+        fireEvent.click(screen.getByText(/Kết thúc trận/));
       });
 
-      expect(confirmSpy).toHaveBeenCalledWith('Reset tỉ số trận hiện tại về 0-0?');
-      confirmSpy.mockRestore();
-    });
-
-    it('confirm reset → chỉ reset score, giữ nguyên timer (3-team)', async () => {
-      mockLiveMatchData = createMockLiveMatch({
-        mode: '3-team',
-        status: 'playing',
-        team_a_color: 'white',
-        team_b_color: 'black',
-        score_a: 1,
-        score_b: 1,
-      });
-      render(<MatchNowPage />);
-
-      jest.spyOn(window, 'confirm').mockReturnValue(true);
-
-      await act(async () => {
-        fireEvent.click(screen.getByText('↩ Reset trận'));
-      });
-
-      expect(mockUpdateMatch).toHaveBeenCalledWith({ score_a: 0, score_b: 0 });
-      expect(mockUpdateMatch).not.toHaveBeenCalledWith(
-        expect.objectContaining({ time_elapsed: expect.anything() })
-      );
-      window.confirm = jest.fn();
-    });
-
-    it('confirm reset → KHÔNG gọi clearEvents (giữ lịch sử giải, 3-team)', async () => {
-      mockLiveMatchData = createMockLiveMatch({
-        mode: '3-team',
-        status: 'playing',
-        team_a_color: 'white',
-        team_b_color: 'black',
-        score_a: 2,
-        score_b: 0,
-      });
-      render(<MatchNowPage />);
-
-      jest.spyOn(window, 'confirm').mockReturnValue(true);
-
-      await act(async () => {
-        fireEvent.click(screen.getByText('↩ Reset trận'));
-      });
-
-      expect(mockClearEvents).not.toHaveBeenCalled();
-      window.confirm = jest.fn();
-    });
-
-    it('cancel confirm → không thay đổi gì (3-team)', async () => {
-      mockLiveMatchData = createMockLiveMatch({
-        mode: '3-team',
-        status: 'playing',
-        team_a_color: 'white',
-        team_b_color: 'black',
-        score_a: 1,
-        score_b: 0,
-      });
-      render(<MatchNowPage />);
-
-      jest.spyOn(window, 'confirm').mockReturnValue(false);
-
-      await act(async () => {
-        fireEvent.click(screen.getByText('↩ Reset trận'));
-      });
-
-      expect(mockUpdateMatch).not.toHaveBeenCalled();
-      window.confirm = jest.fn();
+      // Should show score selection buttons
+      expect(screen.getByText(/Chọn tỉ số/)).toBeInTheDocument();
     });
   });
 
-  describe('Scoring trong 3-team mode', () => {
-    it('ghi bàn cho đội A cập nhật score và gọi updateMatch', () => {
+  describe('Scoring phase - Chọn tỉ số', () => {
+    it('hiển thị 8 nút tỉ số sau khi kết thúc trận', async () => {
       mockLiveMatchData = createMockLiveMatch({
         mode: '3-team',
         status: 'playing',
         team_a_color: 'white',
         team_b_color: 'black',
-        score_a: 0,
-        score_b: 0,
       });
       render(<MatchNowPage />);
 
-      // Start timer first
-      fireEvent.click(screen.getByText('▶ Bắt đầu'));
+      await act(async () => {
+        fireEvent.click(screen.getByText(/Kết thúc trận/));
+      });
 
-      // Click team A score area
-      const teamAButton = screen.getByText('⚪ Trắng').closest('button')!;
-      fireEvent.click(teamAButton);
-
-      expect(mockUpdateMatch).toHaveBeenCalledWith(
-        expect.objectContaining({ score_a: 1 })
-      );
+      // Should show all 8 score buttons
+      expect(screen.getByText('0 - 0')).toBeInTheDocument();
+      expect(screen.getByText('1 - 0')).toBeInTheDocument();
+      expect(screen.getByText('1 - 1')).toBeInTheDocument();
+      expect(screen.getByText('2 - 0')).toBeInTheDocument();
+      expect(screen.getByText('2 - 1')).toBeInTheDocument();
+      expect(screen.getByText('1 - 2')).toBeInTheDocument();
+      expect(screen.getByText('0 - 1')).toBeInTheDocument();
+      expect(screen.getByText('0 - 2')).toBeInTheDocument();
     });
 
-    it('ghi bàn cho đội B cập nhật score_b', () => {
+    it('hiển thị nút "← Quay lại trận đấu" trong scoring phase', async () => {
       mockLiveMatchData = createMockLiveMatch({
         mode: '3-team',
         status: 'playing',
         team_a_color: 'white',
         team_b_color: 'black',
-        score_a: 0,
-        score_b: 0,
       });
       render(<MatchNowPage />);
 
-      // Start timer
-      fireEvent.click(screen.getByText('▶ Bắt đầu'));
+      await act(async () => {
+        fireEvent.click(screen.getByText(/Kết thúc trận/));
+      });
 
-      const teamBButton = screen.getByText('⚫ Đen').closest('button')!;
-      fireEvent.click(teamBButton);
+      expect(screen.getByText('← Quay lại trận đấu')).toBeInTheDocument();
+    });
 
-      expect(mockUpdateMatch).toHaveBeenCalledWith(
-        expect.objectContaining({ score_b: 1 })
-      );
+    it('click tỉ số → chuyển sang confirm phase', async () => {
+      mockLiveMatchData = createMockLiveMatch({
+        mode: '3-team',
+        status: 'playing',
+        team_a_color: 'white',
+        team_b_color: 'black',
+      });
+      render(<MatchNowPage />);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText(/Kết thúc trận/));
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByText('2 - 1'));
+      });
+
+      // Should show confirm modal
+      expect(screen.getByText('Xác nhận kết quả')).toBeInTheDocument();
     });
   });
 
-  describe('Win by goals (đội nào ghi 2 bàn trước thắng)', () => {
-    it('đội A ghi 2 bàn → vào phase result', async () => {
+  describe('Confirm phase - Xác nhận kết quả', () => {
+    it('hiển thị modal xác nhận với tỉ số + trận tiếp theo', async () => {
       mockLiveMatchData = createMockLiveMatch({
         mode: '3-team',
         status: 'playing',
         team_a_color: 'white',
         team_b_color: 'black',
-        score_a: 0,
-        score_b: 0,
       });
       render(<MatchNowPage />);
 
-      // Start timer
-      fireEvent.click(screen.getByText('▶ Bắt đầu'));
-
-      const teamAButton = screen.getByText('⚪ Trắng').closest('button')!;
-      
-      // Score 2 goals
       await act(async () => {
-        fireEvent.click(teamAButton);
+        fireEvent.click(screen.getByText(/Kết thúc trận/));
       });
       await act(async () => {
-        fireEvent.click(teamAButton);
+        fireEvent.click(screen.getByText('1 - 0'));
       });
 
-      // Should show result with addEvent called
+      expect(screen.getByText('Xác nhận kết quả')).toBeInTheDocument();
+      expect(screen.getByText(/Trận tiếp theo/)).toBeInTheDocument();
+      expect(screen.getByText('✅ Xác nhận')).toBeInTheDocument();
+      expect(screen.getByText('Quay lại')).toBeInTheDocument();
+    });
+
+    it('xác nhận → gọi addEvent và chuyển sang playing phase', async () => {
+      mockLiveMatchData = createMockLiveMatch({
+        mode: '3-team',
+        status: 'playing',
+        team_a_color: 'white',
+        team_b_color: 'black',
+      });
+      render(<MatchNowPage />);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText(/Kết thúc trận/));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText('2 - 0'));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText('✅ Xác nhận'));
+      });
+
       expect(mockAddEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           event_type: 'end',
           team_color: 'white',
+          current_score_a: 2,
+          current_score_b: 0,
         })
       );
+    });
+
+    it('quay lại từ confirm → trở về scoring phase', async () => {
+      mockLiveMatchData = createMockLiveMatch({
+        mode: '3-team',
+        status: 'playing',
+        team_a_color: 'white',
+        team_b_color: 'black',
+      });
+      render(<MatchNowPage />);
+
+      await act(async () => {
+        fireEvent.click(screen.getByText(/Kết thúc trận/));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText('1 - 1'));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByText('Quay lại'));
+      });
+
+      // Should be back in scoring phase
+      expect(screen.getByText(/Chọn tỉ số/)).toBeInTheDocument();
     });
   });
 
@@ -1249,7 +1220,7 @@ describe('Edge Cases', () => {
     expect(screen.getByText('Trận Đấu 2 Đội')).toBeInTheDocument();
   });
 
-  it('3-team mode: score_a khôi phục từ liveMatch khi playing', () => {
+  it('3-team mode: hiển thị playing phase khi có team colors', () => {
     mockLiveMatchData = createMockLiveMatch({
       mode: '3-team',
       status: 'playing',
@@ -1260,7 +1231,8 @@ describe('Edge Cases', () => {
     });
     render(<MatchNowPage />);
 
-    expect(screen.getByText('1')).toBeInTheDocument();
+    // Should show playing phase with team names and waiting team
+    expect(screen.getByText(/đang chờ/)).toBeInTheDocument();
   });
 
   it('2-team mode: timer khôi phục từ time_elapsed', () => {
@@ -1316,16 +1288,18 @@ describe('Edge Cases', () => {
     expect(mockScoreGoal).toHaveBeenCalledWith('white', 1, 0, expect.any(String));
   });
 
-  it('3-team: "Kết thúc giải" button saves event and goes to finished phase', async () => {
+  it('3-team: "🏁 Kết thúc giải" saves event (when timer ran) and goes to finished phase', async () => {
     mockLiveMatchData = createMockLiveMatch({
       mode: '3-team',
       status: 'playing',
       team_a_color: 'white',
       team_b_color: 'black',
-      score_a: 1,
-      score_b: 0,
     });
     render(<MatchNowPage />);
+
+    // Start and advance timer so timeLeft < MATCH_DURATION
+    fireEvent.click(screen.getByText('▶ Bắt đầu'));
+    act(() => { jest.advanceTimersByTime(5000); });
 
     await act(async () => {
       fireEvent.click(screen.getByText(/Kết thúc giải/));
@@ -1337,14 +1311,12 @@ describe('Edge Cases', () => {
     expect(mockUpdateMatch).toHaveBeenCalledWith({ status: 'finished' });
   });
 
-  it('3-team: "Kết thúc giải" khi score 0-0 và chưa chơi → không lưu event', async () => {
+  it('3-team: "🏁 Kết thúc giải" khi chưa chơi → không lưu event', async () => {
     mockLiveMatchData = createMockLiveMatch({
       mode: '3-team',
       status: 'playing',
       team_a_color: 'white',
       team_b_color: 'black',
-      score_a: 0,
-      score_b: 0,
     });
     render(<MatchNowPage />);
 
@@ -1352,7 +1324,7 @@ describe('Edge Cases', () => {
       fireEvent.click(screen.getByText(/Kết thúc giải/));
     });
 
-    // score 0-0 và time = MATCH_DURATION → không lưu event (if condition)
+    // time = MATCH_DURATION → không lưu event
     expect(mockAddEvent).not.toHaveBeenCalled();
     expect(mockUpdateMatch).toHaveBeenCalledWith({ status: 'finished' });
   });
@@ -1570,36 +1542,28 @@ describe('getWaitingTeam logic', () => {
 //   9. FINISH MATCH LOGIC
 // ────────────────────────────────
 
-describe('finishMatch logic (ghi 2 bàn trước → thắng)', () => {
-  const WIN_GOALS = 2;
-
-  function determineWinner(tA: string, tB: string, sA: number, sB: number) {
-    const winner = sA >= WIN_GOALS ? tA : tB;
-    const loser = sA >= WIN_GOALS ? tB : tA;
-    return { winner, loser };
+describe('Score selection → winner determination', () => {
+  function determineWinner(teamA: string, teamB: string, sA: number, sB: number) {
+    if (sA > sB) return { winner: teamA, loser: teamB };
+    if (sB > sA) return { winner: teamB, loser: teamA };
+    return { winner: 'draw', loser: null };
   }
 
-  it('team A ghi 2 bàn → team A thắng', () => {
+  it('team A score cao hơn → team A thắng', () => {
     const { winner, loser } = determineWinner('white', 'black', 2, 0);
     expect(winner).toBe('white');
     expect(loser).toBe('black');
   });
 
-  it('team B ghi 2 bàn → team B thắng', () => {
-    const { winner, loser } = determineWinner('white', 'black', 1, 2);
+  it('team B score cao hơn → team B thắng', () => {
+    const { winner, loser } = determineWinner('white', 'black', 0, 1);
     expect(winner).toBe('black');
     expect(loser).toBe('white');
   });
 
-  it('cả 2 đội ghi 2 bàn → team A thắng (ưu tiên A)', () => {
-    // Edge case: không nên xảy ra trong game bình thường
-    const { winner } = determineWinner('white', 'black', 2, 2);
-    expect(winner).toBe('white'); // sA >= WIN_GOALS → tA
-  });
-
-  it('team A score 3-1 → team A thắng', () => {
-    const { winner } = determineWinner('orange', 'white', 3, 1);
-    expect(winner).toBe('orange');
+  it('hoà → winner is draw', () => {
+    const { winner } = determineWinner('white', 'black', 1, 1);
+    expect(winner).toBe('draw');
   });
 });
 
@@ -1607,46 +1571,39 @@ describe('finishMatch logic (ghi 2 bàn trước → thắng)', () => {
 //   10. TIME UP LOGIC
 // ────────────────────────────────
 
-describe('handleTimeUp logic', () => {
-  function handleTimeUp(scoreA: number, scoreB: number, teamA: string, teamB: string, isFirstMatch: boolean, entryOrder: { first: string; second: string } | null) {
-    if (scoreA === scoreB) {
-      if (isFirstMatch) {
-        return { type: 'draw_first_match', drawTeams: [teamA, teamB] };
-      } else if (entryOrder) {
-        // Đội vào trước thua
-        return { type: 'draw_entry_order', winner: entryOrder.second, loser: entryOrder.first };
-      }
-      return { type: 'draw_no_entry_order' };
-    } else {
-      const winner = scoreA > scoreB ? teamA : teamB;
-      const loser = scoreA > scoreB ? teamB : teamA;
-      return { type: 'win', winner, loser };
-    }
+describe('Draw team staying logic', () => {
+  function determineStaying(
+    teamA: string, teamB: string,
+    sA: number, sB: number,
+    isFirstMatch: boolean,
+    entryOrder: { first: string; second: string } | null
+  ): string {
+    if (sA > sB) return teamA;
+    if (sB > sA) return teamB;
+    // Draw
+    if (isFirstMatch) return 'random';
+    // Team mới vào (second) được giữ lại
+    return entryOrder?.second === teamA ? teamA : teamB;
   }
 
-  it('hoà trận đầu tiên → draw_first_match', () => {
-    const result = handleTimeUp(1, 1, 'white', 'black', true, null);
-    expect(result.type).toBe('draw_first_match');
+  it('team A thắng → A ở lại', () => {
+    expect(determineStaying('white', 'black', 2, 1, false, null)).toBe('white');
   });
 
-  it('hoà không phải trận đầu → đội vào trước thua', () => {
-    const result = handleTimeUp(0, 0, 'white', 'black', false, { first: 'white', second: 'black' });
-    expect(result.type).toBe('draw_entry_order');
-    expect(result.winner).toBe('black');
-    expect(result.loser).toBe('white');
+  it('team B thắng → B ở lại', () => {
+    expect(determineStaying('white', 'black', 0, 1, false, null)).toBe('black');
   });
 
-  it('hết giờ có người thắng → win', () => {
-    const result = handleTimeUp(1, 0, 'white', 'black', false, null);
-    expect(result.type).toBe('win');
-    expect(result.winner).toBe('white');
-    expect(result.loser).toBe('black');
+  it('hoà trận đầu → random', () => {
+    expect(determineStaying('white', 'black', 1, 1, true, null)).toBe('random');
   });
 
-  it('hết giờ đội B dẫn → B thắng', () => {
-    const result = handleTimeUp(0, 3, 'orange', 'white', false, { first: 'orange', second: 'white' });
-    expect(result.type).toBe('win');
-    expect(result.winner).toBe('white');
-    expect(result.loser).toBe('orange');
+  it('hoà không phải trận đầu → team mới vào (second) giữ lại', () => {
+    // second = black → black ở lại
+    expect(determineStaying('white', 'black', 0, 0, false, { first: 'white', second: 'black' })).toBe('black');
+  });
+
+  it('hoà, second là teamA → teamA ở lại', () => {
+    expect(determineStaying('white', 'black', 1, 1, false, { first: 'black', second: 'white' })).toBe('white');
   });
 });
