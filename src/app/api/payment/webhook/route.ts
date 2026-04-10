@@ -55,7 +55,7 @@ export async function POST(request: Request) {
               const safeSenderName = senderName.replace(/([_*\[\]`])/g, '\\$1');
               const safePlayerNames = playerNames.replace(/([_*\[\]`])/g, '\\$1');
 
-              await fetch('https://summary-bot-sepia.vercel.app/api/notify', {
+              await fetch('https://summary-bot-sepia.vercel.app/api/notify-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
