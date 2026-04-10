@@ -634,7 +634,7 @@ function ThreeTeamMode({
                 setEditingTeam(null);
               }}
               className="mn-start-btn"
-              style={{ flex: 1, padding: '12px 24px', fontSize: 14, borderRadius: 12 }}
+              style={{ flex: 1, padding: '12px 24px', fontSize: 14, borderRadius: 12, margin: 0 }}
             >
               ✅ Lưu
             </button>
@@ -780,11 +780,11 @@ function ThreeTeamMode({
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+            <div style={{ display: 'flex', gap: 12 }}>
               <button onClick={() => { setSelectedScore(null); setPhase("scoring"); }} className="mn-reset-btn" style={{ flex: 1, padding: '14px', borderRadius: 12, fontSize: 14 }}>
                 Quay lại
               </button>
-              <button onClick={handleConfirm} className="mn-start-btn" style={{ flex: 1, padding: '14px', borderRadius: 12, fontSize: 14 }}>
+              <button onClick={handleConfirm} className="mn-start-btn" style={{ flex: 1, padding: '14px', borderRadius: 12, fontSize: 14, margin: 0 }}>
                 ✅ Xác nhận
               </button>
             </div>
