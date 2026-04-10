@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const orderCode = Number(String(Date.now()).slice(-6) + String(Math.floor(Math.random() * 100)).padStart(2, '0'));
 
     // Mô tả + danh sách items
-    const description = `Da Banh ChamHetFC`;
+    const description = `ChamHetFC`;
     const items = playerPayments.map(p => ({
       name: p.player_name,
       quantity: 1,
