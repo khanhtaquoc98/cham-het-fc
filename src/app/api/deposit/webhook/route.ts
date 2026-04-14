@@ -7,10 +7,10 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     // Verify webhook data
-    const webhookData = payos.verifyPaymentWebhookData(body);
+    const webhookData = await payos.webhooks.verify(body);
 
-    if (webhookData.code === "00" && webhookData.success) {
-      const orderCode = webhookData.data.orderCode;
+    if (webhookData.code === "00") {
+      const orderCode = webhookData.orderCode;
 
       // Tìm transaction pending có orderCode này
       // Do Supabase không search trực tiếp deep json trong text cách dễ dàng,
