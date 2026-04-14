@@ -171,19 +171,22 @@ export default function PaymentPage() {
     }
   };
 
-  const handleTogglePaid = async (pp: PlayerPayment) => {
+  const handleTogglePaid = async (pp: PlayerPayment, method: string = 'manual') => {
     const action = pp.isPaid ? 'mark-unpaid' : 'mark-paid';
     try {
-      await fetch('/api/payment', {
+      const res = await fetch('/api/payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, paymentId: pp.id }),
+        body: JSON.stringify({ action, paymentId: pp.id, method }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lỗi xử lý thanh toán');
+
       await fetchData();
-      toast.success(pp.isPaid ? 'Bỏ đánh dấu thanh toán' : 'Đã đánh dấu thanh toán');
-    } catch (err) {
+      toast.success(pp.isPaid ? 'Bỏ đánh dấu thanh toán' : `Thanh toán thành công qua ${method}`);
+    } catch (err: any) {
       console.error(err);
-      toast.error('Lỗi khi cập nhật trạng thái');
+      toast.error(err.message || 'Lỗi khi cập nhật trạng thái');
     }
   };
 
@@ -349,7 +352,7 @@ export default function PaymentPage() {
                       }}
                       onClick={() => handleTogglePaid(pp)}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }} onClick={(e) => { e.stopPropagation(); handleTogglePaid(pp, pp.paymentMethod !== 'unpaid' ? pp.paymentMethod : 'manual'); }}>
                         <div style={{
                           width: 20, height: 20, borderRadius: 4,
                           border: `2px solid ${pp.isPaid ? '#2e7d32' : '#ccc'}`,
@@ -368,6 +371,26 @@ export default function PaymentPage() {
                           {pp.playerName}
                         </span>
                       </div>
+                      
+                      {!pp.isPaid && (
+                        <div style={{ marginRight: 10 }} onClick={(e) => e.stopPropagation()}>
+                          <select 
+                            className="bg-white border border-zinc-200 text-xs rounded p-1 outline-none font-sans"
+                            onChange={(e) => handleTogglePaid(pp, e.target.value)}
+                            defaultValue=""
+                          >
+                            <option value="" disabled>Thanh toán qua...</option>
+                            <option value="App">App (Bóng)</option>
+                            <option value="QR_Bank">QR Ngân hàng</option>
+                            <option value="Khác">Khác / Tiền mặt</option>
+                          </select>
+                        </div>
+                      )}
+                      {pp.isPaid && (
+                        <div style={{ marginRight: 10, fontSize: 11, color: '#2e7d32', fontWeight: 700 }}>
+                          [{pp.paymentMethod === 'App' ? 'App ⚽' : pp.paymentMethod === 'QR_Bank' ? 'QR_Bank' : pp.paymentMethod}]
+                        </div>
+                      )}
 
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: pp.isPaid ? '#2e7d32' : '#c62828' }}>
@@ -411,14 +434,14 @@ const labelStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '10px 14px', borderRadius: '10px',
   border: '1.5px solid rgba(198,40,40,0.15)', background: '#fffafa',
-  fontSize: '14px', fontFamily: 'Outfit, sans-serif', outline: 'none',
+  fontSize: '14px', fontFamily: 'Chiron GoRound TC, sans-serif', outline: 'none',
   color: '#1a1a2e', transition: 'border-color 0.2s',
   boxSizing: 'border-box',
 };
 
 const btnBase: React.CSSProperties = {
   padding: '8px 16px', borderRadius: '8px', border: 'none',
-  fontSize: '13px', fontWeight: 600, fontFamily: 'Outfit, sans-serif',
+  fontSize: '13px', fontWeight: 600, fontFamily: 'Chiron GoRound TC, sans-serif',
   cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
 };
 

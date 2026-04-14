@@ -80,8 +80,37 @@ export async function getPlayerPayments(matchPaymentId: string): Promise<PlayerP
 
 export async function markPlayerPaid(
   paymentId: string,
-  method: 'manual' | 'cash' | 'payos' = 'manual'
+  method: string = 'manual' // 'App' | 'QR_Bank' | 'Khác'
 ): Promise<boolean> {
+  const { data: pp } = await supabase.from('player_payments').select('*').eq('id', paymentId).single();
+  if (!pp) return false;
+
+  if (method === 'App') {
+    if (pp.player_id) {
+      // Find linked user account
+      const { data: acc } = await supabase.from('accounts').select('id, balance').eq('player_id', pp.player_id).single();
+      if (acc && acc.balance >= pp.total_amount) {
+        // Auto deduct
+        await supabase.from('accounts').update({ balance: acc.balance - pp.total_amount }).eq('id', acc.id);
+        // Log transaction
+        await supabase.from('transactions').insert({
+          account_id: acc.id,
+          amount: -pp.total_amount, // negative
+          type: 'payment',
+          status: 'success',
+          payment_source: 'App',
+          note: `Thanh toán đá bóng (${pp.total_amount} ⚽)`,
+          match_payment_id: pp.match_payment_id
+        });
+      } else {
+        // Insufficient balance, can't pay by App
+        throw new Error('Số dư của User không đủ hoặc chưa liên kết Player!');
+      }
+    } else {
+      throw new Error('Player chưa được liên kết với User nào!');
+    }
+  }
+
   const { error } = await supabase
     .from('player_payments')
     .update({

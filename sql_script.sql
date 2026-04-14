@@ -1,6 +1,7 @@
 CREATE TABLE match_data (
   id TEXT PRIMARY KEY,
   teams JSONB DEFAULT '[]'::jsonb,
+  bench JSONB DEFAULT '[]'::jsonb,
   venue JSONB DEFAULT '{}'::jsonb,
   raw_message TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),

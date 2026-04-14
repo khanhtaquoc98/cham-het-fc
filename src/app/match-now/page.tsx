@@ -292,7 +292,7 @@ function TwoTeamMode({
                       <td style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text-primary)', fontWeight: isHome ? 700 : 400 }}>
                         {isHome && <span>⚽</span>}
                       </td>
-                      <td style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, fontFamily: "'Outfit', monospace" }}>
+                      <td style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, fontFamily: "'Chiron GoRound TC', monospace" }}>
                         {g.timestamp_minute}
                       </td>
                       <td style={{ padding: '10px 16px', textAlign: 'right', color: 'var(--text-primary)', fontWeight: !isHome ? 700 : 400 }}>
@@ -334,7 +334,7 @@ function TwoTeamMode({
             🔄
           </button>
         </div>
-        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Outfit', monospace", letterSpacing: 2 }}>
+        <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Chiron GoRound TC', monospace", letterSpacing: 2 }}>
           {formatTime(localTime)}
         </div>
       </div>

@@ -9,13 +9,14 @@ const navItems = [
   { href: '/admin-111/players', label: 'Cầu thủ', icon: '👤' },
   { href: '/admin-111/history', label: 'Lịch sử', icon: '📊' },
   { href: '/admin-111/payment', label: 'Thanh toán', icon: '💰' },
+  { href: '/admin-111/users', label: 'Tài khoản', icon: '👥' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div style={{ minHeight: '100vh', background: '#faf5f5', fontFamily: 'Outfit, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#faf5f5', fontFamily: 'Chiron GoRound TC, sans-serif' }}>
       {/* Header */}
       <div style={{
         background: 'linear-gradient(135deg, #8e0000, #e53935)',
@@ -67,7 +68,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   color: isActive ? 'white' : '#6a6a8a',
                   fontSize: '13px',
                   fontWeight: 700,
-                  fontFamily: 'Outfit, sans-serif',
+                  fontFamily: 'Chiron GoRound TC, sans-serif',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   display: 'flex',

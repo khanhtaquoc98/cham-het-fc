@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { MatchData, Team } from '@/types/match';
 import { PlayerConfig } from '@/types/player';
 import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 
 interface PlayerStatsSummary {
   playerName: string;
@@ -60,7 +61,12 @@ function formatRelativeTime(isoString: string): string {
   return `${diffDay} ngày trước`;
 }
 
-function findMatchingPlayer(playerName: string, telegramHandle: string | undefined, playerConfigs: PlayerConfig[]): PlayerConfig | null {
+function findMatchingPlayer(playerName: string, telegramHandle: string | undefined, playerId: string | undefined, playerConfigs: PlayerConfig[]): PlayerConfig | null {
+  // Priority 0: Exact ID match (absolute truth if linked via Admin UI)
+  if (playerId) {
+    const found = playerConfigs.find(c => c.id === playerId);
+    if (found) return found;
+  }
   // Priority 1: match by telegramHandle
   if (telegramHandle) {
     const normalizedHandle = telegramHandle.trim().toLowerCase().replace(/^@/, '');
@@ -186,12 +192,18 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
       </div>
 
       <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-        {team.players.map((player, i) => {
-          const matched = findMatchingPlayer(player.name, player.telegramHandle, playerConfigs);
+        {team.players.length === 0 ? (
+          <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '20px', opacity: 0.4 }}>👻</span>
+            Chưa có thông tin
+          </div>
+        ) : (
+          team.players.map((player, i) => {
+          const matched = findMatchingPlayer(player.name, player.telegramHandle, player.playerId, playerConfigs);
           const jerseyLabel = matched?.jerseyNumber ? String(matched.jerseyNumber) : '?';
 
           // Find stats for this player
-          const stat = findPlayerStat(player.name, player.telegramHandle, playerConfigs, playerStats);
+          const stat = findPlayerStat(player.name, player.telegramHandle, player.playerId, playerConfigs, playerStats);
 
           return (
             <div key={i} className="player-item" style={{ animationDelay: `${(index * 0.08) + (i * 0.04)}s` }}>
@@ -263,7 +275,8 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
               ) : null}
             </div>
           );
-        })}
+        })
+        )}
       </div>
     </div>
   );
@@ -425,12 +438,13 @@ function EmptyState() {
 function findPlayerStat(
   playerName: string,
   telegramHandle: string | undefined,
+  playerId: string | undefined,
   playerConfigs: PlayerConfig[],
   playerStats: PlayerStatsSummary[],
 ): PlayerStatsSummary | null {
   // Priority 1: Find via registered player -> match by playerId
   // (stats are now grouped by player_id, so this is the most reliable match)
-  const matched = findMatchingPlayer(playerName, telegramHandle, playerConfigs);
+  const matched = findMatchingPlayer(playerName, telegramHandle, playerId, playerConfigs);
   if (matched) {
     for (const stat of playerStats) {
       if (stat.playerId === matched.id) return stat;
@@ -450,13 +464,13 @@ export default function Home() {
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [playerConfigs, setPlayerConfigs] = useState<PlayerConfig[]>([]);
   const [playerStats, setPlayerStats] = useState<PlayerStatsSummary[]>([]);
+  const [currentUser, setCurrentUser] = useState<{username: string; id: string; name?: string; player_id?: string} | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [paymentSummary, setPaymentSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
-
   // PWA Install states
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
@@ -601,15 +615,19 @@ export default function Home() {
 
     // Phase 2: Fetch stats & payment lazily
     try {
-      const [statsRes, paymentRes] = await Promise.all([
+      const [statsRes, paymentRes, userRes] = await Promise.all([
         fetch('/api/stats', { cache: 'no-store' }),
         fetch('/api/payment', { cache: 'no-store' }),
+        fetch('/api/auth/me', { cache: 'no-store' }),
       ]);
       const statsData = await statsRes.json();
       setPlayerStats(statsData.players || []);
       
       const paymentData = await paymentRes.json();
       setPaymentSummary(paymentData);
+
+      const userData = await userRes.json();
+      if (userData.user) setCurrentUser(userData.user);
     } catch (err) {
       console.error('Failed to fetch stats:', err);
     } finally {
@@ -620,6 +638,54 @@ export default function Home() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  const [benchSaving, setBenchSaving] = useState(false);
+
+  const handleJoinBench = async () => {
+    if (!currentUser || !matchData || !matchData.bench) return;
+    
+    let playerName = currentUser.name || currentUser.username;
+    if (currentUser.player_id) {
+       const matchedP = playerConfigs.find(p => p.id === currentUser.player_id);
+       if (matchedP) {
+         playerName = matchedP.name;
+       }
+    }
+    
+    // Check if player is already in ANY team or bench
+    const isAlreadyInBench = matchData.bench.some(p => p.name === playerName);
+    const isAlreadyInTeam = matchData.teams?.some(t => t.players.some(p => p.name === playerName));
+    
+    if (isAlreadyInBench) {
+      toast.error('Bạn đã ở trong danh sách Bench rồi!');
+      return;
+    }
+    if (isAlreadyInTeam) {
+      toast.error('Bạn đã được xếp vào đội rồi, không cần điểm danh lại!');
+      return;
+    }
+
+    setBenchSaving(true);
+    try {
+      const newBench = [...matchData.bench, { name: playerName, telegramHandle: '', playerId: currentUser.player_id }]; // Assign playerId if linked!
+      const res = await fetch('/api/match/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bench: newBench }),
+      });
+      if (res.ok) {
+        setMatchData({ ...matchData, bench: newBench });
+        toast.success('Điểm danh thành công!');
+      } else {
+        toast.error('Có lỗi xảy ra khi điểm danh');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Có lỗi xảy ra khi điểm danh');
+    } finally {
+      setBenchSaving(false);
+    }
+  };
 
   const totalPlayers = matchData?.teams?.reduce((sum, t) => sum + t.players.length, 0) || 0;
   const teamCount = matchData?.teams?.length || 0;
@@ -662,31 +728,12 @@ export default function Home() {
         {isDark ? '☀️' : '🌙'}
       </button> */}
 
-      {/* Header */}
-      <header className="field-header">
-        <div className="field-corner-tl" />
-        <div className="field-corner-tr" />
-        <div className="field-corner-bl" />
-        <div className="field-corner-br" />
-
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '6px' }}>
-            <h1 style={{ fontSize: '30px', fontWeight: 900, letterSpacing: '2px', color: 'white', textShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-              FOOTBALL LINEUP
-            </h1>
-          </div>
-          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '13px', letterSpacing: '3px', textTransform: 'uppercase' }}>
-            Đội hình thi đấu
-          </p>
+      {matchData?.updatedAt && (
+        <div className="update-ticker" style={{ justifyContent: 'center', marginBottom: '24px', color: 'var(--text-muted)' }}>
+          <div className="live-dot" style={{ backgroundColor: 'var(--accent)' }}/>
+          <span>Cập nhật {formatRelativeTime(matchData.updatedAt)}</span>
         </div>
-
-        {matchData?.updatedAt && (
-          <div className="update-ticker" style={{ justifyContent: 'center', marginTop: '12px', color: 'rgba(255,255,255,0.55)', position: 'relative', zIndex: 1 }}>
-            <div className="live-dot" />
-            <span>Cập nhật {formatRelativeTime(matchData.updatedAt)}</span>
-          </div>
-        )}
-      </header>
+      )}
 
       {/* Main */}
       <main style={{ padding: '0 24px 60px', maxWidth: '1200px', margin: '0 auto', flex: 1, width: '100%' }}>
@@ -702,11 +749,60 @@ export default function Home() {
             <span className="empty-icon">❌</span>
             <h2>{error}</h2>
           </div>
-        ) : !matchData || !matchData.teams || matchData.teams.length === 0 ? (
+        ) : !matchData || (!matchData.teams?.length && !matchData.bench?.length) ? (
           <EmptyState />
         ) : (
           <>
             <MatchInfoSection matchData={matchData} />
+
+            {/* Bench Section */}
+            {matchData.bench !== undefined && (
+              <div style={{ marginTop: '24px', marginBottom: '24px', padding: '24px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-subtle)', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
+                {currentUser ? (
+                  <div style={{ textAlign: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px dashed var(--border-subtle)', marginBottom: '24px' }}>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>
+                      Xin chào {currentUser.name || currentUser.username}!
+                    </p>
+                    <button 
+                      onClick={handleJoinBench}
+                      disabled={benchSaving}
+                      style={{ 
+                        background: 'linear-gradient(135deg, var(--accent), var(--accent-dark))', 
+                        color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', 
+                        fontWeight: 800, fontSize: '14px', cursor: benchSaving ? 'not-allowed' : 'pointer',
+                        opacity: benchSaving ? 0.7 : 1, transition: 'all 0.2s ease', 
+                        boxShadow: '0 4px 12px rgba(229,57,53,0.2)' 
+                      }}>
+                      {benchSaving ? 'Đang điểm danh...' : '✋ Điểm danh vào Bench'}
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px dashed var(--border-subtle)', marginBottom: '24px' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: 1.6, marginBottom: '0' }}>
+                      <Link href="/login" style={{ color: 'var(--accent)', fontWeight: 800, textDecoration: 'none' }}>Đăng nhập ngay</Link> hoặc liên hệ Cap để điểm danh vào Bench chia team!
+                    </p>
+                  </div>
+                )}
+
+                <h3 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  🪑 BENCH DỰ BỊ ({matchData.bench.length})
+                </h3>
+                
+                {matchData.bench.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                    {matchData.bench.map((player, idx) => (
+                      <div key={idx} style={{ padding: '8px 16px', background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', borderRadius: '20px', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                        {player.name}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
+                    Bench đang trống
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Stats */}
             <div className="stat-bar" style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '24px' }}>
@@ -730,22 +826,6 @@ export default function Home() {
               </Link>
             </div>
 
-            {/* Thanh toán Button (nếu đủ thông tin) */}
-            {paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-                <Link href="/payment" style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  background: 'linear-gradient(135deg, #e53935, #ef5350)',
-                  color: 'white', padding: '12px 24px', borderRadius: '12px',
-                  textDecoration: 'none', fontWeight: 700, fontSize: '15px',
-                  boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
-                  transition: 'transform 0.2s ease'
-                }}>
-                  💳 Thanh toán trận này
-                </Link>
-              </div>
-            )}
-
             {/* Teams Grid */}
             <div className="teams-grid" style={{
               display: 'grid',
@@ -768,6 +848,22 @@ export default function Home() {
                 )
               )}
             </div>
+
+            {/* Thanh toán Button (nếu đủ thông tin) */}
+            {paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px', marginTop: '24px' }}>
+                <Link href="/payment" style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  background: 'linear-gradient(135deg, #e53935, #ef5350)',
+                  color: 'white', padding: '12px 24px', borderRadius: '12px',
+                  textDecoration: 'none', fontWeight: 700, fontSize: '15px',
+                  boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
+                  transition: 'transform 0.2s ease'
+                }}>
+                  💳 Thanh toán trận này
+                </Link>
+              </div>
+            )}
 
             <RulesSection teamCount={teamCount} />
           </>

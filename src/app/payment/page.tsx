@@ -428,7 +428,7 @@ export default function PublicPaymentPage() {
 const rootStyle: React.CSSProperties = {
   minHeight: '100vh',
   background: '#faf5f5',
-  fontFamily: "'Outfit', sans-serif",
+  fontFamily: "'Chiron GoRound TC', sans-serif",
   color: '#1a1a2e',
 };
 
@@ -490,7 +490,7 @@ const payBtnStyle: React.CSSProperties = {
   color: 'white',
   fontSize: 15,
   fontWeight: 700,
-  fontFamily: "'Outfit', sans-serif",
+  fontFamily: "'Chiron GoRound TC', sans-serif",
   cursor: 'pointer',
   transition: 'all 0.2s',
   boxShadow: '0 4px 16px rgba(229,57,53,0.3)',

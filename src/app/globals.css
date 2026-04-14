@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Chiron+GoRound+TC:wght@300;400;500;600;700;800;900&display=swap');
 
 @import "tailwindcss";
 
@@ -104,7 +104,7 @@
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
@@ -705,7 +705,7 @@ a.venue-link:hover {
   color: white;
   font-size: 16px;
   font-weight: 700;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
   margin-bottom: 12px;
@@ -741,7 +741,7 @@ a.venue-link:hover {
   border: none;
   color: var(--text-muted);
   font-size: 14px;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   cursor: pointer;
   padding: 8px 16px;
   transition: color 0.2s ease;
@@ -787,7 +787,7 @@ a.venue-link:hover {
   color: white;
   font-size: 13px;
   font-weight: 700;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -830,7 +830,7 @@ a.venue-link:hover {
   border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   cursor: pointer;
   text-decoration: none;
   transition: all 0.2s ease;
@@ -876,7 +876,7 @@ a.venue-link:hover {
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: var(--shadow-card);
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
 }
 
 .mn-mode-btn:hover {
@@ -914,7 +914,7 @@ a.venue-link:hover {
   border-radius: 10px;
   font-size: 12px;
   font-weight: 600;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -985,7 +985,7 @@ a.venue-link:hover {
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   min-height: 0;
   user-select: none;
   -webkit-user-select: none;
@@ -1073,7 +1073,7 @@ a.venue-link:hover {
   color: var(--text-secondary);
   font-size: 14px;
   font-weight: 600;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: var(--shadow-soft);
@@ -1169,7 +1169,7 @@ a.venue-link:hover {
   border: 3px solid;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   position: relative;
   min-width: 0;
   flex: 1;
@@ -1232,7 +1232,7 @@ a.venue-link:hover {
   color: white;
   font-size: 18px;
   font-weight: 800;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 20px rgba(198, 40, 40, 0.3);
@@ -1334,7 +1334,7 @@ a.venue-link:hover {
   color: white;
   font-size: 18px;
   font-weight: 800;
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Chiron GoRound TC', sans-serif;
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 20px rgba(46, 125, 50, 0.3);

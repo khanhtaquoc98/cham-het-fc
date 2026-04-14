@@ -191,7 +191,7 @@ export default function PaymentResultPage() {
 const rootStyle: React.CSSProperties = {
   minHeight: '100vh',
   background: '#faf5f5',
-  fontFamily: "'Outfit', sans-serif",
+  fontFamily: "'Chiron GoRound TC', sans-serif",
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -225,7 +225,7 @@ const btnStyle: React.CSSProperties = {
   color: 'white',
   fontSize: 14,
   fontWeight: 700,
-  fontFamily: "'Outfit', sans-serif",
+  fontFamily: "'Chiron GoRound TC', sans-serif",
   textDecoration: 'none',
   transition: 'all 0.2s',
 };

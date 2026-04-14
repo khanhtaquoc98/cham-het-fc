@@ -15,6 +15,7 @@ export async function getMatchData(): Promise<MatchData | null> {
 
   return {
     id: data.id,
+    bench: data.bench || [],
     teams: data.teams || [],
     venue: data.venue || {},
     createdAt: data.created_at,
@@ -28,6 +29,7 @@ export async function saveMatchData(matchData: MatchData): Promise<void> {
     .from('match_data')
     .upsert({
       id: matchData.id,
+      bench: matchData.bench || [],
       teams: matchData.teams,
       venue: matchData.venue,
       created_at: matchData.createdAt,

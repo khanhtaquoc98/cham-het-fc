@@ -180,13 +180,13 @@ const labelStyle: React.CSSProperties = {
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '10px 14px', borderRadius: '10px',
   border: '1.5px solid rgba(198,40,40,0.15)', background: '#fffafa',
-  fontSize: '14px', fontFamily: 'Outfit, sans-serif', outline: 'none',
+  fontSize: '14px', fontFamily: 'Chiron GoRound TC, sans-serif', outline: 'none',
   color: '#1a1a2e', transition: 'border-color 0.2s',
 };
 
 const btnBase: React.CSSProperties = {
   padding: '8px 16px', borderRadius: '8px', border: 'none',
-  fontSize: '13px', fontWeight: 600, fontFamily: 'Outfit, sans-serif',
+  fontSize: '13px', fontWeight: 600, fontFamily: 'Chiron GoRound TC, sans-serif',
   cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
 };
 

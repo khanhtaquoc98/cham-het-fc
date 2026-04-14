@@ -58,7 +58,7 @@ export default function HistoryPage() {
             flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
             background: subTab === 'matches' ? '#c62828' : 'transparent',
             color: subTab === 'matches' ? 'white' : '#6a6a8a',
-            fontSize: '13px', fontWeight: 700, fontFamily: 'Outfit, sans-serif',
+            fontSize: '13px', fontWeight: 700, fontFamily: 'Chiron GoRound TC, sans-serif',
             cursor: 'pointer', transition: 'all 0.2s',
           }}
         >
@@ -70,7 +70,7 @@ export default function HistoryPage() {
             flex: 1, padding: '10px', borderRadius: '8px', border: 'none',
             background: subTab === 'players' ? '#c62828' : 'transparent',
             color: subTab === 'players' ? 'white' : '#6a6a8a',
-            fontSize: '13px', fontWeight: 700, fontFamily: 'Outfit, sans-serif',
+            fontSize: '13px', fontWeight: 700, fontFamily: 'Chiron GoRound TC, sans-serif',
             cursor: 'pointer', transition: 'all 0.2s',
           }}
         >
@@ -451,13 +451,13 @@ const sectionTitleStyle: React.CSSProperties = {
 const inputCompact: React.CSSProperties = {
   padding: '7px 10px', borderRadius: '8px',
   border: '1.5px solid rgba(198,40,40,0.2)', background: '#fffafa',
-  fontSize: '13px', fontFamily: 'Outfit, sans-serif', outline: 'none',
+  fontSize: '13px', fontFamily: 'Chiron GoRound TC, sans-serif', outline: 'none',
   color: '#1a1a2e',
 };
 
 const btnBase: React.CSSProperties = {
   padding: '8px 16px', borderRadius: '8px', border: 'none',
-  fontSize: '13px', fontWeight: 600, fontFamily: 'Outfit, sans-serif',
+  fontSize: '13px', fontWeight: 600, fontFamily: 'Chiron GoRound TC, sans-serif',
   cursor: 'pointer', transition: 'all 0.15s', whiteSpace: 'nowrap',
 };
 
