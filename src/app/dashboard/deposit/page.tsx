@@ -13,7 +13,7 @@ export default function DepositPage() {
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (vnd < 100000) {
-      toast.error("Vui lòng nạp tối thiểu 100,000 VNĐ");
+      toast.error("Vui lòng nhập tối thiểu 100,000 VNĐ");
       return;
     }
     
@@ -46,15 +46,15 @@ export default function DepositPage() {
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div className="vs-badge" style={{ margin: '0 auto 16px', width: '56px', height: '56px', fontSize: '24px' }}>💳</div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '8px' }}>
-            Nạp Bóng
+            Thêm Bóng
           </h1>
-          <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Nạp qua mã QR tự động.<br/><strong>1,000 VNĐ = 1,000 Bóng</strong>.</p>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Thêm Bóng qua mã QR tự động.<br/><strong>1,000 VNĐ = 1,000 Bóng</strong>.</p>
         </div>
           
         <form onSubmit={handleDeposit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Nhập số tiền cần nạp (VNĐ)
+              Nhập số tiền cần thêm (VNĐ)
             </label>
             <input
               type="number"
@@ -98,7 +98,7 @@ export default function DepositPage() {
             onMouseLeave={e => { if (!isLoading && vnd >= 100000) e.currentTarget.style.transform = 'translateY(0)' }}
             onMouseDown={e => { if (!isLoading && vnd >= 100000) e.currentTarget.style.transform = 'translateY(1px)' }}
           >
-            {isLoading ? "Đang xử lý..." : "Tạo Mã QR Nạp Tiền"}
+            {isLoading ? "Đang xử lý..." : "Tạo Mã QR Thêm Bóng"}
           </button>
           
           <div style={{ marginTop: '16px', textAlign: 'center' }}>

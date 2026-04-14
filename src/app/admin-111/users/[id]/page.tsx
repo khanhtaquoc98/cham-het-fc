@@ -109,7 +109,7 @@ export default function UserDetailPage() {
       </div>
 
       <div className="glass-card" style={{ padding: '24px', borderRadius: '16px', marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>Nạp/Trừ Bóng Thủ Công</h2>
+        <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>Thêm/Trừ Bóng Thủ Công</h2>
         <div style={{ display: 'flex', gap: '8px', maxWidth: '400px' }}>
           <input 
             type="number" 
@@ -130,7 +130,7 @@ export default function UserDetailPage() {
               fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s ease', whiteSpace: 'nowrap'
             }}
           >
-            + Nạp
+            + Thêm
           </button>
           <button 
             onClick={() => requestManualAdd(false)}
@@ -158,7 +158,7 @@ export default function UserDetailPage() {
                     {tx.amount > 0 ? "+" : "-"}
                   </div>
                   <div>
-                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 4px', color: 'var(--text-primary)' }}>{tx.type === "deposit" ? "Nạp tiền" : (tx.type === "payment" ? "Thanh toán" : "Khác")}</h3>
+                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 4px', color: 'var(--text-primary)' }}>{tx.type === "deposit" ? "Thêm Bóng" : (tx.type === "payment" ? "Thanh toán" : "Khác")}</h3>
                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{new Date(tx.created_at).toLocaleString('vi-VN')}</p>
                   </div>
                 </div>
@@ -186,7 +186,7 @@ export default function UserDetailPage() {
               {confirmModal.isAdding ? '🚀' : '⚠️'}
             </div>
             <h3 style={{ fontSize: '24px', fontWeight: 900, marginBottom: '12px', color: 'var(--text-primary)' }}>
-              Xác Nhận {confirmModal.isAdding ? 'Nạp' : 'Trừ'} Bóng
+              Xác Nhận {confirmModal.isAdding ? 'Thêm' : 'Trừ'} Bóng
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: 1.6, marginBottom: '32px' }}>
               Bạn chuẩn bị <strong>{confirmModal.isAdding ? 'cộng' : 'trừ'} {confirmModal.amount.toLocaleString()} ⚽</strong> 
@@ -208,7 +208,7 @@ export default function UserDetailPage() {
                   background: confirmModal.isAdding ? 'var(--field-accent-light)' : '#d32f2f',
                   color: 'white', border: 'none', cursor: 'pointer'
                 }}>
-                {confirmModal.isAdding ? '+ Xác Nhận Nạp' : '- Xác Nhận Trừ'}
+                {confirmModal.isAdding ? '+ Xác Nhận Thêm' : '- Xác Nhận Trừ'}
               </button>
             </div>
           </div>

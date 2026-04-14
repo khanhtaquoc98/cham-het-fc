@@ -115,7 +115,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
             
             <div style={{ display: 'flex', gap: '12px', marginTop: '32px', width: '100%', justifyContent: 'center' }}>
               <Link href="/dashboard/deposit" style={{ background: 'white', color: 'var(--accent)', fontWeight: 800, padding: '14px 24px', borderRadius: '12px', textDecoration: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'all 0.2s ease' }}>
-                Nạp Bóng
+                Thêm Bóng
               </Link>
               <Link href="/" style={{ background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(4px)', color: 'white', fontWeight: 700, padding: '14px 24px', borderRadius: '12px', textDecoration: 'none', transition: 'all 0.2s ease', border: '1px solid rgba(255,255,255,0.1)' }}>
                 Trang Chủ
@@ -148,7 +148,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
                         <p style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
-                          {tx.type === "deposit" ? "Nạp qua QR" : (tx.type === "payment" ? "Thanh toán trận đấu" : "Khác")}
+                          {tx.type === "deposit" ? "Thêm qua QR" : (tx.type === "payment" ? "Thanh toán trận đấu" : "Khác")}
                         </p>
                         <span style={{
                           fontSize: '11px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',

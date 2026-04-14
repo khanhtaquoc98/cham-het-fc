@@ -114,7 +114,7 @@ export default function Header() {
                   ⚙️ Tài khoản
                 </Link>
                 <Link href="/dashboard/deposit" style={{ display: 'block', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}>
-                  💰 Nạp bóng
+                  💰 Thêm bóng
                 </Link>
                 <div 
                   onClick={async () => {
