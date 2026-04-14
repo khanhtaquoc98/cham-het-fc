@@ -7,6 +7,7 @@ import {
   markPlayerPaid,
   markPlayerUnpaid,
   resetPaymentsForMatch,
+  autoCheckoutAllApp,
 } from '@/lib/payment';
 import { getMatchData } from '@/lib/storage';
 
@@ -83,6 +84,12 @@ export async function POST(request: Request) {
       await resetPaymentsForMatch(matchData.id);
       const summary = await getPaymentSummary();
       return NextResponse.json(summary);
+    } else if (action === 'auto-checkout-app') {
+      const matchData = await getMatchData();
+      if (!matchData) return NextResponse.json({ error: 'No match data' }, { status: 400 });
+      const stats = await autoCheckoutAllApp(matchData.id);
+      const summary = await getPaymentSummary();
+      return NextResponse.json({ summary, stats });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

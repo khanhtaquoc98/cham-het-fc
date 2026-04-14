@@ -16,6 +16,7 @@ export default function PaymentPage() {
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Editable fields
   const [fieldCost, setFieldCost] = useState('');
@@ -184,9 +185,36 @@ export default function PaymentPage() {
 
       await fetchData();
       toast.success(pp.isPaid ? 'Bỏ đánh dấu thanh toán' : `Thanh toán thành công qua ${method}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || 'Lỗi khi cập nhật trạng thái');
+      toast.error(err instanceof Error ? err.message : 'Lỗi khi cập nhật trạng thái');
+    }
+  };
+
+  const handleAutoCheckoutApp = () => {
+    setShowConfirmModal(true);
+  };
+
+  const executeAutoCheckoutApp = async () => {
+    setShowConfirmModal(false);
+    setSaving(true);
+    try {
+      const res = await fetch('/api/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'auto-checkout-app' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Lỗi xử lý');
+      
+      setSummary(data.summary);
+      const { successCount, skipCount } = data.stats;
+      toast.success(`Đã tự động thu của ${successCount} người! Bỏ qua ${skipCount} người (số dư không đủ/chưa liên kết).`, { duration: 5000 });
+    } catch (err: unknown) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Lỗi kết nối máy chủ');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -297,11 +325,31 @@ export default function PaymentPage() {
       {/* Danh sách thanh toán */}
       {playerPayments.length > 0 && (
         <div style={{ ...cardStyle, marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <h2 style={sectionTitleStyle}>📋 Danh sách thanh toán</h2>
-            <span style={{ fontSize: 12, color: '#8a8aaa' }}>
-              {paidCount}/{playerPayments.length} đã thanh toán • {formatVND(paidAmount)}/{formatVND(totalAmount)}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: '10px' }}>
+            <div>
+              <h2 style={sectionTitleStyle}>📋 Danh sách thanh toán</h2>
+              <span style={{ fontSize: 12, color: '#8a8aaa' }}>
+                {paidCount}/{playerPayments.length} đã thanh toán • {formatVND(paidAmount)}/{formatVND(totalAmount)}
+              </span>
+            </div>
+            {playerPayments.length > paidCount && (
+              <button
+                onClick={handleAutoCheckoutApp}
+                disabled={saving}
+                style={{
+                  ...btnPrimary,
+                  background: 'linear-gradient(135deg, #1976d2, #2196f3)',
+                  padding: '8px 16px',
+                  borderRadius: '12px',
+                  opacity: saving ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                ⚽ Auto Thu Bóng (App) tất cả
+              </button>
+            )}
           </div>
 
           {/* Progress bar */}
@@ -407,6 +455,34 @@ export default function PaymentPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Custom Confirm Modal */}
+      {showConfirmModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ background: 'var(--bg-primary, #fff)', borderRadius: '16px', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid var(--border-subtle, #eee)' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#c62828' }}>⚠️ Xác nhận Thu Tự Động</h3>
+            </div>
+            <div style={{ padding: '20px', fontSize: '14px', color: '#4a4a6a', lineHeight: '1.5' }}>
+              App sẽ tự động quét toàn bộ danh sách chưa đóng tiền, trừ <b>&quot;Bóng&quot;</b> trong app đối với những người đã liên kết tài khoản và <b>đủ số dư</b>.<br/><br/>Bạn có chắc chắn muốn chạy công cụ này không?
+            </div>
+            <div style={{ padding: '20px', borderTop: '1px solid var(--border-subtle, #eee)', display: 'flex', gap: '12px' }}>
+              <button 
+                onClick={() => setShowConfirmModal(false)}
+                style={{ flex: 1, padding: '12px', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', color: '#4a4a6a' }}
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={executeAutoCheckoutApp}
+                style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #1976d2, #2196f3)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', color: 'white' }}
+              >
+                Chắc chắn chạy
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -99,7 +99,7 @@ export async function markPlayerPaid(
           type: 'payment',
           status: 'success',
           payment_source: 'App',
-          note: `Thanh toán đá bóng (${pp.total_amount} ⚽)`,
+          note: `ChamHetFC (${pp.total_amount} ⚽)`,
           match_payment_id: pp.match_payment_id
         });
       } else {
@@ -137,8 +137,31 @@ export async function markPlayerUnpaid(paymentId: string): Promise<boolean> {
 }
 
 // ==========================================
-// CALCULATE & GENERATE PLAYER PAYMENTS
+// CALCULATE & GENERATE & AUTO-CHECKOUT
 // ==========================================
+
+export async function autoCheckoutAllApp(matchDataId: string): Promise<{ successCount: number, skipCount: number }> {
+  const mp = await getMatchPaymentByMatchId(matchDataId);
+  if (!mp) return { successCount: 0, skipCount: 0 };
+
+  const payments = await getPlayerPayments(mp.id);
+  const unpaidPayments = payments.filter(p => !p.isPaid);
+  
+  let successCount = 0;
+  let skipCount = 0;
+
+  for (const pp of unpaidPayments) {
+    try {
+      const ok = await markPlayerPaid(pp.id, 'App');
+      if (ok) successCount++;
+      else skipCount++;
+    } catch {
+      skipCount++;
+    }
+  }
+
+  return { successCount, skipCount };
+}
 
 export async function resetPaymentsForMatch(matchDataId: string): Promise<boolean> {
   const mp = await getMatchPaymentByMatchId(matchDataId);
