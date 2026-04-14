@@ -23,6 +23,7 @@ export default function UsersAdminPage() {
   const [loading, setLoading] = useState(true);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, accountId: string | null}>({isOpen: false, accountId: null});
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{isOpen: boolean, accountId: string | null, username: string}>({isOpen: false, accountId: null, username: ""});
   const fetchData = async () => {
     try {
       const res = await fetch("/api/admin/users");
@@ -71,6 +72,29 @@ export default function UsersAdminPage() {
         toast.error("Lỗi khi cập nhật");
       }
     } catch (err) {
+      toast.error("Lỗi mạng");
+    }
+  };
+
+  const handleDeleteClick = (accountId: string, username: string) => {
+    setDeleteConfirmModal({ isOpen: true, accountId, username });
+  };
+
+  const executeDelete = async () => {
+    if (!deleteConfirmModal.accountId) return;
+    
+    try {
+      const res = await fetch(`/api/admin/users?id=${deleteConfirmModal.accountId}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast.success("Xóa user thành công!");
+        fetchData();
+        setDeleteConfirmModal({ isOpen: false, accountId: null, username: "" });
+      } else {
+        toast.error("Lỗi khi xóa user");
+      }
+    } catch {
       toast.error("Lỗi mạng");
     }
   };
@@ -130,16 +154,27 @@ export default function UsersAdminPage() {
                   </div>
                 </td>
                 <td style={{ padding: '16px' }}>
-                  <Link 
-                    href={`/admin-111/users/${acc.id}`}
-                    style={{
-                      background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)',
-                      padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s ease',
-                      textDecoration: 'none', display: 'inline-block'
-                    }}
-                  >
-                    Chi Tiết
-                  </Link>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <Link 
+                      href={`/admin-111/users/${acc.id}`}
+                      style={{
+                        background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)',
+                        padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s ease',
+                        textDecoration: 'none', display: 'inline-block'
+                      }}
+                    >
+                      Chi Tiết
+                    </Link>
+                    <button
+                      onClick={() => handleDeleteClick(acc.id, acc.username)}
+                      style={{
+                        background: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2',
+                        padding: '8px 16px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s ease',
+                      }}
+                    >
+                      Xoá
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -164,6 +199,33 @@ export default function UsersAdminPage() {
                 style={{ background: 'var(--accent)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
               >
                 Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmModal.isOpen && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ background: 'var(--bg-primary, #fff)', borderRadius: '16px', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid var(--border-subtle, #eee)' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#c62828' }}>⚠️ Xác nhận Xoá User</h3>
+            </div>
+            <div style={{ padding: '20px', fontSize: '14px', color: '#4a4a6a', lineHeight: '1.5' }}>
+              Bạn có chắc chắn muốn xóa user <b style={{color: '#c62828'}}>&quot;{deleteConfirmModal.username}&quot;</b> không? Toàn bộ dữ liệu của user này sẽ bị xóa hằng ngày.
+            </div>
+            <div style={{ padding: '20px', borderTop: '1px solid var(--border-subtle, #eee)', display: 'flex', gap: '12px' }}>
+              <button 
+                onClick={() => setDeleteConfirmModal({ isOpen: false, accountId: null, username: "" })}
+                style={{ flex: 1, padding: '12px', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', color: '#4a4a6a' }}
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={executeDelete}
+                style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #e53935, #ef5350)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', color: 'white' }}
+              >
+                Chắc chắn xoá
               </button>
             </div>
           </div>
