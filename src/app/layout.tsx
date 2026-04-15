@@ -130,7 +130,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi">
+    <html lang="vi" data-theme="light" style={{ colorScheme: 'light' }}>
       <head>
         {/* Structured Data */}
         <script
