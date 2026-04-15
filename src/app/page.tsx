@@ -39,7 +39,7 @@ function getTeamTooltip(name: string): string {
   const n = name.toUpperCase();
   if (n.includes('HOME')) return 'Trắng';
   if (n.includes('AWAY')) return 'Đen';
-  return 'Cam';
+  return 'Pit';
 }
 
 function getInitials(name: string): string {

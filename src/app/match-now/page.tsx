@@ -91,7 +91,7 @@ const TEAMS: Record<TeamColor, TeamInfo> = {
   },
   orange: {
     color: "orange",
-    label: "Cam",
+    label: "Pit",
     bg: "#ef6c00",
     textColor: "#ffffff",
     borderColor: "#e65100",

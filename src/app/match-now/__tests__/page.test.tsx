@@ -190,7 +190,7 @@ describe('TEAMS configuration', () => {
     },
     orange: {
       color: 'orange',
-      label: 'Cam',
+      label: 'Pit',
       bg: '#ef6c00',
       textColor: '#ffffff',
       borderColor: '#e65100',
@@ -645,7 +645,7 @@ describe('ThreeTeamMode', () => {
       // Team names appear in both stats bar and pick cards
       expect(screen.getAllByText('Trắng').length).toBeGreaterThanOrEqual(1);
       expect(screen.getAllByText('Đen').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getAllByText('Cam').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Pit').length).toBeGreaterThanOrEqual(1);
     });
 
     it('hiển thị nút "⚽ Bắt đầu trận đấu" bị disabled khi chưa chọn đủ 2 đội', () => {
@@ -708,7 +708,7 @@ describe('ThreeTeamMode', () => {
       );
       fireEvent.click(pickCards[0]); // white
       fireEvent.click(pickCards[1]); // black
-      fireEvent.click(pickCards[2]); // cam - should not be added
+      fireEvent.click(pickCards[2]); // Pit - should not be added
 
       // Chỉ có 2 dấu ✓
       const checkmarks = screen.getAllByText('✓');
@@ -777,8 +777,8 @@ describe('ThreeTeamMode', () => {
       });
       render(<MatchNowPage />);
 
-      // Đội chờ là cam
-      expect(screen.getByText(/Cam đang chờ/)).toBeInTheDocument();
+      // Đội chờ là Pit
+      expect(screen.getByText(/Pit đang chờ/)).toBeInTheDocument();
     });
 
     it('hiển thị timer 07:00 mặc định', () => {
@@ -1525,7 +1525,7 @@ describe('getWaitingTeam logic', () => {
     return ALL_COLORS.find((c) => c !== teamA && c !== teamB)!;
   }
 
-  it('white vs black → cam đang chờ', () => {
+  it('white vs black → Pit đang chờ', () => {
     expect(getWaitingTeam('white', 'black')).toBe('orange');
   });
 
