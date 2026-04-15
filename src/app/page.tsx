@@ -641,6 +641,40 @@ export default function Home() {
 
   const [benchSaving, setBenchSaving] = useState(false);
 
+  // Helper: check if a player entry (from bench/team) matches the current user
+  const isCurrentUserPlayer = (p: { name: string; telegramHandle?: string; playerId?: string }) => {
+    // Match by playerId (most reliable)
+    if (currentUser?.player_id && p.playerId && p.playerId === currentUser.player_id) return true;
+
+    // Find the registered PlayerConfig for the current user
+    const myConfig = currentUser?.player_id
+      ? playerConfigs.find(c => c.id === currentUser.player_id)
+      : null;
+
+    if (myConfig) {
+      const entryName = p.name.trim().toLowerCase();
+
+      // Match by main name
+      if (myConfig.name.trim().toLowerCase() === entryName) return true;
+
+      // Match by subNames
+      if (myConfig.subNames.some(sub => sub.trim().toLowerCase() === entryName)) return true;
+
+      // Match by telegramHandle
+      if (myConfig.telegramHandle && p.telegramHandle) {
+        const a = myConfig.telegramHandle.trim().toLowerCase().replace(/^@/, '');
+        const b = p.telegramHandle.trim().toLowerCase().replace(/^@/, '');
+        if (a && a === b) return true;
+      }
+    }
+
+    // Fallback: exact name match with resolved playerName
+    const playerName = myConfig?.name || currentUser?.name || currentUser?.username || '';
+    if (playerName && p.name.trim().toLowerCase() === playerName.trim().toLowerCase()) return true;
+
+    return false;
+  };
+
   const handleJoinBench = async () => {
     if (!currentUser || !matchData || !matchData.bench) return;
     
@@ -652,9 +686,9 @@ export default function Home() {
        }
     }
     
-    // Check if player is already in ANY team or bench
-    const isAlreadyInBench = matchData.bench.some(p => p.name === playerName);
-    const isAlreadyInTeam = matchData.teams?.some(t => t.players.some(p => p.name === playerName));
+    // Check if player is already in ANY team or bench (using all identifiers)
+    const isAlreadyInBench = matchData.bench.some(p => isCurrentUserPlayer(p));
+    const isAlreadyInTeam = matchData.teams?.some(t => t.players.some(p => isCurrentUserPlayer(p)));
     
     if (isAlreadyInBench) {
       toast.error('Bạn đã ở trong danh sách Bench rồi!');
