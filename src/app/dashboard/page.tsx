@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import RefreshButton from "./RefreshButton";
+import SuccessToast from "./SuccessToast";
 
 export default async function DashboardPage(props: { searchParams?: Promise<{ status?: string, cancel?: string, orderCode?: string, page?: string }> }) {
   const session = await getSession();
@@ -57,6 +58,31 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
     redirect("/dashboard");
   }
 
+  // Xử lý khi user quay về từ PayOS thành công
+  const isSuccess = urlStatus === "success" || urlStatus === "PAID";
+  let depositConfirmed = false;
+  if (isSuccess && searchParams?.orderCode) {
+    // Kiểm tra xem webhook đã xử lý xong chưa
+    const { data: allTxs } = await supabase
+      .from("transactions")
+      .select("id, note, status")
+      .eq("account_id", session.id)
+      .eq("type", "deposit");
+      
+    if (allTxs) {
+      const target = allTxs.find(tx => {
+        try {
+          if (!tx.note) return false;
+          const parsed = JSON.parse(tx.note);
+          return String(parsed.orderCode) === String(searchParams.orderCode);
+        } catch {
+          return false;
+        }
+      });
+      depositConfirmed = target?.status === "success";
+    }
+  }
+
   // Fetch latest user data
   const { data: user } = await supabase
     .from("accounts")
@@ -98,6 +124,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
     <div style={{ minHeight: '100vh', padding: '0 20px 20px', background: 'var(--bg-primary)' }}>
       <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
+        {isSuccess && <SuccessToast confirmed={depositConfirmed} />}
 
         {/* Balance Card using the signature field style */}
         <div className="field-header" style={{ padding: '40px 24px', borderRadius: '24px', marginBottom: 0, boxShadow: '0 8px 32px rgba(198,40,40,0.15)' }}>

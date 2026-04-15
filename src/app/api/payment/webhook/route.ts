@@ -16,8 +16,9 @@ export async function POST(request: Request) {
     const { orderCode, code, desc } = webhookData;
 
     // code "00" = thanh toán thành công
-    if (code === '00') {
-      // Tìm order trong DB
+    if (code === '00' && orderCode) {
+
+      // Tìm trong payment_orders trước (thanh toán trận đấu)
       const { data: order } = await supabase
         .from('payment_orders')
         .select('*')
@@ -25,13 +26,12 @@ export async function POST(request: Request) {
         .single();
 
       if (order && order.status !== 'paid') {
-        // Cập nhật trạng thái order
+        // Xử lý thanh toán trận đấu
         await supabase
           .from('payment_orders')
           .update({ status: 'paid', paid_at: new Date().toISOString() })
           .eq('id', order.id);
 
-        // Mark tất cả player_payments trong order là đã thanh toán
         const playerPaymentIds: string[] = order.player_payment_ids || [];
         if (playerPaymentIds.length > 0) {
           const { data: updatedPlayers } = await supabase
@@ -44,14 +44,12 @@ export async function POST(request: Request) {
             .in('id', playerPaymentIds)
             .select('player_name');
 
-          // Lấy danh sách tên người chơi & tên người ck (người gửi)
           const playerNames = updatedPlayers?.map(p => p.player_name).join(', ') || '';
           const senderName = webhookData.counterAccountName || 'Một thành viên';
           const formattedAmount = new Intl.NumberFormat('vi-VN').format(webhookData.amount) + 'đ';
 
           if (playerNames) {
             try {
-              // Escape cho Markdown (V1) của Telegram: chỉ cần escape các ký tự markdown cơ bản
               const safeSenderName = senderName.replace(/([_*\[\]`])/g, '\\$1');
               const safePlayerNames = playerNames.replace(/([_*\[\]`])/g, '\\$1');
 
@@ -70,13 +68,56 @@ export async function POST(request: Request) {
         }
 
         console.log(`✅ Payment confirmed: orderCode=${orderCode}, players=${playerPaymentIds.length}`);
+      } else {
+        // Không phải payment order → thử xử lý như deposit (thêm Bóng)
+        const { data: pendingDeposits } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('status', 'pending')
+          .eq('type', 'deposit');
+
+        if (pendingDeposits) {
+          const depositTx = pendingDeposits.find((t) => {
+            try {
+              const parsed = JSON.parse(t.note);
+              return String(parsed.orderCode) === String(orderCode);
+            } catch {
+              return false;
+            }
+          });
+
+          if (depositTx) {
+            await supabase
+              .from('transactions')
+              .update({ status: 'success' })
+              .eq('id', depositTx.id);
+
+            const { data: user } = await supabase
+              .from('accounts')
+              .select('balance')
+              .eq('id', depositTx.account_id)
+              .single();
+
+            if (user) {
+              await supabase
+                .from('accounts')
+                .update({ balance: (user.balance || 0) + depositTx.amount })
+                .eq('id', depositTx.account_id);
+            }
+
+            console.log(`✅ Deposit confirmed: orderCode=${orderCode}, amount=${depositTx.amount}, account=${depositTx.account_id}`);
+          }
+        }
       }
+
     } else {
-      // Thanh toán không thành công
-      await supabase
-        .from('payment_orders')
-        .update({ status: 'failed', description: desc || 'Payment failed' })
-        .eq('order_code', orderCode);
+      // Thanh toán không thành công — cập nhật payment_orders nếu có
+      if (orderCode) {
+        await supabase
+          .from('payment_orders')
+          .update({ status: 'failed', description: desc || 'Payment failed' })
+          .eq('order_code', orderCode);
+      }
 
       console.log(`❌ Payment failed: orderCode=${orderCode}, desc=${desc}`);
     }

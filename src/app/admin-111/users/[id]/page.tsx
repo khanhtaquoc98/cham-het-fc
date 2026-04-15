@@ -9,6 +9,7 @@ interface Transaction {
   id: string;
   type: string;
   amount: number;
+  status: string;
   created_at: string;
 }
 
@@ -158,12 +159,21 @@ export default function UserDetailPage() {
                     {tx.amount > 0 ? "+" : "-"}
                   </div>
                   <div>
-                    <h3 style={{ fontSize: '15px', fontWeight: 700, margin: '0 0 4px', color: 'var(--text-primary)' }}>{tx.type === "deposit" ? "Thêm Bóng" : (tx.type === "payment" ? "Thanh toán" : "Khác")}</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <h3 style={{ fontSize: '15px', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>{tx.type === "deposit" ? "Thêm Bóng" : (tx.type === "payment" ? "Thanh toán" : tx.type === "admin_manual" ? "Admin thủ công" : "Khác")}</h3>
+                      <span style={{
+                        fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px',
+                        background: tx.status === 'success' ? 'rgba(46,125,50,0.1)' : tx.status === 'pending' ? 'rgba(255,152,0,0.1)' : 'rgba(211,47,47,0.1)',
+                        color: tx.status === 'success' ? '#2e7d32' : tx.status === 'pending' ? '#e65100' : '#d32f2f'
+                      }}>
+                        {tx.status === 'success' ? 'Thành công' : tx.status === 'pending' ? 'Đang xử lý' : tx.status === 'cancelled' || tx.status === 'cancel' ? 'Đã hủy' : 'Thất bại'}
+                      </span>
+                    </div>
                     <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{new Date(tx.created_at).toLocaleString('vi-VN')}</p>
                   </div>
                 </div>
                 <div style={{ fontSize: '18px', fontWeight: 900, color: tx.amount > 0 ? "var(--field-accent-light)" : "var(--text-primary)" }}>
-                  {tx.amount > 0 ? "+" : ""}{tx.amount} ⚽
+                  {tx.amount > 0 ? "+" : ""}{tx.amount.toLocaleString()} ⚽
                 </div>
               </div>
             ))}
