@@ -756,7 +756,7 @@ export default function Home() {
             <MatchInfoSection matchData={matchData} />
 
             {/* Bench Section */}
-            {matchData.bench !== undefined && (
+            {matchData.bench !== undefined && !(paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0) && (
               <div style={{ marginTop: '24px', marginBottom: '24px', padding: '24px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-subtle)', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
                 {currentUser ? (
                   <div style={{ textAlign: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px dashed var(--border-subtle)', marginBottom: '24px' }}>
