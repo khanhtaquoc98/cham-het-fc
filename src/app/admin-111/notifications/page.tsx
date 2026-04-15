@@ -88,7 +88,7 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div style={cardStyle}>
+    <div className="admin-card" style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <h2 style={sectionTitleStyle}>
           🔔 Gửi thông báo ({subscriberCount} thiết bị)
@@ -113,7 +113,7 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+      <div className="admin-noti-buttons" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button
           style={{
             ...btnPrimary,

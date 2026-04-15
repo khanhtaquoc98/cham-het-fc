@@ -92,7 +92,7 @@ export default function UserDetailPage() {
       </div>
 
       <div className="glass-card" style={{ padding: '24px', borderRadius: '16px', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '24px' }}>
+        <div className="admin-user-detail-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '24px' }}>
           <div>
             <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '4px' }}>Username</p>
             <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -110,7 +110,7 @@ export default function UserDetailPage() {
 
       <div className="glass-card" style={{ padding: '24px', borderRadius: '16px', marginBottom: '24px' }}>
         <h2 style={{ fontSize: '18px', fontWeight: 800, marginBottom: '16px', color: 'var(--text-primary)' }}>Thêm/Trừ Bóng Thủ Công</h2>
-        <div style={{ display: 'flex', gap: '8px', maxWidth: '400px' }}>
+        <div className="admin-manual-add-row" style={{ display: 'flex', gap: '8px', maxWidth: '400px' }}>
           <input 
             type="number" 
             placeholder="Số Bóng (vd: 50000)" 

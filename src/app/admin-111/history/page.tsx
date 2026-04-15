@@ -122,7 +122,7 @@ function MatchHistoryList() {
   };
 
   return (
-    <div style={cardStyle}>
+    <div className="admin-card" style={cardStyle}>
       {loading ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#8a8aaa' }}>Đang tải...</div>
       ) : matches.length === 0 ? (
@@ -305,7 +305,7 @@ function PlayerStatsList() {
   };
 
   return (
-    <div style={cardStyle}>
+    <div className="admin-card" style={cardStyle}>
       <h2 style={{ ...sectionTitleStyle, marginBottom: '16px' }}>
         Thống kê cầu thủ ({total})
       </h2>
@@ -319,7 +319,7 @@ function PlayerStatsList() {
         </div>
       ) : (
         <>
-          <div style={{ overflowX: 'auto' }}>
+          <div className="admin-table-wrap" style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'rgba(198,40,40,0.03)' }}>

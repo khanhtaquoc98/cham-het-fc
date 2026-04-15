@@ -234,7 +234,7 @@ export default function PaymentPage() {
     <div>
       <Toaster position="top-center" />
       {/* Thông tin tiền sân & nước */}
-      <div style={cardStyle}>
+      <div className="admin-card" style={cardStyle}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <h2 style={sectionTitleStyle}>💰 Thanh toán trận đấu</h2>
         </div>
@@ -245,7 +245,7 @@ export default function PaymentPage() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+        <div className="admin-form-grid-2" style={{ marginBottom: '16px' }}>
           <div>
             <label style={labelStyle}>Tiền sân (VND)</label>
             <input
@@ -300,7 +300,7 @@ export default function PaymentPage() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="admin-save-row">
           <button
             style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}
             onClick={handleSave}
@@ -325,7 +325,7 @@ export default function PaymentPage() {
       {/* Danh sách thanh toán */}
       {playerPayments.length > 0 && (
         <div style={{ ...cardStyle, marginTop: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: '10px' }}>
+          <div className="admin-payment-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: '10px' }}>
             <div>
               <h2 style={sectionTitleStyle}>📋 Danh sách thanh toán</h2>
               <span style={{ fontSize: 12, color: '#8a8aaa' }}>

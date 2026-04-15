@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import './admin-responsive.css';
 
 const navItems = [
   { href: '/admin-111', label: 'Sân bóng', icon: '🏟️' },
@@ -18,7 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div style={{ minHeight: '100vh', background: '#faf5f5', fontFamily: 'Chiron GoRound TC, sans-serif' }}>
       {/* Header */}
-      <div style={{
+      <div className="admin-header" style={{
         background: 'linear-gradient(135deg, #8e0000, #e53935)',
         padding: '20px 32px', color: 'white',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -41,13 +42,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
 
       {/* Navigation */}
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '16px 20px 0' }}>
-        <div style={{
-          display: 'flex', gap: '4px',
-          background: 'white', borderRadius: '14px', padding: '4px',
-          border: '1px solid rgba(198,40,40,0.1)',
-          boxShadow: '0 2px 8px rgba(198,40,40,0.05)',
-        }}>
+      <div className="admin-content" style={{ maxWidth: '900px', margin: '0 auto', padding: '16px 20px 0' }}>
+        <div className="admin-nav">
           {navItems.map(item => {
             const isActive = item.href === '/admin-111'
               ? pathname === '/admin-111'
@@ -57,29 +53,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link
                 key={item.href}
                 href={item.href}
+                className="admin-nav-link"
                 style={{
-                  flex: 1,
-                  padding: '12px 10px',
-                  borderRadius: '10px',
-                  border: 'none',
                   background: isActive
                     ? 'linear-gradient(135deg, #e53935, #ef5350)'
                     : 'transparent',
                   color: isActive ? 'white' : '#6a6a8a',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  fontFamily: 'Chiron GoRound TC, sans-serif',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  textDecoration: 'none',
                 }}
               >
                 <span style={{ fontSize: '16px' }}>{item.icon}</span>
-                {item.label}
+                <span className="admin-nav-label">{item.label}</span>
               </Link>
             );
           })}
@@ -87,7 +70,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
 
       {/* Page Content */}
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '16px 20px 24px' }}>
+      <div className="admin-content" style={{ maxWidth: '900px', margin: '0 auto', padding: '16px 20px 24px' }}>
         {children}
       </div>
     </div>

@@ -105,7 +105,7 @@ export default function UsersAdminPage() {
     <div style={{ padding: '24px', background: 'var(--bg-primary)', color: 'var(--text-primary)', minHeight: '100vh', fontFamily: 'var(--font-sans, "Chiron GoRound TC", sans-serif)' }}>
       <h1 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '24px', color: 'var(--accent)' }}>Quản Lý User & Player</h1>
       
-      <div className="glass-card" style={{ overflowX: 'auto', borderRadius: '16px' }}>
+      <div className="admin-table-wrap glass-card" style={{ overflowX: 'auto', borderRadius: '16px' }}>
         <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
           <thead style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)' }}>
             <tr>

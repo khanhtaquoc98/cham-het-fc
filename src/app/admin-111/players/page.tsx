@@ -142,7 +142,7 @@ export default function PlayersPage() {
   return (
     <>
       {/* Add Player */}
-      <div style={cardStyle}>
+      <div className="admin-card" style={cardStyle}>
         <h2 style={{ ...sectionTitleStyle, marginBottom: '14px' }}>Thêm cầu thủ mới</h2>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 150px' }}>
@@ -205,7 +205,8 @@ export default function PlayersPage() {
             <p style={{ fontSize: '13px', marginTop: '4px' }}>Thêm cầu thủ đầu tiên ở form bên trên</p>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="admin-table-wrap">
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'rgba(198,40,40,0.03)' }}>
                 <th style={{ ...thStyle, width: '40px' }}>#</th>
@@ -309,6 +310,7 @@ export default function PlayersPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </>

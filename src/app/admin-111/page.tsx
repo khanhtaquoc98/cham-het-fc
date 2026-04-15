@@ -252,9 +252,9 @@ export default function VenuePage() {
   };
 
   return (
-    <div style={cardStyle}>
+    <div className="admin-card" style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h2 style={sectionTitleStyle}>1. Thông tin sân bóng</h2>
+        <h2 className="admin-section-title" style={sectionTitleStyle}>1. Thông tin sân bóng</h2>
         {status && <span style={statusStyle}>{status}</span>}
       </div>
 
@@ -262,7 +262,7 @@ export default function VenuePage() {
         <div style={{ padding: '20px', textAlign: 'center', color: '#8a8aaa' }}>Đang tải...</div>
       ) : (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+          <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
             <div>
               <label style={labelStyle}>Ngày thi đấu</label>
               <input style={inputStyle} placeholder="VD: 12/3, 25/12" value={venue.date}
@@ -274,7 +274,7 @@ export default function VenuePage() {
                 onChange={e => setVenue(v => ({ ...v, time: e.target.value }))} />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+          <div className="admin-form-grid-2" style={{ marginBottom: '16px' }}>
             <div>
               <label style={labelStyle}>Tên sân</label>
               <input style={inputStyle} placeholder="VD: Sân số 8" value={venue.venue}
@@ -298,7 +298,7 @@ export default function VenuePage() {
             </select>
           </div>
           
-          <div style={{ display: 'flex', gap: '12px' }}>
+          <div className="admin-save-row">
             <button style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }} onClick={handleSaveVenue} disabled={saving}>
               {saving ? 'Đang lưu...' : 'Lưu thông tin sân'}
             </button>
@@ -307,20 +307,20 @@ export default function VenuePage() {
           <hr style={{ margin: '32px 0', borderTop: '1px solid var(--border-subtle)' }} />
 
           {/* TEAM MANAGEMENT */}
-          <h2 style={sectionTitleStyle}>2. Dashboard Chia Team (Kéo & Thả)</h2>
-          <div style={{ display: 'flex', gap: '12px', marginTop: '16px', marginBottom: '24px' }}>
+          <h2 className="admin-section-title" style={sectionTitleStyle}>2. Dashboard Chia Team (Kéo & Thả)</h2>
+          <div className="admin-action-row">
             <button style={{ ...btnBase, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} onClick={handleCreateTeams}>
-              🪄 1. Khởi tạo / Làm mới Khung Team
+              🪄 Khởi tạo Team
             </button>
             <button style={{ ...btnBase, background: 'var(--field-accent-light)', color: 'white' }} onClick={handleAutoSplitTeams}>
-              🎲 2. Auto Chia Đều (Theo Bench)
+              🎲 Auto Chia Đều
             </button>
             <button style={{ ...btnBase, background: '#0088cc', color: 'white' }} onClick={handleCopyTelegramCommand} title="Copy để paste vào nhóm chat">
-              📋 Copy lệnh Telegram
+              📋 Copy Telegram
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '24px' }}>
+          <div className="admin-dashboard-grid">
             {/* BENCH COLUMN */}
             <div 
               style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px', minHeight: '300px' }}
@@ -359,7 +359,7 @@ export default function VenuePage() {
             </div>
 
             {/* TEAMS COLUMN */}
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${teams.length || 1}, 1fr)`, gap: '16px' }}>
+            <div className="admin-teams-grid" style={{ display: 'grid', gridTemplateColumns: `repeat(${teams.length || 1}, 1fr)`, gap: '16px' }}>
               {teams.length === 0 ? (
                 <div style={{ gridColumn: '1 / -1', textAlign: 'center', color: 'var(--text-muted)', paddingTop: '40px' }}>
                   Chưa có khung Team nào. Ấn &quot;Khởi tạo Khung Team&quot; ở trên.
