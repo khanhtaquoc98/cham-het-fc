@@ -84,9 +84,15 @@ export default function PaymentPage() {
     const maxScore = sorted[sorted.length - 1][1];
 
     if (teams.length === 2) {
-      // 2-team: team thua chịu 100% tiền nước
       const loser = sorted[0];
-      if (loser[1] >= maxScore) return []; // draw
+      if (loser[1] >= maxScore) {
+        // Hoà: 2 đội chia đều tiền nước (50/50)
+        return [
+          { teamName: sorted[0][0], score: sorted[0][1], drinkPercent: 50 },
+          { teamName: sorted[1][0], score: sorted[1][1], drinkPercent: 50 },
+        ];
+      }
+      // Team thua chịu 100% tiền nước
       return [{ teamName: loser[0], score: loser[1], drinkPercent: 100 }];
     } else {
       // 3-team: 2 team thua
@@ -370,21 +376,28 @@ export default function PaymentPage() {
 
             const isLosingTeam = losingTeams.some(lt => lt.teamName === team.name);
             const losingInfo = losingTeams.find(lt => lt.teamName === team.name);
+            // Kiểm tra hoà: tất cả team đều trong losingTeams và cùng % (2-team: 50/50)
+            const isDraw = teams.length === 2 && losingTeams.length === 2 && losingTeams.every(lt => lt.drinkPercent === 50);
 
             return (
               <div key={team.name} style={{ marginBottom: 16 }}>
                 <div style={{
-                  fontSize: 13, fontWeight: 700, color: isLosingTeam ? '#c62828' : '#2e7d32',
+                  fontSize: 13, fontWeight: 700, color: isDraw ? '#e65100' : isLosingTeam ? '#c62828' : '#2e7d32',
                   marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6,
                 }}>
                   {team.name === 'HOME' ? '⚪ ' : team.name === 'AWAY' ? '⚫ ' : '🟠 '}
                   {team.name} ({teamPlayers.length} người)
-                  {isLosingTeam && losingInfo && (
+                  {isDraw && (
+                    <span style={{ fontSize: 11, color: '#e65100', fontWeight: 600 }}>
+                      — Hoà 🤝 Nước 50%
+                    </span>
+                  )}
+                  {!isDraw && isLosingTeam && losingInfo && (
                     <span style={{ fontSize: 11, color: '#e65100', fontWeight: 600 }}>
                       — Nước {losingInfo.drinkPercent}%
                     </span>
                   )}
-                  {!isLosingTeam && <span style={{ fontSize: 11, color: '#2e7d32' }}>— Thắng 🏆</span>}
+                  {!isDraw && !isLosingTeam && <span style={{ fontSize: 11, color: '#2e7d32' }}>— Thắng 🏆</span>}
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

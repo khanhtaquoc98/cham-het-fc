@@ -251,17 +251,22 @@ export default function PublicPaymentPage() {
 
               const isLosing = losingTeams.some(lt => lt.teamName === team.name);
               const losingInfo = losingTeams.find(lt => lt.teamName === team.name);
+              const isDraw = teams.length === 2 && losingTeams.length === 2 && losingTeams.every(lt => lt.drinkPercent === 50);
 
               return (
                 <div key={team.name} style={{ marginBottom: 16 }}>
                   <div style={{
                     fontSize: 13, fontWeight: 700, marginBottom: 8, display: 'flex',
                     alignItems: 'center', gap: 6,
-                    color: isLosing ? '#c62828' : '#2e7d32',
+                    color: isDraw ? '#e65100' : isLosing ? '#c62828' : '#2e7d32',
                   }}>
                     {team.name === 'HOME' ? '⚪ ' : team.name === 'AWAY' ? '⚫ ' : '🟠 '}
                     {team.name}
-                    {isLosing ? (
+                    {isDraw ? (
+                      <span style={{ fontSize: 11, color: '#e65100' }}>
+                        — Hoà 🤝 Nước 50%
+                      </span>
+                    ) : isLosing ? (
                       <span style={{ fontSize: 11, color: '#e65100' }}>
                         — Nước {losingInfo?.drinkPercent}%
                       </span>
