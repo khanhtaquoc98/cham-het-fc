@@ -342,6 +342,7 @@ function findRegisteredPlayer(
   telegramHandle: string | undefined,
   players: Array<{ id: string; name: string; subNames: string[]; telegramHandle: string }>,
 ): { id: string } | null {
+  // Priority 1: match by telegramHandle
   if (telegramHandle) {
     const nh = telegramHandle.trim().toLowerCase().replace(/^@/, '');
     for (const p of players) {
@@ -353,10 +354,18 @@ function findRegisteredPlayer(
   }
 
   const normalized = playerName.trim().toLowerCase();
+
+  // Priority 2: match by subNames
   for (const p of players) {
     for (const sub of p.subNames) {
       if (sub.trim().toLowerCase() === normalized) return { id: p.id };
     }
   }
+
+  // Priority 3: match by main name
+  for (const p of players) {
+    if (p.name.trim().toLowerCase() === normalized) return { id: p.id };
+  }
+
   return null;
 }
