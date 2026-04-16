@@ -236,6 +236,14 @@ export default function PaymentPage() {
   const totalAmount = playerPayments.reduce((s, p) => s + p.totalAmount, 0);
   const paidAmount = playerPayments.filter(p => p.isPaid).reduce((s, p) => s + p.totalAmount, 0);
 
+  // Tổng tiền theo phương thức thanh toán
+  const paidByApp = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'App').reduce((s, p) => s + p.totalAmount, 0);
+  const paidByQR = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'QR_Bank').reduce((s, p) => s + p.totalAmount, 0);
+  const paidByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'QR_Bank').reduce((s, p) => s + p.totalAmount, 0);
+  const countByApp = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'App').length;
+  const countByQR = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'QR_Bank').length;
+  const countByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'QR_Bank' && p.paymentMethod !== 'unpaid').length;
+
   return (
     <div>
       <Toaster position="top-center" />
@@ -368,6 +376,74 @@ export default function PaymentPage() {
               transition: 'width 0.3s ease',
             }} />
           </div>
+
+          {/* Thống kê theo phương thức thanh toán */}
+          {paidCount > 0 && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 10,
+              marginBottom: 16,
+            }}>
+              {/* App */}
+              <div style={{
+                padding: '12px',
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, rgba(25,118,210,0.08), rgba(33,150,243,0.12))',
+                border: '1px solid rgba(25,118,210,0.15)',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 18, marginBottom: 4 }}>⚽</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#1976d2', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 4 }}>
+                  App (Bóng)
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#1565c0' }}>
+                  {formatVND(paidByApp)}
+                </div>
+                <div style={{ fontSize: 10, color: '#64b5f6', fontWeight: 600, marginTop: 2 }}>
+                  {countByApp} người
+                </div>
+              </div>
+              {/* QR Bank */}
+              <div style={{
+                padding: '12px',
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, rgba(46,125,50,0.08), rgba(76,175,80,0.12))',
+                border: '1px solid rgba(46,125,50,0.15)',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 18, marginBottom: 4 }}>🏦</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#2e7d32', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 4 }}>
+                  QR Ngân hàng
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#1b5e20' }}>
+                  {formatVND(paidByQR)}
+                </div>
+                <div style={{ fontSize: 10, color: '#66bb6a', fontWeight: 600, marginTop: 2 }}>
+                  {countByQR} người
+                </div>
+              </div>
+              {/* Khác */}
+              <div style={{
+                padding: '12px',
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, rgba(230,81,0,0.08), rgba(255,152,0,0.12))',
+                border: '1px solid rgba(230,81,0,0.15)',
+                textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 18, marginBottom: 4 }}>💵</div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#e65100', textTransform: 'uppercase', letterSpacing: '0.3px', marginBottom: 4 }}>
+                  Khác / Tiền mặt
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: '#bf360c' }}>
+                  {formatVND(paidByOther)}
+                </div>
+                <div style={{ fontSize: 10, color: '#ff9800', fontWeight: 600, marginTop: 2 }}>
+                  {countByOther} người
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Group by team */}
           {teams.map(team => {
