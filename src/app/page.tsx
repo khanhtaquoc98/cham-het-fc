@@ -860,6 +860,22 @@ export default function Home() {
               </Link>
             </div>
 
+            {/* Thanh toán Button (nếu đủ thông tin) */}
+            {paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px', marginTop: '24px' }}>
+                <Link href="/payment" style={{
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  background: 'linear-gradient(135deg, #e53935, #ef5350)',
+                  color: 'white', padding: '12px 24px', borderRadius: '12px',
+                  textDecoration: 'none', fontWeight: 700, fontSize: '15px',
+                  boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
+                  transition: 'transform 0.2s ease'
+                }}>
+                  💳 Thanh toán trận này
+                </Link>
+              </div>
+            )}
+
             {/* Teams Grid */}
             <div className="teams-grid" style={{
               display: 'grid',
@@ -883,21 +899,7 @@ export default function Home() {
               )}
             </div>
 
-            {/* Thanh toán Button (nếu đủ thông tin) */}
-            {paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px', marginTop: '24px' }}>
-                <Link href="/payment" style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  background: 'linear-gradient(135deg, #e53935, #ef5350)',
-                  color: 'white', padding: '12px 24px', borderRadius: '12px',
-                  textDecoration: 'none', fontWeight: 700, fontSize: '15px',
-                  boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
-                  transition: 'transform 0.2s ease'
-                }}>
-                  💳 Thanh toán trận này
-                </Link>
-              </div>
-            )}
+          
 
             <RulesSection teamCount={teamCount} />
           </>
