@@ -18,6 +18,7 @@ export default function PaymentPage() {
   const [saving, setSaving] = useState(false);
   const [sendingNoti, setSendingNoti] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [paymentModal, setPaymentModal] = useState<{ pp: PlayerPayment; mode: 'pay' | 'unpay'; method: string } | null>(null);
 
   // Editable fields
   const [fieldCost, setFieldCost] = useState('');
@@ -196,6 +197,21 @@ export default function PaymentPage() {
       console.error(err);
       toast.error(err instanceof Error ? err.message : 'Lỗi khi cập nhật trạng thái');
     }
+  };
+
+  const openPayModal = (pp: PlayerPayment) => {
+    if (pp.isPaid) {
+      setPaymentModal({ pp, mode: 'unpay', method: pp.paymentMethod || 'manual' });
+    } else {
+      setPaymentModal({ pp, mode: 'pay', method: 'payos' });
+    }
+  };
+
+  const confirmPaymentModal = async () => {
+    if (!paymentModal) return;
+    const { pp, mode, method } = paymentModal;
+    setPaymentModal(null);
+    await handleTogglePaid(mode === 'unpay' ? { ...pp, isPaid: true } : pp, method);
   };
 
   const handleAutoCheckoutApp = () => {
@@ -570,9 +586,9 @@ export default function PaymentPage() {
                         border: `1px solid ${pp.isPaid ? 'rgba(46,125,50,0.15)' : 'rgba(198,40,40,0.1)'}`,
                         cursor: 'pointer', transition: 'all 0.15s',
                       }}
-                      onClick={() => handleTogglePaid(pp)}
+                      onClick={() => openPayModal(pp)}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }} onClick={(e) => { e.stopPropagation(); handleTogglePaid(pp, pp.paymentMethod !== 'unpaid' ? pp.paymentMethod : 'manual'); }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
                         <div style={{
                           width: 20, height: 20, borderRadius: 4,
                           border: `2px solid ${pp.isPaid ? '#2e7d32' : '#ccc'}`,
@@ -591,24 +607,10 @@ export default function PaymentPage() {
                           {pp.playerName}
                         </span>
                       </div>
-                      
-                      {!pp.isPaid && (
-                        <div style={{ marginRight: 10 }} onClick={(e) => e.stopPropagation()}>
-                          <select 
-                            className="bg-white border border-zinc-200 text-xs rounded p-1 outline-none font-sans"
-                            onChange={(e) => handleTogglePaid(pp, e.target.value)}
-                            defaultValue=""
-                          >
-                            <option value="" disabled>Thanh toán qua...</option>
-                            <option value="App">App (Bóng)</option>
-                            <option value="QR_Bank">QR Ngân hàng</option>
-                            <option value="Khác">Khác / Tiền mặt</option>
-                          </select>
-                        </div>
-                      )}
+
                       {pp.isPaid && (
                         <div style={{ marginRight: 10, fontSize: 11, color: '#2e7d32', fontWeight: 700 }}>
-                          [{pp.paymentMethod === 'App' ? 'App ⚽' : pp.paymentMethod === 'QR_Bank' ? 'QR_Bank' : pp.paymentMethod}]
+                          [{pp.paymentMethod === 'App' ? 'App ⚽' : pp.paymentMethod === 'payos' ? '🏦 QR' : pp.paymentMethod === 'payos' ? '🏦 QR' : pp.paymentMethod}]
                         </div>
                       )}
 
@@ -630,7 +632,7 @@ export default function PaymentPage() {
         </div>
       )}
 
-      {/* Custom Confirm Modal */}
+      {/* Auto Checkout Confirm Modal */}
       {showConfirmModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
           <div style={{ background: 'var(--bg-primary, #fff)', borderRadius: '16px', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
@@ -654,6 +656,122 @@ export default function PaymentPage() {
                 Chắc chắn chạy
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Action Modal */}
+      {paymentModal && (
+        <div
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, padding: '16px' }}
+          onClick={() => setPaymentModal(null)}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: '20px', width: '100%', maxWidth: '380px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', overflow: 'hidden' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {paymentModal.mode === 'pay' ? (
+              <>
+                {/* Header */}
+                <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#8a8aaa', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Xác nhận thanh toán</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1a2e' }}>{paymentModal.pp.playerName}</div>
+                  <div style={{ fontSize: 12, color: '#8a8aaa', marginTop: 2 }}>{paymentModal.pp.teamName}</div>
+                </div>
+
+                {/* Amount breakdown */}
+                <div style={{ padding: '16px 24px', background: '#fafafa', borderBottom: '1px solid #f0f0f0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, color: '#666' }}>Tiền sân</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#1a1a2e' }}>{formatVND(paymentModal.pp.fieldAmount)}</span>
+                  </div>
+                  {paymentModal.pp.drinkAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, color: '#666' }}>Tiền nước</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#e65100' }}>{formatVND(paymentModal.pp.drinkAmount)}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px dashed #e0e0e0', marginTop: 4 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: '#1a1a2e' }}>Tổng cộng</span>
+                    <span style={{ fontSize: 18, fontWeight: 900, color: '#c62828' }}>{formatVND(paymentModal.pp.totalAmount)}</span>
+                  </div>
+                </div>
+
+                {/* Method selector */}
+                <div style={{ padding: '16px 24px' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#4a4a6a', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Phương thức thanh toán</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {[
+                      { value: 'payos', label: '🏦 QR Ngân hàng', color: '#2e7d32', bg: 'rgba(46,125,50,0.07)' },
+                      { value: 'App',     label: '⚽ App (Bóng)',    color: '#1976d2', bg: 'rgba(25,118,210,0.07)' },
+                      { value: 'Khác',    label: '💵 Khác / Tiền mặt', color: '#e65100', bg: 'rgba(230,81,0,0.07)' },
+                    ].map(opt => (
+                      <div
+                        key={opt.value}
+                        onClick={() => setPaymentModal(m => m ? { ...m, method: opt.value } : null)}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                          border: `2px solid ${paymentModal.method === opt.value ? opt.color : '#e0e0e0'}`,
+                          background: paymentModal.method === opt.value ? opt.bg : '#fff',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        <span style={{ fontSize: 14, fontWeight: 600, color: paymentModal.method === opt.value ? opt.color : '#4a4a6a' }}>{opt.label}</span>
+                        {paymentModal.method === opt.value && (
+                          <span style={{ fontSize: 16, color: opt.color }}>✓</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ padding: '0 24px 20px', display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => setPaymentModal(null)}
+                    style={{ flex: 1, padding: '13px', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', color: '#4a4a6a', fontSize: 14 }}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={confirmPaymentModal}
+                    style={{ flex: 2, padding: '13px', background: 'linear-gradient(135deg, #2e7d32, #43a047)', border: 'none', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', color: 'white', fontSize: 14 }}
+                  >
+                    ✓ Xác nhận đã thanh toán
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Unpay header */}
+                <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #f0f0f0' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#c62828', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>⚠️ Bỏ xác nhận thanh toán</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1a2e' }}>{paymentModal.pp.playerName}</div>
+                  <div style={{ fontSize: 12, color: '#8a8aaa', marginTop: 2 }}>
+                    Đã thanh toán qua: <b>{paymentModal.pp.paymentMethod === 'App' ? 'App ⚽' : paymentModal.pp.paymentMethod === 'payos' ? '🏦 QR Ngân hàng' : paymentModal.pp.paymentMethod}
+                    </b> • {formatVND(paymentModal.pp.totalAmount)}
+                  </div>
+                </div>
+                <div style={{ padding: '20px 24px', fontSize: 14, color: '#4a4a6a', lineHeight: 1.6 }}>
+                  Bạn có chắc muốn <b style={{ color: '#c62828' }}>bỏ đánh dấu đã thanh toán</b> của cầu thủ này không?
+                </div>
+                <div style={{ padding: '0 24px 20px', display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => setPaymentModal(null)}
+                    style={{ flex: 1, padding: '13px', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '10px', fontWeight: 600, cursor: 'pointer', color: '#4a4a6a', fontSize: 14 }}
+                  >
+                    Giữ nguyên
+                  </button>
+                  <button
+                    onClick={confirmPaymentModal}
+                    style={{ flex: 2, padding: '13px', background: 'linear-gradient(135deg, #c62828, #e53935)', border: 'none', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', color: 'white', fontSize: 14 }}
+                  >
+                    Bỏ thanh toán
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
