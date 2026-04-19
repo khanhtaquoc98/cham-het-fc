@@ -260,7 +260,7 @@ export default function PaymentPage() {
       const dateStr = venue?.date ?? '';
       const timeStr = venue?.time ?? '';
       const venueStr = venue?.venue ?? '';
-      const title = `CHỐT THANH TOÁN TRẬN 📅 ${dateStr}${timeStr ? ` - ⏰ ${timeStr}` : ''}${venueStr ? ` - 📍 ${venueStr}` : ''}`;
+      const title = `CHỐT THANH TOÁN TRẬN  ${dateStr}${timeStr ? ` - ${timeStr}` : ''}${venueStr ? ` - ${venueStr}` : ''}`;
 
       const allPlayers = summary.playerPayments || [];
       const unpaidPlayers = allPlayers.filter(p => !p.isPaid);
@@ -292,7 +292,7 @@ export default function PaymentPage() {
         unpaidList,
         '----------------------------------------------',
         `Tổng cộng: ${fmt(totalAll)}`,
-        `- QR Ngân Hàng + App (Bóng): ${fmt(paidDigital)}`,
+        `- QR Ngân Hàng + App (Bóng): ${fmt(paidDigital)}đ`,
         `- Khác/Tiền Mặt: ${fmt(otherAmount)}đ`,
         `- Chưa thanh toán: ${fmt(unpaidAmount)}đ`,
       ].join('\n');
