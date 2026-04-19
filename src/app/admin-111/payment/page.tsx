@@ -243,6 +243,15 @@ export default function PaymentPage() {
 
   const formatVND = (amount: number) => new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
 
+  // Helper: normalize value → human label
+  const labelForMethod = (m: string) => {
+    if (m === 'app')   return 'App ⚽';
+    if (m === 'payos') return '🏦 QR Ngân hàng';
+    if (m === 'other') return '💵 Tiền mặt';
+    if (m === 'manual') return 'Thủ công';
+    return m;
+  };
+
   const handleSendNotification = async () => {
     if (!summary) return;
     setSendingNoti(true);
@@ -256,14 +265,14 @@ export default function PaymentPage() {
       const allPlayers = summary.playerPayments || [];
       const unpaidPlayers = allPlayers.filter(p => !p.isPaid);
 
-      const qrCount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'payos').length;
-      const qrAmount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'payos').reduce((s, p) => s + p.totalAmount, 0);
+      const qrCount  = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'payos').length;
+      const qrAmount  = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'payos').reduce((s, p) => s + p.totalAmount, 0);
 
-      const appCount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'App').length;
-      const appAmount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'App').reduce((s, p) => s + p.totalAmount, 0);
+      const appCount  = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'app').length;
+      const appAmount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'app').reduce((s, p) => s + p.totalAmount, 0);
 
-      const otherCount = allPlayers.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'payos').length;
-      const otherAmount = allPlayers.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'payos').reduce((s, p) => s + p.totalAmount, 0);
+      const otherCount  = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'other').length;
+      const otherAmount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'other').reduce((s, p) => s + p.totalAmount, 0);
 
       const unpaidAmount = unpaidPlayers.reduce((s, p) => s + p.totalAmount, 0);
       const totalAll = allPlayers.reduce((s, p) => s + p.totalAmount, 0);
@@ -315,12 +324,12 @@ export default function PaymentPage() {
   const paidAmount = playerPayments.filter(p => p.isPaid).reduce((s, p) => s + p.totalAmount, 0);
 
   // Tổng tiền theo phương thức thanh toán
-  const paidByApp = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'App').reduce((s, p) => s + p.totalAmount, 0);
-  const paidByQR = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'payos').reduce((s, p) => s + p.totalAmount, 0);
-  const paidByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'payos').reduce((s, p) => s + p.totalAmount, 0);
-  const countByApp = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'App').length;
-  const countByQR = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'payos').length;
-  const countByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'payos' && p.paymentMethod !== 'unpaid').length;
+  const paidByApp   = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'app').reduce((s, p) => s + p.totalAmount, 0);
+  const paidByQR    = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'payos').reduce((s, p) => s + p.totalAmount, 0);
+  const paidByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'other').reduce((s, p) => s + p.totalAmount, 0);
+  const countByApp   = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'app').length;
+  const countByQR    = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'payos').length;
+  const countByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'other').length;
 
   return (
     <div>
@@ -610,7 +619,7 @@ export default function PaymentPage() {
 
                       {pp.isPaid && (
                         <div style={{ marginRight: 10, fontSize: 11, color: '#2e7d32', fontWeight: 700 }}>
-                          [{pp.paymentMethod === 'App' ? 'App ⚽' : pp.paymentMethod === 'payos' ? '🏦 QR' : pp.paymentMethod === 'payos' ? '🏦 QR' : pp.paymentMethod}]
+                          [{labelForMethod(pp.paymentMethod)}]
                         </div>
                       )}
 
@@ -703,8 +712,8 @@ export default function PaymentPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {[
                       { value: 'payos', label: '🏦 QR Ngân hàng', color: '#2e7d32', bg: 'rgba(46,125,50,0.07)' },
-                      { value: 'App',     label: '⚽ App (Bóng)',    color: '#1976d2', bg: 'rgba(25,118,210,0.07)' },
-                      { value: 'Khác',    label: '💵 Khác / Tiền mặt', color: '#e65100', bg: 'rgba(230,81,0,0.07)' },
+                      { value: 'app',   label: '⚽ App (Bóng)',      color: '#1976d2', bg: 'rgba(25,118,210,0.07)' },
+                      { value: 'other', label: '💵 Khác / Tiền mặt', color: '#e65100', bg: 'rgba(230,81,0,0.07)' },
                     ].map(opt => (
                       <div
                         key={opt.value}
@@ -749,7 +758,7 @@ export default function PaymentPage() {
                   <div style={{ fontSize: 11, fontWeight: 700, color: '#c62828', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>⚠️ Bỏ xác nhận thanh toán</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: '#1a1a2e' }}>{paymentModal.pp.playerName}</div>
                   <div style={{ fontSize: 12, color: '#8a8aaa', marginTop: 2 }}>
-                    Đã thanh toán qua: <b>{paymentModal.pp.paymentMethod === 'App' ? 'App ⚽' : paymentModal.pp.paymentMethod === 'payos' ? '🏦 QR Ngân hàng' : paymentModal.pp.paymentMethod}
+                    Đã thanh toán qua: <b>{labelForMethod(paymentModal.pp.paymentMethod)}
                     </b> • {formatVND(paymentModal.pp.totalAmount)}
                   </div>
                 </div>

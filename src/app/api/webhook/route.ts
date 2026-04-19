@@ -169,6 +169,34 @@ export async function POST(request: Request) {
       replyText = '🗑️ Đã xoá toàn bộ dữ liệu trận đấu!';
     }
 
+    // Handle /cancel-payment command
+    else if (textLower.startsWith('/cancel-payment') || textLower.startsWith('/huy-thanh-toan')) {
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const res = await fetch(`${baseUrl}/api/cancel-payment`, { method: 'POST' });
+        const data = await res.json();
+
+        if (!res.ok) {
+          replyText = `❌ Lỗi khi huỷ payment: ${data.error || 'Unknown error'}`;
+        } else {
+          const { cancelledCount, errorCount, skippedCount, total } = data.summary;
+          if (total === 0) {
+            replyText = '✅ Không có payment nào đang pending cần huỷ.';
+          } else {
+            replyText =
+              `🚫 Huỷ payment pending hoàn tất!\n` +
+              `✅ Đã huỷ: ${cancelledCount}\n` +
+              (errorCount > 0 ? `❌ Lỗi: ${errorCount}\n` : '') +
+              (skippedCount > 0 ? `⚠️ Bỏ qua (không có orderCode): ${skippedCount}\n` : '') +
+              `📊 Tổng: ${total} bản ghi`;
+          }
+        }
+      } catch (err) {
+        console.error('cancel-payment webhook error:', err);
+        replyText = '❌ Lỗi kết nối khi huỷ payment.';
+      }
+    }
+
     // Send reply via Telegram API
     if (replyText && chatId) {
       const botToken = process.env.TELEGRAM_BOT_TOKEN;

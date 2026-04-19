@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       amount: amount,
       type: "admin_adjustment",
       status: "success",
-      payment_source: "Khác",
+      payment_source: "other",
       note: "Admin cộng thủ công"
     });
 

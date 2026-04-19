@@ -25,7 +25,7 @@ export async function POST(request: Request) {
         amount: amount, // Quy ra bóng
         type: "deposit",
         status: "pending",
-        payment_source: "QR_Bank",
+        payment_source: "payos",
         note: JSON.stringify({ orderCode, vnd: amount })
       });
 

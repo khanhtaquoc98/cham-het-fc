@@ -80,12 +80,12 @@ export async function getPlayerPayments(matchPaymentId: string): Promise<PlayerP
 
 export async function markPlayerPaid(
   paymentId: string,
-  method: string = 'manual' // 'App' | 'QR_Bank' | 'Khác'
+  method: string = 'manual' // 'app' | 'payos' | 'other' | 'manual'
 ): Promise<boolean> {
   const { data: pp } = await supabase.from('player_payments').select('*').eq('id', paymentId).single();
   if (!pp) return false;
 
-  if (method === 'App') {
+  if (method === 'app') {
     if (pp.player_id) {
       // Find linked user account
       const { data: acc } = await supabase.from('accounts').select('id, balance').eq('player_id', pp.player_id).single();
@@ -98,7 +98,7 @@ export async function markPlayerPaid(
           amount: -pp.total_amount, // negative
           type: 'payment',
           status: 'success',
-          payment_source: 'App',
+          payment_source: 'app',
           note: `ChamHetFC (${pp.total_amount} ⚽)`,
           match_payment_id: pp.match_payment_id
         });

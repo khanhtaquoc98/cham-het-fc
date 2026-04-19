@@ -25,7 +25,7 @@ export interface PlayerPayment {
   totalAmount: number;
   isPaid: boolean;
   paidAt: string | null;
-  paymentMethod: string; // 'App' | 'QR_Bank' | 'Khác' | 'unpaid' | 'manual' | 'payos' | 'cash'
+  paymentMethod: string; // 'app' | 'payos' | 'other' | 'unpaid' | 'manual'
   createdAt: string;
 }
 
