@@ -27,12 +27,12 @@ export default function LoginPage() {
         router.refresh();
       } else {
         toast.error(data.error);
+        setIsLoading(false);
       }
     } catch (err: any) {
       toast.error(err.message);
-    } finally {
       setIsLoading(false);
-    }
+    } 
   };
 
   return (

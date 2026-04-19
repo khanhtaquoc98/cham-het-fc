@@ -74,7 +74,7 @@ export async function POST() {
     processedCodes.add(orderCode);
 
     try {
-      await payos.cancelPaymentLink(orderCode, 'Giao dịch bị treo quá lâu');
+      await payos.paymentRequests.cancelPaymentLink(orderCode, 'Giao dịch bị treo quá lâu');
 
       // Cập nhật status → 'cancelled' cho tất cả rows thuộc orderCode này
       for (const item of items) {

@@ -27,12 +27,12 @@ export default function RegisterPage() {
         router.refresh();
       } else {
         toast.error(data.error || "Đăng ký thất bại");
+        setIsLoading(false);
       }
     } catch (err: any) {
       toast.error(err.message);
-    } finally {
       setIsLoading(false);
-    }
+    } 
   };
 
   return (
