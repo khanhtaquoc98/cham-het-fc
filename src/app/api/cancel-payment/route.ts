@@ -1,6 +1,25 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import payos from '@/lib/payos';
+
+const PAYOS_CLIENT_ID = process.env.PAYOS_CLIENT_ID || '';
+const PAYOS_API_KEY = process.env.PAYOS_API_KEY || '';
+
+async function cancelPayOSLink(orderCode: number, reason: string) {
+  const res = await fetch(`https://api-merchant.payos.vn/v2/payment-requests/${orderCode}/cancel`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-client-id': PAYOS_CLIENT_ID,
+      'x-api-key': PAYOS_API_KEY,
+    },
+    body: JSON.stringify({ cancellationReason: reason }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.desc || data?.message || `PayOS cancel failed (${res.status})`);
+  }
+  return res.json();
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +93,7 @@ export async function POST() {
     processedCodes.add(orderCode);
 
     try {
-      await payos.paymentRequests.cancelPaymentLink(orderCode, 'Giao dịch bị treo quá lâu');
+      await cancelPayOSLink(orderCode, 'Giao dịch bị treo quá lâu');
 
       // Cập nhật status → 'cancelled' cho tất cả rows thuộc orderCode này
       for (const item of items) {
