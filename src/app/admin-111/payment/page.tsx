@@ -297,7 +297,7 @@ export default function PaymentPage() {
         `- Chưa thanh toán: ${fmt(unpaidAmount)}đ`,
       ].join('\n');
 
-      const res = await fetch('https://summary-bot-sepia.vercel.app/api/notify', {
+      const res = await fetch('/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, body }),
