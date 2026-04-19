@@ -8,22 +8,30 @@ import Link from "next/link";
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ username, password }),
-      headers: { "Content-Type": "application/json" },
-    });
-    const data = await res.json();
-    if (res.ok) {
-      toast.success("Đăng nhập thành công!");
-      router.push("/dashboard");
-      router.refresh();
-    } else {
-      toast.error(data.error);
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Đăng nhập thành công!");
+        router.push("/dashboard");
+        router.refresh();
+      } else {
+        toast.error(data.error);
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -83,18 +91,20 @@ export default function LoginPage() {
           
           <button
             type="submit"
+            disabled={isLoading}
             style={{
               width: '100%', padding: '16px', borderRadius: '12px', marginTop: '8px',
               background: 'linear-gradient(135deg, var(--field-accent-dark), var(--field-accent-light))',
-              color: 'white', fontSize: '16px', fontWeight: 800, border: 'none', cursor: 'pointer',
+              color: 'white', fontSize: '16px', fontWeight: 800, border: 'none', cursor: isLoading ? 'not-allowed' : 'pointer',
               textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(198,40,40,0.2)',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              opacity: isLoading ? 0.7 : 1
             }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-            onMouseDown={e => e.currentTarget.style.transform = 'translateY(1px)'}
+            onMouseEnter={e => { if (!isLoading) e.currentTarget.style.transform = 'translateY(-2px)' }}
+            onMouseLeave={e => { if (!isLoading) e.currentTarget.style.transform = 'translateY(0)' }}
+            onMouseDown={e => { if (!isLoading) e.currentTarget.style.transform = 'translateY(1px)' }}
           >
-            Vào Sân Ngay
+            {isLoading ? "Đang Vào Sân..." : "Vào Sân Ngay"}
           </button>
         </form>
         

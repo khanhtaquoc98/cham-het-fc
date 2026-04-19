@@ -16,6 +16,7 @@ export default function PaymentPage() {
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sendingNoti, setSendingNoti] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Editable fields
@@ -226,6 +227,67 @@ export default function PaymentPage() {
 
   const formatVND = (amount: number) => new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
 
+  const handleSendNotification = async () => {
+    if (!summary) return;
+    setSendingNoti(true);
+    try {
+      const venue = matchInfo?.venue;
+      const dateStr = venue?.date ?? '';
+      const timeStr = venue?.time ?? '';
+      const venueStr = venue?.venue ?? '';
+      const title = `CHỐT THANH TOÁN TRẬN 📅 ${dateStr}${timeStr ? ` - ⏰ ${timeStr}` : ''}${venueStr ? ` - 📍 ${venueStr}` : ''}`;
+
+      const allPlayers = summary.playerPayments || [];
+      const unpaidPlayers = allPlayers.filter(p => !p.isPaid);
+
+      const qrCount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'payos').length;
+      const qrAmount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'payos').reduce((s, p) => s + p.totalAmount, 0);
+
+      const appCount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'App').length;
+      const appAmount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'App').reduce((s, p) => s + p.totalAmount, 0);
+
+      const otherCount = allPlayers.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'payos').length;
+      const otherAmount = allPlayers.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'payos').reduce((s, p) => s + p.totalAmount, 0);
+
+      const unpaidAmount = unpaidPlayers.reduce((s, p) => s + p.totalAmount, 0);
+      const totalAll = allPlayers.reduce((s, p) => s + p.totalAmount, 0);
+      const paidDigital = qrAmount + appAmount;
+
+      const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
+
+      const unpaidList = unpaidPlayers.length > 0
+        ? `\nDanh sách chưa thanh toán (${unpaidPlayers.length} người):\n` +
+          unpaidPlayers.map((p, i) => `${i + 1}. ${p.playerName} (${p.teamName}): ${fmt(p.totalAmount)}đ`).join('\n')
+        : '';
+
+      const body = [
+        `QR Ngân Hàng (payos) x ${qrCount} người: ${fmt(qrAmount)}đ`,
+        `App (Bóng) x ${appCount} người: ${fmt(appAmount)}đ`,
+        `Khác/Tiền Mặt: x ${otherCount} người: ${fmt(otherAmount)}đ`,
+        unpaidList,
+        '----------------------------------------------',
+        `Tổng cộng: ${fmt(totalAll)}`,
+        `- QR Ngân Hàng + App (Bóng): ${fmt(paidDigital)}`,
+        `- Khác/Tiền Mặt: ${fmt(otherAmount)}đ`,
+        `- Chưa thanh toán: ${fmt(unpaidAmount)}đ`,
+      ].join('\n');
+
+      const res = await fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, message: body }),
+      });
+
+      if (!res.ok) throw new Error('Gửi thông báo thất bại');
+      toast.success('📣 Đã gửi thông báo Chốt Thanh Toán!');
+    } catch (err: unknown) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Lỗi khi gửi thông báo');
+    } finally {
+      setSendingNoti(false);
+    }
+  };
+
   if (loading) {
     return <div style={cardStyle}><div style={{ padding: '20px', textAlign: 'center', color: '#8a8aaa' }}>Đang tải...</div></div>;
   }
@@ -238,11 +300,11 @@ export default function PaymentPage() {
 
   // Tổng tiền theo phương thức thanh toán
   const paidByApp = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'App').reduce((s, p) => s + p.totalAmount, 0);
-  const paidByQR = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'QR_Bank').reduce((s, p) => s + p.totalAmount, 0);
-  const paidByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'QR_Bank').reduce((s, p) => s + p.totalAmount, 0);
+  const paidByQR = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'payos').reduce((s, p) => s + p.totalAmount, 0);
+  const paidByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'payos').reduce((s, p) => s + p.totalAmount, 0);
   const countByApp = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'App').length;
-  const countByQR = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'QR_Bank').length;
-  const countByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'QR_Bank' && p.paymentMethod !== 'unpaid').length;
+  const countByQR = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'payos').length;
+  const countByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod !== 'App' && p.paymentMethod !== 'payos' && p.paymentMethod !== 'unpaid').length;
 
   return (
     <div>
@@ -346,24 +408,45 @@ export default function PaymentPage() {
                 {paidCount}/{playerPayments.length} đã thanh toán • {formatVND(paidAmount)}/{formatVND(totalAmount)}
               </span>
             </div>
-            {playerPayments.length > paidCount && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {playerPayments.length > paidCount && (
+                <button
+                  onClick={handleAutoCheckoutApp}
+                  disabled={saving || sendingNoti}
+                  style={{
+                    ...btnPrimary,
+                    background: 'linear-gradient(135deg, #1976d2, #2196f3)',
+                    padding: '8px 16px',
+                    borderRadius: '12px',
+                    opacity: saving ? 0.6 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  ⚽ Auto Thanh Toán
+                </button>
+              )}
               <button
-                onClick={handleAutoCheckoutApp}
-                disabled={saving}
+                onClick={handleSendNotification}
+                disabled={saving || sendingNoti}
                 style={{
                   ...btnPrimary,
-                  background: 'linear-gradient(135deg, #1976d2, #2196f3)',
+                  background: sendingNoti
+                    ? 'linear-gradient(135deg, #7b1fa2, #9c27b0)'
+                    : 'linear-gradient(135deg, #6a1b9a, #8e24aa)',
                   padding: '8px 16px',
                   borderRadius: '12px',
-                  opacity: saving ? 0.6 : 1,
+                  opacity: sendingNoti ? 0.7 : 1,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px'
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
                 }}
               >
-                ⚽ Auto Thu Bóng (App) tất cả
+                {sendingNoti ? '⏳ Đang gửi...' : '📣 Chốt Thanh Toán'}
               </button>
-            )}
+            </div>
           </div>
 
           {/* Progress bar */}
