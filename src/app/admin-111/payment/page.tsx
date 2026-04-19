@@ -297,10 +297,10 @@ export default function PaymentPage() {
         `- Chưa thanh toán: ${fmt(unpaidAmount)}đ`,
       ].join('\n');
 
-      const res = await fetch('/api/push/send', {
+      const res = await fetch('https://summary-bot-sepia.vercel.app/api/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, message: body }),
+        body: JSON.stringify({ title, body }),
       });
 
       if (!res.ok) throw new Error('Gửi thông báo thất bại');
