@@ -26,7 +26,7 @@ export const dynamic = 'force-dynamic';
 /**
  * POST /api/cancel-payment
  * Huỷ tất cả các payment đang pending trong payment_orders và transactions.
- * orderCode được lưu trong cột `note` của mỗi bảng.
+ * payment_orders dùng cột `order_code`, transactions dùng cột `note`.
  */
 export async function POST() {
   const results: {
@@ -36,10 +36,10 @@ export async function POST() {
     reason?: string;
   }[] = [];
 
-  // ── 1. Collect orderCodes từ payment_orders ────────────────────────────────
+  // ── 1. Collect orderCodes từ payment_orders (dùng cột order_code) ──────────
   const { data: pendingOrders, error: ordersErr } = await supabase
     .from('payment_orders')
-    .select('id, note')
+    .select('id, order_code')
     .eq('status', 'pending');
 
   if (ordersErr) {
@@ -47,7 +47,7 @@ export async function POST() {
     return NextResponse.json({ error: ordersErr.message }, { status: 500 });
   }
 
-  // ── 2. Collect orderCodes từ transactions ──────────────────────────────────
+  // ── 2. Collect orderCodes từ transactions (dùng cột note) ──────────────────
   const { data: pendingTxns, error: txnsErr } = await supabase
     .from('transactions')
     .select('id, note')
@@ -59,28 +59,28 @@ export async function POST() {
   }
 
   // ── 3. Build unique orderCode set ──────────────────────────────────────────
-  type PendingItem = { id: string; note: string | null; source: 'payment_orders' | 'transactions' };
-
-  const allPending: PendingItem[] = [
-    ...(pendingOrders || []).map((r) => ({ ...r, source: 'payment_orders' as const })),
-    ...(pendingTxns || []).map((r) => ({ ...r, source: 'transactions' as const })),
-  ];
+  type PendingItem = { id: string; orderCode: number | null; source: 'payment_orders' | 'transactions' };
 
   // Extract orderCode from note (numeric value in the note string)
-  const extractOrderCode = (note: string | null): number | null => {
+  const extractOrderCodeFromNote = (note: string | null): number | null => {
     if (!note) return null;
     const match = note.match(/\b(\d{6,})\b/); // orderCode thường là số dài >= 6 chữ số
     return match ? parseInt(match[1], 10) : null;
   };
+
+  const allPending: PendingItem[] = [
+    ...(pendingOrders || []).map((r) => ({ id: r.id, orderCode: r.order_code as number | null, source: 'payment_orders' as const })),
+    ...(pendingTxns || []).map((r) => ({ id: r.id, orderCode: extractOrderCodeFromNote(r.note), source: 'transactions' as const })),
+  ];
 
   // Deduplicate: mỗi orderCode chỉ cancel 1 lần
   const processedCodes = new Set<number>();
 
   const orderToItems = new Map<number, PendingItem[]>();
   for (const item of allPending) {
-    const code = extractOrderCode(item.note);
+    const code = item.orderCode;
     if (code === null) {
-      results.push({ source: item.source, orderCode: 0, status: 'skipped', reason: `Không tìm thấy orderCode trong note: "${item.note}"` });
+      results.push({ source: item.source, orderCode: 0, status: 'skipped', reason: `Không tìm thấy orderCode` });
       continue;
     }
     if (!orderToItems.has(code)) orderToItems.set(code, []);
@@ -136,7 +136,7 @@ export async function POST() {
 export async function GET() {
   const { data: orders } = await supabase
     .from('payment_orders')
-    .select('id, note, status, created_at')
+    .select('id, order_code, status, created_at')
     .eq('status', 'pending');
 
   const { data: txns } = await supabase

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
 
 /* ────────────────────────────────
    WEB AUDIO BEEP/BELL
@@ -135,13 +134,6 @@ export default function MatchNowPage() {
   // Render dựa trên trạng thái (nhảy thẳng vào trận không cần chọn)
   return (
     <div className="match-now-root">
-      <header className="mn-header">
-        <Link href="/" className="mn-back-btn" title="Về trang chủ">
-          ← Trang chủ
-        </Link>
-        <h1 className="mn-title">Trận Đấu {mode} Đội</h1>
-      </header>
-
       {mode === 2 && liveMatch && (
         <TwoTeamMode
           liveMatch={liveMatch}

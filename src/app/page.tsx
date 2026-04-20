@@ -783,7 +783,7 @@ export default function Home() {
             <span className="empty-icon">❌</span>
             <h2>{error}</h2>
           </div>
-        ) : !matchData || (!matchData.teams?.length && !matchData.bench?.length) ? (
+        ) : !matchData || (!matchData.teams?.length && !matchData.bench?.length && !matchData.venue?.date && !matchData.venue?.time && !matchData.venue?.venue) ? (
           <EmptyState />
         ) : (
           <>
