@@ -17,6 +17,8 @@ export default function NotificationsPage() {
   const [subscriberCount, setSubscriberCount] = useState(0);
   const [autoNotifyStatus, setAutoNotifyStatus] = useState<string | null>(null);
   const [venue, setVenue] = useState<VenueInfo>({ date: '', time: '', venue: '', googleMapLink: '' });
+  const [attendanceSending, setAttendanceSending] = useState(false);
+  const [attendanceStatus, setAttendanceStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/push/send').then(r => r.json()).then(d => setSubscriberCount(d.count || 0)).catch(() => {});
@@ -62,29 +64,55 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleSendMatchReminder = async () => {
-    setNotiSending(true);
-    setNotiStatus(null);
-    const title = '⚽ Sắp đến giờ đá!';
-    const body = venue.time && venue.venue
-      ? `Trận đấu lúc ${venue.time} tại ${venue.venue}. Chuẩn bị lên đường! 🔥`
-      : 'Chuẩn bị lên đường nhé anh em! 🔥';
+  const handleAttendanceNotify = async () => {
+    setAttendanceSending(true);
+    setAttendanceStatus(null);
+
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://chamhetfc.vercel.app';
+    const venueInfo = [venue.date, venue.time, venue.venue].filter(Boolean).join(' • ');
+    const title = '📋 Điểm danh trận đấu';
+    const pushMessage = `Anh em vào App điểm danh nhé!${venueInfo ? `\n${venueInfo}` : ''}\n\n👉 Vào App → Login → Điểm danh`;
+    const telegramBody = `📋 *Thông báo điểm danh*\n\nAnh em vào App điểm danh nhé! ⚽${venueInfo ? `\n📍 ${venueInfo}` : ''}\n\n👉 Vào App → Login → Điểm danh\n🔗 Link: ${baseUrl}`;
+
+    const results: string[] = [];
+
     try {
-      const res = await fetch('/api/push/send', {
+      // 1. Push notification
+      const pushRes = await fetch('/api/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, message: body }),
+        body: JSON.stringify({ title, message: pushMessage }),
       });
-      const data = await res.json();
-      if (data.ok) {
-        setNotiStatus(`✅ Đã gửi nhắc nhở ${data.sent} thiết bị`);
+      const pushData = await pushRes.json();
+      if (pushData.ok) {
+        results.push(`📱 Push: ${pushData.sent} thiết bị`);
       } else {
-        setNotiStatus('❌ ' + (data.error || 'Lỗi'));
+        results.push(`📱 Push: ❌ ${pushData.error || 'Lỗi'}`);
       }
-      setTimeout(() => setNotiStatus(null), 5000);
     } catch {
-      setNotiStatus('❌ Lỗi kết nối');
-    } finally { setNotiSending(false); }
+      results.push('📱 Push: ❌ Lỗi kết nối');
+    }
+
+    try {
+      // 2. Telegram notification
+      const tgRes = await fetch('/api/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, body: telegramBody }),
+      });
+      const tgData = await tgRes.json();
+      if (tgData.ok) {
+        results.push('💬 Telegram: ✅ Đã gửi');
+      } else {
+        results.push(`💬 Telegram: ❌ ${tgData.error || 'Lỗi'}`);
+      }
+    } catch {
+      results.push('💬 Telegram: ❌ Lỗi kết nối');
+    }
+
+    setAttendanceStatus(`✅ ${results.join(' | ')}`);
+    setTimeout(() => setAttendanceStatus(null), 8000);
+    setAttendanceSending(false);
   };
 
   return (
@@ -134,13 +162,29 @@ export default function NotificationsPage() {
         </button>
 
         <button
-          style={{ ...btnBase, padding: '10px 24px', borderRadius: '10px', background: '#e8f5e9', color: '#2e7d32', fontSize: '14px' }}
-          onClick={handleSendMatchReminder}
-          disabled={notiSending}
+          style={{
+            ...btnBase,
+            padding: '10px 24px',
+            borderRadius: '10px',
+            background: attendanceSending ? '#c8e6c9' : 'linear-gradient(135deg, #43a047, #66bb6a)',
+            color: 'white',
+            fontSize: '14px',
+            opacity: attendanceSending ? 0.7 : 1,
+            cursor: attendanceSending ? 'not-allowed' : 'pointer',
+            boxShadow: '0 2px 8px rgba(67,160,71,0.25)',
+          }}
+          onClick={handleAttendanceNotify}
+          disabled={attendanceSending}
         >
-          🚀 Gửi ngay
+          {attendanceSending ? 'Đang gửi...' : '📋 Thông báo điểm danh'}
         </button>
       </div>
+
+      {attendanceStatus && (
+        <div style={{ marginTop: '10px', fontSize: '13px', color: '#2e7d32', fontWeight: 600, background: 'rgba(46,125,50,0.06)', padding: '8px 12px', borderRadius: '8px' }}>
+          {attendanceStatus}
+        </div>
+      )}
 
       {autoNotifyStatus && (
         <div style={{ marginTop: '10px', fontSize: '13px', color: '#4a4a6a', fontStyle: 'italic' }}>
@@ -150,6 +194,8 @@ export default function NotificationsPage() {
 
       <div style={{ marginTop: '14px', padding: '12px 16px', background: 'rgba(198,40,40,0.03)', borderRadius: '10px', fontSize: '12px', color: '#8a8aaa', lineHeight: 1.7 }}>
         💡 <strong>Tự động gửi:</strong> Hệ thống sẽ gửi nhắc nhở trước giờ đá 1 tiếng nếu đã cấu hình ngày/giờ ở mục &quot;Thông tin sân bóng&quot;.
+        <br />
+        📋 <strong>Điểm danh:</strong> Gửi thông báo nhắc điểm danh qua cả Push Notification + Telegram, kèm hướng dẫn: Vào App → Login → Điểm danh.
       </div>
     </div>
   );
