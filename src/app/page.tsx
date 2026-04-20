@@ -721,8 +721,35 @@ export default function Home() {
     }
   };
 
+  const handleLeaveBench = async () => {
+    if (!currentUser || !matchData || !matchData.bench) return;
+
+    setBenchSaving(true);
+    try {
+      const newBench = matchData.bench.filter(p => !isCurrentUserPlayer(p));
+      const res = await fetch('/api/match/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bench: newBench }),
+      });
+      if (res.ok) {
+        setMatchData({ ...matchData, bench: newBench });
+        toast.success('Đã rời khỏi Bench!');
+      } else {
+        toast.error('Có lỗi xảy ra');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Có lỗi xảy ra');
+    } finally {
+      setBenchSaving(false);
+    }
+  };
+
   const totalPlayers = matchData?.teams?.reduce((sum, t) => sum + t.players.length, 0) || 0;
   const teamCount = matchData?.teams?.length || 0;
+  const isInBench = currentUser && matchData?.bench?.some(p => isCurrentUserPlayer(p));
+  const isInTeam = currentUser && matchData?.teams?.some(t => t.players.some(p => isCurrentUserPlayer(p)));
 
   return (
     <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -797,18 +824,37 @@ export default function Home() {
                     <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>
                       Xin chào {currentUser.name || currentUser.username}!
                     </p>
-                    <button 
-                      onClick={handleJoinBench}
-                      disabled={benchSaving}
-                      style={{ 
-                        background: 'linear-gradient(135deg, var(--accent), var(--accent-dark))', 
-                        color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', 
-                        fontWeight: 800, fontSize: '14px', cursor: benchSaving ? 'not-allowed' : 'pointer',
-                        opacity: benchSaving ? 0.7 : 1, transition: 'all 0.2s ease', 
-                        boxShadow: '0 4px 12px rgba(229,57,53,0.2)' 
-                      }}>
-                      {benchSaving ? 'Đang điểm danh...' : '✋ Điểm danh vào Bench'}
-                    </button>
+                    {isInTeam ? (
+                      <span style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>
+                        ✅ Bạn đã được xếp vào đội
+                      </span>
+                    ) : isInBench ? (
+                      <button 
+                        onClick={handleLeaveBench}
+                        disabled={benchSaving}
+                        style={{ 
+                          background: 'linear-gradient(135deg, #757575, #9e9e9e)', 
+                          color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', 
+                          fontWeight: 800, fontSize: '14px', cursor: benchSaving ? 'not-allowed' : 'pointer',
+                          opacity: benchSaving ? 0.7 : 1, transition: 'all 0.2s ease', 
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)' 
+                        }}>
+                        {benchSaving ? 'Đang xử lý...' : '👋 Rời khỏi Bench'}
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={handleJoinBench}
+                        disabled={benchSaving}
+                        style={{ 
+                          background: 'linear-gradient(135deg, var(--accent), var(--accent-dark))', 
+                          color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', 
+                          fontWeight: 800, fontSize: '14px', cursor: benchSaving ? 'not-allowed' : 'pointer',
+                          opacity: benchSaving ? 0.7 : 1, transition: 'all 0.2s ease', 
+                          boxShadow: '0 4px 12px rgba(229,57,53,0.2)' 
+                        }}>
+                        {benchSaving ? 'Đang điểm danh...' : '✋ Điểm danh vào Bench'}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px dashed var(--border-subtle)', marginBottom: '24px' }}>
