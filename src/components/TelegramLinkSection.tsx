@@ -9,12 +9,16 @@ export default function TelegramLinkSection() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleLink = async (user: any) => {
+  const handleLink = async (result: any) => {
+    if (result.error) {
+      toast.error(result.error === 'popup_closed' ? 'Đã đóng cửa sổ' : result.error);
+      return;
+    }
     setIsLoading(true);
     try {
       const res = await fetch("/api/user/profile", {
         method: "PUT",
-        body: JSON.stringify({ telegramPayload: user }),
+        body: JSON.stringify({ id_token: result.id_token }),
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();

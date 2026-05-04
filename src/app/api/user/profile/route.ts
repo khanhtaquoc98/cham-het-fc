@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getSession } from "@/lib/auth";
-import crypto from "crypto";
+import * as jose from "jose";
 
-function checkSignature(user: any, botToken: string) {
-  const { hash, ...data } = user;
-  const dataCheckString = Object.keys(data)
-    .sort()
-    .map((key) => `${key}=${data[key]}`)
-    .join("\n");
-  const secretKey = crypto.createHash("sha256").update(botToken).digest();
-  const hmac = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
-  return hmac === hash;
+async function verifyTelegramIdToken(idToken: string, clientId: string) {
+  const JWKS = jose.createRemoteJWKSet(
+    new URL("https://oauth.telegram.org/.well-known/jwks.json")
+  );
+  const { payload } = await jose.jwtVerify(idToken, JWKS, {
+    issuer: "https://oauth.telegram.org",
+    audience: clientId,
+  });
+  return payload;
 }
 
 export async function PUT(request: Request) {
@@ -21,21 +21,24 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { telegramPayload } = await request.json();
-    if (!telegramPayload || !telegramPayload.hash) {
+    const { id_token } = await request.json();
+    if (!id_token) {
       return NextResponse.json({ error: "Thiếu dữ liệu Telegram" }, { status: 400 });
     }
 
-    const token = process.env.TELEGRAM_LOGIN_BOT_TOKEN || "7905090398:AAFhdKA7OmctCjTMUTqXQtKbUEE2kgVcw_E";
-    if (!checkSignature(telegramPayload, token)) {
-      return NextResponse.json({ error: "Xác thực Telegram không hợp lệ" }, { status: 401 });
+    const clientId = process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID || "7905090398";
+    const payload = await verifyTelegramIdToken(id_token, clientId);
+    const telegramId = String(payload.id || payload.sub);
+
+    if (!telegramId) {
+      return NextResponse.json({ error: "Token không hợp lệ" }, { status: 401 });
     }
 
     // Check if telegram_id is used by someone else
     const { data: existingTg } = await supabase
       .from("accounts")
       .select("id")
-      .eq("telegram_id", String(telegramPayload.id))
+      .eq("telegram_id", telegramId)
       .neq("id", session.id)
       .single();
 
@@ -46,7 +49,7 @@ export async function PUT(request: Request) {
     // Update
     const { error: updateError } = await supabase
       .from("accounts")
-      .update({ telegram_id: String(telegramPayload.id) })
+      .update({ telegram_id: telegramId })
       .eq("id", session.id);
 
     if (updateError) {

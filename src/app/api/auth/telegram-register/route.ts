@@ -3,35 +3,34 @@ import { supabase } from "@/lib/supabase";
 import bcrypt from "bcrypt";
 import { encrypt } from "@/lib/auth";
 import { cookies } from "next/headers";
-import crypto from "crypto";
+import * as jose from "jose";
 
-function checkSignature(user: any, botToken: string) {
-  const { hash, ...data } = user;
-  const dataCheckString = Object.keys(data)
-    .sort()
-    .map((key) => `${key}=${data[key]}`)
-    .join("\n");
-  const secretKey = crypto.createHash("sha256").update(botToken).digest();
-  const hmac = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
-  return hmac === hash;
+async function verifyTelegramIdToken(idToken: string, clientId: string) {
+  const JWKS = jose.createRemoteJWKSet(
+    new URL("https://oauth.telegram.org/.well-known/jwks.json")
+  );
+  const { payload } = await jose.jwtVerify(idToken, JWKS, {
+    issuer: "https://oauth.telegram.org",
+    audience: clientId,
+  });
+  return payload;
 }
 
 export async function POST(request: Request) {
   try {
-    const { username, password, telegramUser } = await request.json();
-    if (!username || !password || !telegramUser || !telegramUser.hash) {
+    const { username, password, id_token } = await request.json();
+    if (!username || !password || !id_token) {
       return NextResponse.json({ error: "Thiếu thông tin đăng ký" }, { status: 400 });
     }
 
-    const token = process.env.TELEGRAM_LOGIN_BOT_TOKEN || "7905090398:AAFhdKA7OmctCjTMUTqXQtKbUEE2kgVcw_E";
-    if (!token) {
-      return NextResponse.json({ error: "Server missing TELEGRAM_LOGIN_BOT_TOKEN" }, { status: 500 });
-    }
+    const clientId = process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID || "7905090398";
+    
+    // Verify JWT token
+    const payload = await verifyTelegramIdToken(id_token, clientId);
+    const telegramId = String(payload.id || payload.sub);
 
-    // Verify hash again for security
-    const isValid = checkSignature(telegramUser, token);
-    if (!isValid) {
-      return NextResponse.json({ error: "Xác thực Telegram không hợp lệ" }, { status: 401 });
+    if (!telegramId) {
+      return NextResponse.json({ error: "Token không hợp lệ" }, { status: 401 });
     }
 
     // Check if user exists by username
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
     const { data: existingTg } = await supabase
       .from("accounts")
       .select("id")
-      .eq("telegram_id", String(telegramUser.id))
+      .eq("telegram_id", telegramId)
       .single();
 
     if (existingTg) {
@@ -59,21 +58,20 @@ export async function POST(request: Request) {
     // Hash password
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Default role 'user'
     const { data: newUser, error: insertError } = await supabase
       .from("accounts")
       .insert({ 
         username, 
         password_hash, 
         role: "user",
-        telegram_id: String(telegramUser.id)
+        telegram_id: telegramId,
       })
       .select("id, username, role, balance, player_id")
       .single();
 
     if (insertError) {
       console.error(insertError);
-      return NextResponse.json({ error: "Server error" }, { status: 500 });
+      return NextResponse.json({ error: "Lỗi hệ thống" }, { status: 500 });
     }
 
     // Create session
@@ -81,7 +79,7 @@ export async function POST(request: Request) {
     const cookieStore = await cookies();
     cookieStore.set("session", session, { httpOnly: true, secure: true, maxAge: 7 * 24 * 60 * 60 });
 
-    // Notify admin via Telegram (fire-and-forget)
+    // Notify admin (fire-and-forget)
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
     if (botToken) {
       fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {

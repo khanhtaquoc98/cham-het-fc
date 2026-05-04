@@ -18,18 +18,22 @@ export default function LoginPage() {
 
   const router = useRouter();
 
-  const handleTelegramAuth = async (user: any) => {
+  const handleTelegramAuth = async (result: any) => {
+    if (result.error) {
+      toast.error(result.error === 'popup_closed' ? 'Đã đóng cửa sổ đăng nhập' : result.error);
+      return;
+    }
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/telegram-login", {
         method: "POST",
-        body: JSON.stringify({ user }),
+        body: JSON.stringify({ id_token: result.id_token }),
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
       if (res.ok) {
         if (data.requireRegister) {
-          setTelegramPayload(user);
+          setTelegramPayload(result.id_token);
           setShowRegisterModal(true);
         } else {
           toast.success("Đăng nhập thành công!");
@@ -55,7 +59,7 @@ export default function LoginPage() {
     try {
       const res = await fetch("/api/auth/telegram-register", {
         method: "POST",
-        body: JSON.stringify({ username: regUsername, password: regPassword, telegramUser: telegramPayload }),
+        body: JSON.stringify({ username: regUsername, password: regPassword, id_token: telegramPayload }),
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
