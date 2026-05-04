@@ -4,6 +4,7 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import RefreshButton from "./RefreshButton";
 import SuccessToast from "./SuccessToast";
+import TelegramLinkSection from "@/components/TelegramLinkSection";
 
 export default async function DashboardPage(props: { searchParams?: Promise<{ status?: string, cancel?: string, orderCode?: string, page?: string }> }) {
   const session = await getSession();
@@ -150,6 +151,8 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
             </div>
           </div>
         </div>
+
+        {!user?.telegram_id && <TelegramLinkSection />}
         
         {/* History */}
         <div className="glass-card" style={{ padding: '24px' }}>
