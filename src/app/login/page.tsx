@@ -183,7 +183,7 @@ export default function LoginPage() {
 
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <TelegramLoginWidget 
-            botName={process.env.NEXT_PUBLIC_TELEGRAM_LOGIN_BOT_NAME || "chamhetweb_bot"} 
+            clientId={process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID || "7905090398"} 
             onAuth={handleTelegramAuth} 
           />
         </div>
