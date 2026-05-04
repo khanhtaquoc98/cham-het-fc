@@ -87,7 +87,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
   // Fetch latest user data
   const { data: user } = await supabase
     .from("accounts")
-    .select("balance, player_id")
+    .select("balance, player_id, telegram_id")
     .eq("id", session.id)
     .single();
 
