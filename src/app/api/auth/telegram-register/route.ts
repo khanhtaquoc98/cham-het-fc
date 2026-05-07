@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Thiếu thông tin đăng ký" }, { status: 400 });
     }
 
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const botToken = process.env.TELEGRAM_LOGIN_BOT_TOKEN;
     if (!botToken) {
       return NextResponse.json({ error: "Server missing bot token" }, { status: 500 });
     }
@@ -88,7 +88,6 @@ export async function POST(request: Request) {
     cookieStore.set("session", session, { httpOnly: true, secure: true, maxAge: 7 * 24 * 60 * 60 });
 
     // Notify admin (fire-and-forget)
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
     if (botToken) {
       fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',

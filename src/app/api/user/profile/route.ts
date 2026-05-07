@@ -31,7 +31,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Thiếu dữ liệu Telegram" }, { status: 400 });
     }
 
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    const botToken = process.env.TELEGRAM_LOGIN_BOT_TOKEN;
     if (!botToken) {
       return NextResponse.json({ error: "Server missing bot token" }, { status: 500 });
     }
