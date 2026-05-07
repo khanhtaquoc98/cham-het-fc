@@ -5,33 +5,41 @@ import { encrypt } from "@/lib/auth";
 import { cookies } from "next/headers";
 import * as jose from "jose";
 
-async function verifyTelegramIdToken(idToken: string, clientId: string) {
-  const JWKS = jose.createRemoteJWKSet(
-    new URL("https://oauth.telegram.org/.well-known/jwks.json")
-  );
-  const { payload } = await jose.jwtVerify(idToken, JWKS, {
-    issuer: "https://oauth.telegram.org",
-    audience: clientId,
-  });
-  return payload;
+import crypto from "crypto";
+
+function verifyTelegramAuth(data: any, botToken: string) {
+  if (!data || !data.hash) return false;
+  const { hash, ...userData } = data;
+  const secretKey = crypto.createHash("sha256").update(botToken).digest();
+  
+  const dataCheckString = Object.keys(userData)
+    .sort()
+    .map(key => `${key}=${userData[key]}`)
+    .join("\n");
+    
+  const hmac = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+  return hmac === hash;
 }
 
 export async function POST(request: Request) {
   try {
-    const { username, password, id_token } = await request.json();
-    if (!username || !password || !id_token) {
+    const { username, password, telegramData } = await request.json();
+    if (!username || !password || !telegramData) {
       return NextResponse.json({ error: "Thiếu thông tin đăng ký" }, { status: 400 });
     }
 
-    const clientId = process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID || "7905090398";
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      return NextResponse.json({ error: "Server missing bot token" }, { status: 500 });
+    }
     
     // Verify JWT token
-    const payload = await verifyTelegramIdToken(id_token, clientId);
-    const telegramId = String(payload.id || payload.sub);
-
-    if (!telegramId) {
+    const isValid = verifyTelegramAuth(telegramData, botToken);
+    if (!isValid) {
       return NextResponse.json({ error: "Token không hợp lệ" }, { status: 401 });
     }
+    
+    const telegramId = String(telegramData.id);
 
     // Check if user exists by username
     const { data: existingUser } = await supabase

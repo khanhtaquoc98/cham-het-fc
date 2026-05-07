@@ -4,37 +4,41 @@ import { encrypt } from "@/lib/auth";
 import { cookies } from "next/headers";
 import * as jose from "jose";
 
-async function verifyTelegramIdToken(idToken: string, clientId: string) {
-  // Fetch Telegram's public JWKS keys
-  const JWKS = jose.createRemoteJWKSet(
-    new URL("https://oauth.telegram.org/.well-known/jwks.json")
-  );
+import crypto from "crypto";
 
-  // Verify signature, issuer, audience, and expiration
-  const { payload } = await jose.jwtVerify(idToken, JWKS, {
-    issuer: "https://oauth.telegram.org",
-    audience: clientId,
-  });
-
-  return payload;
+function verifyTelegramAuth(data: any, botToken: string) {
+  if (!data || !data.hash) return false;
+  const { hash, ...userData } = data;
+  const secretKey = crypto.createHash("sha256").update(botToken).digest();
+  
+  const dataCheckString = Object.keys(userData)
+    .sort()
+    .map(key => `${key}=${userData[key]}`)
+    .join("\n");
+    
+  const hmac = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
+  return hmac === hash;
 }
 
 export async function POST(request: Request) {
   try {
-    const { id_token } = await request.json();
-    if (!id_token) {
-      return NextResponse.json({ error: "Missing id_token" }, { status: 400 });
+    const { telegramData } = await request.json();
+    if (!telegramData) {
+      return NextResponse.json({ error: "Missing telegramData" }, { status: 400 });
     }
 
-    const clientId = process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID || "7905090398";
-    
-    // Verify the JWT token cryptographically
-    const payload = await verifyTelegramIdToken(id_token, clientId);
-    
-    const telegramId = String(payload.id || payload.sub);
-    if (!telegramId) {
-      return NextResponse.json({ error: "Invalid token payload" }, { status: 400 });
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
+      return NextResponse.json({ error: "Server missing bot token" }, { status: 500 });
     }
+    
+    // Verify legacy widget data using HMAC-SHA256
+    const isValid = verifyTelegramAuth(telegramData, botToken);
+    if (!isValid) {
+      return NextResponse.json({ error: "Invalid Telegram data" }, { status: 400 });
+    }
+    
+    const telegramId = String(telegramData.id);
 
     // Check if user exists by telegram_id
     const { data: user } = await supabase
@@ -48,7 +52,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         requireRegister: true,
         telegramId,
-        telegramName: payload.name || payload.preferred_username || "",
+        telegramName: telegramData.username || telegramData.first_name || "",
       });
     }
 

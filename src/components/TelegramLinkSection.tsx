@@ -18,7 +18,7 @@ export default function TelegramLinkSection() {
     try {
       const res = await fetch("/api/user/profile", {
         method: "PUT",
-        body: JSON.stringify({ id_token: result.id_token }),
+        body: JSON.stringify({ telegramData: result }),
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
@@ -46,7 +46,7 @@ export default function TelegramLinkSection() {
       ) : (
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <TelegramLoginWidget 
-            clientId={process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID || "7905090398"} 
+            botName="chamhetweb_bot" 
             onAuth={handleLink} 
           />
         </div>

@@ -1,68 +1,49 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 
 interface Props {
-  clientId: string;
-  onAuth: (data: { id_token: string; user: any }) => void;
+  botName: string;
+  onAuth: (user: any) => void;
   requestAccess?: string;
+  buttonSize?: "large" | "medium" | "small";
 }
 
 export default function TelegramLoginWidget({
-  clientId,
+  botName,
   onAuth,
   requestAccess = "write",
+  buttonSize = "large",
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const onAuthRef = useRef(onAuth);
-  onAuthRef.current = onAuth;
 
   useEffect(() => {
-    // 1. Load the official Telegram Login library
-    const script = document.createElement("script");
-    script.src = "https://oauth.telegram.org/js/telegram-login.js?3";
-    script.async = true;
-    document.head.appendChild(script);
-
-    script.onload = () => {
-      // 2. Init via the official JS API per docs
-      if ((window as any).Telegram?.Login) {
-        (window as any).Telegram.Login.init(
-          {
-            client_id: clientId,
-            request_access: requestAccess,
-            redirect_uri: window.location.origin,
-          },
-          (result: any) => {
-            if (result.error) {
-              console.error("[Telegram.Login] Error:", result.error);
-              return;
-            }
-            onAuthRef.current(result);
-          }
-        );
-      }
+    // Define a global callback function for Telegram to call
+    (window as any).onTelegramAuth = (user: any) => {
+      onAuth(user);
     };
+
+    const script = document.createElement("script");
+    script.src = "https://telegram.org/js/telegram-widget.js?22";
+    script.setAttribute("data-telegram-login", botName);
+    script.setAttribute("data-size", buttonSize);
+    script.setAttribute("data-request-access", requestAccess);
+    script.setAttribute("data-onauth", "onTelegramAuth(user)");
+    script.async = true;
+
+    // Clear previous if any
+    if (containerRef.current) {
+      containerRef.current.innerHTML = "";
+      containerRef.current.appendChild(script);
+    }
 
     return () => {
-      script.remove();
+      if (containerRef.current && script.parentNode) {
+        try { containerRef.current.removeChild(script); } catch (e) {}
+      }
+      delete (window as any).onTelegramAuth;
     };
-  }, [clientId, requestAccess]);
+  }, [botName, onAuth, requestAccess, buttonSize]);
 
-  const handleClick = useCallback(() => {
-    if ((window as any).Telegram?.Login) {
-      (window as any).Telegram.Login.open();
-    }
-  }, []);
-
-  return (
-    <button
-      type="button"
-      className="tg-auth-button"
-      onClick={handleClick}
-      style={{ cursor: "pointer" }}
-    >
-      Sign In with Telegram
-    </button>
-  );
+  return <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center' }}></div>;
 }
