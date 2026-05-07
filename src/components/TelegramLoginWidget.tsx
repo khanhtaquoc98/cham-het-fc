@@ -31,6 +31,7 @@ export default function TelegramLoginWidget({
           {
             client_id: clientId,
             request_access: requestAccess,
+            redirect_uri: window.location.origin,
           },
           (result: any) => {
             if (result.error) {
