@@ -5,41 +5,33 @@ import { encrypt } from "@/lib/auth";
 import { cookies } from "next/headers";
 import * as jose from "jose";
 
-import crypto from "crypto";
-
-function verifyTelegramAuth(data: any, botToken: string) {
-  if (!data || !data.hash) return false;
-  const { hash, ...userData } = data;
-  const secretKey = crypto.createHash("sha256").update(botToken).digest();
-  
-  const dataCheckString = Object.keys(userData)
-    .sort()
-    .map(key => `${key}=${userData[key]}`)
-    .join("\n");
-    
-  const hmac = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
-  return hmac === hash;
+async function verifyTelegramIdToken(idToken: string, clientId: string) {
+  const JWKS = jose.createRemoteJWKSet(
+    new URL("https://oauth.telegram.org/.well-known/jwks.json")
+  );
+  const { payload } = await jose.jwtVerify(idToken, JWKS, {
+    issuer: "https://oauth.telegram.org",
+    audience: clientId,
+  });
+  return payload;
 }
 
 export async function POST(request: Request) {
   try {
-    const { username, password, telegramData } = await request.json();
-    if (!username || !password || !telegramData) {
+    const { username, password, id_token } = await request.json();
+    if (!username || !password || !id_token) {
       return NextResponse.json({ error: "Thiếu thông tin đăng ký" }, { status: 400 });
     }
 
-    const botToken = process.env.TELEGRAM_LOGIN_BOT_TOKEN;
-    if (!botToken) {
-      return NextResponse.json({ error: "Server missing bot token" }, { status: 500 });
-    }
+    const clientId = process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID || "7905090398";
     
     // Verify JWT token
-    const isValid = verifyTelegramAuth(telegramData, botToken);
-    if (!isValid) {
+    const payload = await verifyTelegramIdToken(id_token, clientId);
+    const telegramId = String(payload.id || payload.sub);
+
+    if (!telegramId) {
       return NextResponse.json({ error: "Token không hợp lệ" }, { status: 401 });
     }
-    
-    const telegramId = String(telegramData.id);
 
     // Check if user exists by username
     const { data: existingUser } = await supabase
@@ -88,6 +80,7 @@ export async function POST(request: Request) {
     cookieStore.set("session", session, { httpOnly: true, secure: true, maxAge: 7 * 24 * 60 * 60 });
 
     // Notify admin (fire-and-forget)
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
     if (botToken) {
       fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
         method: 'POST',

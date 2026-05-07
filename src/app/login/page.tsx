@@ -27,13 +27,13 @@ export default function LoginPage() {
     try {
       const res = await fetch("/api/auth/telegram-login", {
         method: "POST",
-        body: JSON.stringify({ telegramData: result }),
+        body: JSON.stringify({ id_token: result.id_token }),
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
       if (res.ok) {
         if (data.requireRegister) {
-          setTelegramPayload(result);
+          setTelegramPayload(result.id_token);
           setShowRegisterModal(true);
         } else {
           toast.success("Đăng nhập thành công!");
@@ -59,7 +59,7 @@ export default function LoginPage() {
     try {
       const res = await fetch("/api/auth/telegram-register", {
         method: "POST",
-        body: JSON.stringify({ username: regUsername, password: regPassword, telegramData: telegramPayload }),
+        body: JSON.stringify({ username: regUsername, password: regPassword, id_token: telegramPayload }),
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
@@ -187,7 +187,7 @@ export default function LoginPage() {
 
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <TelegramLoginWidget 
-            botName="chamhetweb_bot" 
+            clientId={process.env.NEXT_PUBLIC_TELEGRAM_CLIENT_ID || "7905090398"} 
             onAuth={handleTelegramAuth} 
           />
         </div>
