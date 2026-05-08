@@ -85,7 +85,9 @@ export async function markPlayerPaid(
   const { data: pp } = await supabase.from('player_payments').select('*').eq('id', paymentId).single();
   if (!pp) return false;
 
-  if (method === 'app') {
+  const normalizedMethod = method.toLowerCase();
+
+  if (normalizedMethod === 'app') {
     if (pp.player_id) {
       // Find linked user account
       const { data: acc } = await supabase.from('accounts').select('id, balance').eq('player_id', pp.player_id).single();
@@ -116,7 +118,7 @@ export async function markPlayerPaid(
     .update({
       is_paid: true,
       paid_at: new Date().toISOString(),
-      payment_method: method,
+      payment_method: normalizedMethod,
     })
     .eq('id', paymentId);
 
@@ -152,7 +154,7 @@ export async function autoCheckoutAllApp(matchDataId: string): Promise<{ success
 
   for (const pp of unpaidPayments) {
     try {
-      const ok = await markPlayerPaid(pp.id, 'App');
+      const ok = await markPlayerPaid(pp.id, 'app');
       if (ok) successCount++;
       else skipCount++;
     } catch {
