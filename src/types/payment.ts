@@ -12,6 +12,7 @@ export interface LosingTeam {
   teamName: string;       // HOME, AWAY, EXTRA
   score: number;
   drinkPercent: number;   // 100 (2-team), 70 or 30 (3-team)
+  excludedPlayers?: string[]; // Danh sách tên cầu thủ không tính tiền nước
 }
 
 export interface PlayerPayment {

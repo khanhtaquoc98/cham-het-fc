@@ -25,7 +25,8 @@ export default function PaymentPage() {
   const [drinkCost, setDrinkCost] = useState('');
   const [losingTeams, setLosingTeams] = useState<LosingTeam[]>([]);
   const [scores, setScores] = useState<Record<string, number>>({});
-
+  const [showDrinkModal, setShowDrinkModal] = useState(false);
+  const [excludedDrinkPlayers, setExcludedDrinkPlayers] = useState<string[]>([]);
   const fetchData = useCallback(async () => {
     try {
       const [matchRes, paymentRes] = await Promise.all([
@@ -131,7 +132,32 @@ export default function PaymentPage() {
     setLosingTeams(computeLosingTeams(newScores));
   };
 
-  const handleSave = async () => {
+  const handleSaveClick = () => {
+    const dCost = parseInt(drinkCost) || 0;
+    if (dCost > 0 && losingTeams.length > 0) {
+      const existingExcluded: string[] = [];
+      losingTeams.forEach(lt => {
+        if (lt.excludedPlayers) existingExcluded.push(...lt.excludedPlayers);
+      });
+      setExcludedDrinkPlayers(existingExcluded);
+      setShowDrinkModal(true);
+    } else {
+      executeSave(losingTeams);
+    }
+  };
+
+  const handleConfirmDrinkModal = () => {
+    const finalLosingTeams = losingTeams.map(lt => {
+      const team = matchInfo?.teams.find(t => t.name === lt.teamName);
+      if (!team) return lt;
+      const teamExcluded = excludedDrinkPlayers.filter(pName => team.players.some(p => p.name === pName));
+      return { ...lt, excludedPlayers: teamExcluded };
+    });
+    setShowDrinkModal(false);
+    executeSave(finalLosingTeams);
+  };
+
+  const executeSave = async (finalLosingTeams: LosingTeam[]) => {
     setSaving(true);
     try {
       const res = await fetch('/api/payment', {
@@ -140,7 +166,7 @@ export default function PaymentPage() {
         body: JSON.stringify({
           fieldCost: parseInt(fieldCost) || 0,
           drinkCost: parseInt(drinkCost) || 0,
-          losingTeams,
+          losingTeams: finalLosingTeams,
         }),
       });
       const data = await res.json();
@@ -404,7 +430,7 @@ export default function PaymentPage() {
         <div className="admin-save-row">
           <button
             style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}
-            onClick={handleSave}
+            onClick={handleSaveClick}
             disabled={saving}
           >
             {saving ? '⏳ Đang lưu...' : '💾 Lưu & Tính toán'}
@@ -781,6 +807,70 @@ export default function PaymentPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+      {/* Drink Exclusion Modal */}
+      {showDrinkModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', maxHeight: '90vh' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid #eee' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#1a1a2e' }}>🍺 Xác nhận tiền nước</h3>
+              <p style={{ margin: '8px 0 0', fontSize: 13, color: '#666' }}>Bỏ chọn những cầu thủ <b>không uống nước</b> (Họ sẽ không phải chia tiền nước).</p>
+            </div>
+            
+            <div style={{ padding: '0 20px', overflowY: 'auto' }}>
+              {losingTeams.map(lt => {
+                const team = matchInfo?.teams.find(t => t.name === lt.teamName);
+                if (!team) return null;
+                return (
+                  <div key={lt.teamName} style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#c62828', marginBottom: 8 }}>
+                      {lt.teamName} (Chịu {lt.drinkPercent}%)
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {team.players.map(p => {
+                        const isDrinking = !excludedDrinkPlayers.includes(p.name);
+                        return (
+                          <label key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: isDrinking ? 'rgba(46,125,50,0.06)' : '#f5f5f5', borderRadius: 8, cursor: 'pointer', border: `1px solid ${isDrinking ? 'rgba(46,125,50,0.2)' : '#eee'}` }}>
+                            <input
+                              type="checkbox"
+                              checked={isDrinking}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setExcludedDrinkPlayers(prev => prev.filter(name => name !== p.name));
+                                } else {
+                                  setExcludedDrinkPlayers(prev => [...prev, p.name]);
+                                }
+                              }}
+                              style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#2e7d32' }}
+                            />
+                            <span style={{ fontSize: 14, fontWeight: isDrinking ? 600 : 400, color: isDrinking ? '#2e7d32' : '#888', textDecoration: isDrinking ? 'none' : 'line-through' }}>
+                              {p.name}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ padding: '20px', borderTop: '1px solid #eee', display: 'flex', gap: '12px', marginTop: 16 }}>
+              <button 
+                onClick={() => setShowDrinkModal(false)}
+                style={{ flex: 1, padding: '12px', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', color: '#4a4a6a' }}
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={handleConfirmDrinkModal}
+                style={{ flex: 2, padding: '12px', background: 'linear-gradient(135deg, #1976d2, #2196f3)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', color: 'white' }}
+              >
+                Đồng ý & Lưu
+              </button>
+            </div>
           </div>
         </div>
       )}

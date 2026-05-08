@@ -201,10 +201,10 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
   // Tiền sân mỗi người
   const fieldPerPerson = Math.ceil(matchPayment.fieldCost / totalPlayers);
 
-  // Build losing teams map: teamName -> drinkPercent
-  const losingMap = new Map<string, number>();
+  // Build losing teams map: teamName -> LosingTeam
+  const losingMap = new Map<string, LosingTeam>();
   for (const lt of matchPayment.losingTeams) {
-    losingMap.set(lt.teamName.toUpperCase(), lt.drinkPercent);
+    losingMap.set(lt.teamName.toUpperCase(), lt);
   }
 
   // Xóa player_payments cũ
@@ -226,15 +226,23 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
 
   for (const team of matchData.teams) {
     const teamNameUpper = team.name.toUpperCase();
-    const drinkPercent = losingMap.get(teamNameUpper) || 0;
+    const losingInfo = losingMap.get(teamNameUpper);
+    const drinkPercent = losingInfo?.drinkPercent || 0;
+    const excludedPlayers = losingInfo?.excludedPlayers || [];
+    
     const teamPlayerCount = team.players.length;
-    const drinkPerPerson = drinkPercent > 0 && teamPlayerCount > 0
-      ? Math.ceil((matchPayment.drinkCost * drinkPercent / 100) / teamPlayerCount)
+    const drinkingPlayersCount = team.players.filter(p => !excludedPlayers.includes(p.name)).length;
+
+    const drinkPerPerson = drinkPercent > 0 && drinkingPlayersCount > 0
+      ? Math.ceil((matchPayment.drinkCost * drinkPercent / 100) / drinkingPlayersCount)
       : 0;
 
     for (const player of team.players) {
       // Tìm player_id từ danh sách registered players
       const matched = findRegisteredPlayer(player.name, player.telegramHandle, allPlayers);
+
+      const isDrinking = !excludedPlayers.includes(player.name);
+      const playerDrinkAmount = (drinkPercent > 0 && isDrinking) ? drinkPerPerson : 0;
 
       rows.push({
         match_payment_id: matchPaymentId,
@@ -242,8 +250,8 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
         player_id: matched?.id || null,
         team_name: team.name,
         field_amount: fieldPerPerson,
-        drink_amount: drinkPerPerson,
-        total_amount: fieldPerPerson + drinkPerPerson,
+        drink_amount: playerDrinkAmount,
+        total_amount: fieldPerPerson + playerDrinkAmount,
       });
     }
   }
