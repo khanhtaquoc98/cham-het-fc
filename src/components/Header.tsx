@@ -47,6 +47,52 @@ export default function Header() {
 
   return (
     <div style={{ position: 'sticky', top: 0, zIndex: 1000, marginBottom: pathname === '/' ? '12px' : '28px' }}>
+      {/* Announcement Bar */}
+      {tickerText && (
+        <div style={{
+          position: 'relative',
+          zIndex: 20,
+          overflow: 'hidden',
+          background: 'linear-gradient(90deg, #e53935 0%, #c62828 50%, #e53935 100%)',
+          padding: '7px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0',
+          borderBottom: '1px solid rgba(255,255,255,0.15)',
+        }}>
+          {/* Pinned icon left */}
+          <span style={{
+            flexShrink: 0,
+            padding: '0 10px',
+            fontSize: '13px',
+            color: 'rgba(255,255,255,0.9)',
+          }}></span>
+
+          {/* Scrolling text */}
+          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <div style={{
+              display: 'inline-block',
+              whiteSpace: 'nowrap',
+              animation: 'announcement-scroll 15s linear infinite',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: '12.5px',
+              letterSpacing: '0.2px',
+              paddingLeft: '100%',
+            }}>
+              {tickerText}
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes announcement-scroll {
+              0%   { transform: translateX(0); }
+              100% { transform: translateX(-100%); }
+            }
+          `}</style>
+        </div>
+      )}
+
       {/* Background layer to handle clipping without affecting dropdown */}
       <header className="field-header" style={{ 
         position: 'absolute', 
@@ -162,50 +208,6 @@ export default function Header() {
           </div>
         )}
       </div>
-      {/* Announcement Bar */}
-      {tickerText && (
-        <div style={{
-          position: 'relative',
-          zIndex: 10,
-          overflow: 'hidden',
-          background: 'linear-gradient(90deg, #e53935 0%, #c62828 50%, #e53935 100%)',
-          padding: '7px 0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0',
-          borderBottom: '1px solid rgba(255,255,255,0.15)',
-        }}>
-          {/* Pinned icon left */}
-          <span style={{
-            flexShrink: 0,
-            padding: '0 10px',
-            fontSize: '13px',
-            color: 'rgba(255,255,255,0.9)',
-          }}>📢</span>
-
-          {/* Scrolling text */}
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            <span style={{
-              display: 'inline-block',
-              whiteSpace: 'nowrap',
-              animation: 'announcement-scroll 22s linear infinite',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: '12.5px',
-              letterSpacing: '0.2px',
-            }}>
-              {tickerText}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{tickerText}
-            </span>
-          </div>
-
-          <style>{`
-            @keyframes announcement-scroll {
-              0%   { transform: translateX(0); }
-              100% { transform: translateX(-50%); }
-            }
-          `}</style>
-        </div>
-      )}
     </div>
   );
 }
