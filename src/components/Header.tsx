@@ -12,6 +12,7 @@ export default function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [tickerText, setTickerText] = useState('');
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -22,6 +23,13 @@ export default function Header() {
       })
       .catch(() => setStatsLoading(false));
   }, [pathname]);
+
+  useEffect(() => {
+    fetch('/api/ticker')
+      .then(res => res.json())
+      .then(data => setTickerText(data.ticker || ''))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -154,6 +162,50 @@ export default function Header() {
           </div>
         )}
       </div>
+      {/* Announcement Bar */}
+      {tickerText && (
+        <div style={{
+          position: 'relative',
+          zIndex: 10,
+          overflow: 'hidden',
+          background: 'linear-gradient(90deg, #e53935 0%, #c62828 50%, #e53935 100%)',
+          padding: '7px 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0',
+          borderBottom: '1px solid rgba(255,255,255,0.15)',
+        }}>
+          {/* Pinned icon left */}
+          <span style={{
+            flexShrink: 0,
+            padding: '0 10px',
+            fontSize: '13px',
+            color: 'rgba(255,255,255,0.9)',
+          }}>📢</span>
+
+          {/* Scrolling text */}
+          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <span style={{
+              display: 'inline-block',
+              whiteSpace: 'nowrap',
+              animation: 'announcement-scroll 22s linear infinite',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: '12.5px',
+              letterSpacing: '0.2px',
+            }}>
+              {tickerText}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{tickerText}
+            </span>
+          </div>
+
+          <style>{`
+            @keyframes announcement-scroll {
+              0%   { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   );
 }

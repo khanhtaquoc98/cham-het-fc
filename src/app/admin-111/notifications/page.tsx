@@ -20,13 +20,61 @@ export default function NotificationsPage() {
   const [attendanceSending, setAttendanceSending] = useState(false);
   const [attendanceStatus, setAttendanceStatus] = useState<string | null>(null);
 
+  // Ticker state
+  const [tickerText, setTickerText] = useState('');
+  const [tickerSaving, setTickerSaving] = useState(false);
+  const [tickerStatus, setTickerStatus] = useState<string | null>(null);
+
   useEffect(() => {
     fetch('/api/push/send').then(r => r.json()).then(d => setSubscriberCount(d.count || 0)).catch(() => {});
     fetch('/api/venue').then(r => r.json()).then(data => setVenue({
       date: data.date || '', time: data.time || '',
       venue: data.venue || '', googleMapLink: data.googleMapLink || '',
     })).catch(() => {});
+    fetch('/api/ticker').then(r => r.json()).then(d => setTickerText(d.ticker || '')).catch(() => {});
   }, []);
+
+  const handleSaveTicker = async () => {
+    setTickerSaving(true);
+    setTickerStatus(null);
+    try {
+      const res = await fetch('/api/ticker', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: tickerText }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setTickerStatus('✅ Đã lưu thông báo chạy chữ!');
+      } else {
+        setTickerStatus('❌ Lỗi: ' + (data.error || 'Không rõ'));
+      }
+      setTimeout(() => setTickerStatus(null), 4000);
+    } catch {
+      setTickerStatus('❌ Lỗi kết nối');
+    } finally {
+      setTickerSaving(false);
+    }
+  };
+
+  const handleClearTicker = async () => {
+    setTickerText('');
+    setTickerSaving(true);
+    try {
+      const res = await fetch('/api/ticker', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: '' }),
+      });
+      const data = await res.json();
+      if (data.ok) setTickerStatus('✅ Đã xóa thông báo chạy chữ!');
+      setTimeout(() => setTickerStatus(null), 4000);
+    } catch {
+      setTickerStatus('❌ Lỗi kết nối');
+    } finally {
+      setTickerSaving(false);
+    }
+  };
 
   const handleSendNotification = async () => {
     if (!notiTitle || !notiMessage) return;
@@ -116,6 +164,80 @@ export default function NotificationsPage() {
   };
 
   return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+    {/* ===== TICKER SECTION ===== */}
+    <div className="admin-card" style={cardStyle}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <h2 style={sectionTitleStyle}>📢 Chữ chạy trên Header</h2>
+        {tickerStatus && <span style={{ ...statusStyle, color: tickerStatus.startsWith('✅') ? '#2e7d32' : '#e53935' }}>{tickerStatus}</span>}
+      </div>
+
+      {/* Preview */}
+      {tickerText && (
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ fontSize: '11px', color: '#8a8aaa', marginBottom: '6px', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>Preview</div>
+          <div style={{
+            overflow: 'hidden',
+            borderRadius: '8px',
+            background: 'linear-gradient(90deg, #e53935 0%, #c62828 50%, #e53935 100%)',
+            padding: '7px 0',
+            display: 'flex',
+            alignItems: 'center',
+          }}>
+            <span style={{ flexShrink: 0, padding: '0 10px', fontSize: '13px', color: 'rgba(255,255,255,0.9)' }}>📢</span>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <span style={{
+                display: 'inline-block',
+                whiteSpace: 'nowrap',
+                animation: 'ticker-preview 10s linear infinite',
+                color: '#fff',
+                fontWeight: 600,
+                fontSize: '12.5px',
+              }}>{tickerText}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{tickerText}</span>
+            </div>
+          </div>
+          <style>{`
+            @keyframes ticker-preview {
+              0%   { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+          `}</style>
+        </div>
+      )}
+
+      <div>
+        <label style={labelStyle}>Nội dung thông báo chạy chữ</label>
+        <input
+          style={inputStyle}
+          placeholder="VD: ⚽ Trận đấu tối nay 19h15 tại Sân số 8 – Anh em nhớ đến nhé!"
+          value={tickerText}
+          onChange={e => setTickerText(e.target.value)}
+        />
+        <div style={{ fontSize: '11px', color: '#8a8aaa', marginTop: '6px' }}>Để trống và lưu để ẩn chữ chạy trên header.</div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap' }}>
+        <button
+          style={{ ...btnPrimary, opacity: tickerSaving ? 0.6 : 1, cursor: tickerSaving ? 'not-allowed' : 'pointer' }}
+          onClick={handleSaveTicker}
+          disabled={tickerSaving}
+        >
+          {tickerSaving ? 'Đang lưu...' : '💾 Lưu chữ chạy'}
+        </button>
+        {tickerText && (
+          <button
+            style={{ ...btnBase, padding: '10px 24px', borderRadius: '10px', background: '#ffebee', color: '#c62828', fontSize: '14px' }}
+            onClick={handleClearTicker}
+            disabled={tickerSaving}
+          >
+            🗑️ Xóa & Ẩn
+          </button>
+        )}
+      </div>
+    </div>
+
+    {/* ===== NOTIFICATION SECTION ===== */}
     <div className="admin-card" style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <h2 style={sectionTitleStyle}>
@@ -198,6 +320,8 @@ export default function NotificationsPage() {
         📋 <strong>Điểm danh:</strong> Gửi thông báo nhắc điểm danh qua cả Push Notification + Telegram, kèm hướng dẫn: Vào App → Login → Điểm danh.
       </div>
     </div>
+
+    </div> {/* end outer flex wrapper */}
   );
 }
 
