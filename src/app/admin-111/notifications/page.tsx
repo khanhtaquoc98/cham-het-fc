@@ -321,7 +321,7 @@ export default function NotificationsPage() {
       </div>
     </div>
 
-    </div> {/* end outer flex wrapper */}
+    </div> 
   );
 }
 
