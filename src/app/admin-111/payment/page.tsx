@@ -27,6 +27,8 @@ export default function PaymentPage() {
   const [scores, setScores] = useState<Record<string, number>>({});
   const [showDrinkModal, setShowDrinkModal] = useState(false);
   const [excludedDrinkPlayers, setExcludedDrinkPlayers] = useState<string[]>([]);
+  const [showOneTeamModal, setShowOneTeamModal] = useState(false);
+  const [excludedOneTeamPlayers, setExcludedOneTeamPlayers] = useState<string[]>([]);
   const fetchData = useCallback(async () => {
     try {
       const [matchRes, paymentRes] = await Promise.all([
@@ -45,12 +47,17 @@ export default function PaymentPage() {
       if (paymentData.matchPayment) {
         setFieldCost(paymentData.matchPayment.fieldCost ? paymentData.matchPayment.fieldCost.toString() : '');
         setDrinkCost(paymentData.matchPayment.drinkCost ? paymentData.matchPayment.drinkCost.toString() : '');
-        setLosingTeams(paymentData.matchPayment.losingTeams || []);
+        
+        let lt = paymentData.matchPayment.losingTeams || [];
+        if (lt.length === 0 && matchData?.teams?.length === 1) {
+          lt = [{ teamName: matchData.teams[0].name, score: 0, drinkPercent: 100 }];
+        }
+        setLosingTeams(lt);
 
         // Rebuild scores from losing teams
         const s: Record<string, number> = {};
-        for (const lt of paymentData.matchPayment.losingTeams) {
-          s[lt.teamName] = lt.score;
+        for (const ltItem of lt) {
+          s[ltItem.teamName] = ltItem.score;
         }
         // Add winning team scores too (not in losingTeams)
         if (matchData?.teams) {
@@ -65,6 +72,9 @@ export default function PaymentPage() {
           s[t.name] = 0;
         }
         setScores(s);
+        if (matchData.teams.length === 1) {
+          setLosingTeams([{ teamName: matchData.teams[0].name, score: 0, drinkPercent: 100 }]);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch:', err);
@@ -80,6 +90,9 @@ export default function PaymentPage() {
   // Tự động tính losingTeams từ scores
   const computeLosingTeams = (newScores: Record<string, number>): LosingTeam[] => {
     const teams = Object.entries(newScores);
+    if (teams.length === 1) {
+      return [{ teamName: teams[0][0], score: teams[0][1], drinkPercent: 100 }];
+    }
     if (teams.length < 2) return [];
 
     // Sort by score ascending (losers first)
@@ -133,17 +146,37 @@ export default function PaymentPage() {
   };
 
   const handleSaveClick = () => {
-    const dCost = parseInt(drinkCost) || 0;
-    if (dCost > 0 && losingTeams.length > 0) {
+    if (matchInfo?.teams.length === 1) {
       const existingExcluded: string[] = [];
       losingTeams.forEach(lt => {
         if (lt.excludedPlayers) existingExcluded.push(...lt.excludedPlayers);
       });
-      setExcludedDrinkPlayers(existingExcluded);
-      setShowDrinkModal(true);
+      setExcludedOneTeamPlayers(existingExcluded);
+      setShowOneTeamModal(true);
     } else {
-      executeSave(losingTeams);
+      const dCost = parseInt(drinkCost) || 0;
+      if (dCost > 0 && losingTeams.length > 0) {
+        const existingExcluded: string[] = [];
+        losingTeams.forEach(lt => {
+          if (lt.excludedPlayers) existingExcluded.push(...lt.excludedPlayers);
+        });
+        setExcludedDrinkPlayers(existingExcluded);
+        setShowDrinkModal(true);
+      } else {
+        executeSave(losingTeams);
+      }
     }
+  };
+
+  const handleConfirmOneTeamModal = () => {
+    const finalLosingTeams = losingTeams.map(lt => {
+      const team = matchInfo?.teams.find(t => t.name === lt.teamName);
+      if (!team) return lt;
+      const teamExcluded = excludedOneTeamPlayers.filter(pName => team.players.some(p => p.name === pName));
+      return { ...lt, excludedPlayers: teamExcluded };
+    });
+    setShowOneTeamModal(false);
+    executeSave(finalLosingTeams);
   };
 
   const handleConfirmDrinkModal = () => {
@@ -396,7 +429,7 @@ export default function PaymentPage() {
         </div>
 
         {/* Tỉ số để xác định team thua */}
-        {teams.length > 0 && (
+        {teams.length > 1 && (
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Tỉ số trận đấu</label>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -586,28 +619,35 @@ export default function PaymentPage() {
 
             const isLosingTeam = losingTeams.some(lt => lt.teamName === team.name);
             const losingInfo = losingTeams.find(lt => lt.teamName === team.name);
-            // Kiểm tra hoà: tất cả team đều trong losingTeams và cùng % (2-team: 50/50)
             const isDraw = teams.length === 2 && losingTeams.length === 2 && losingTeams.every(lt => lt.drinkPercent === 50);
+
+            const displayLabel = teams.length === 1 
+              ? '— Chia đều tiền sân & nước' 
+              : isDraw 
+                ? '— Hoà 🤝 Nước 50%' 
+                : isLosingTeam 
+                  ? `— Nước ${losingInfo?.drinkPercent}%` 
+                  : '— Thắng 🏆';
+
+            const displayColor = teams.length === 1
+              ? '#1a1a2e'
+              : isDraw 
+                ? '#e65100' 
+                : isLosingTeam 
+                  ? '#c62828' 
+                  : '#2e7d32';
 
             return (
               <div key={team.name} style={{ marginBottom: 16 }}>
                 <div style={{
-                  fontSize: 13, fontWeight: 700, color: isDraw ? '#e65100' : isLosingTeam ? '#c62828' : '#2e7d32',
+                  fontSize: 13, fontWeight: 700, color: displayColor,
                   marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6,
                 }}>
                   {team.name === 'HOME' ? '⚪ ' : team.name === 'AWAY' ? '⚫ ' : '🟠 '}
                   {team.name} ({teamPlayers.length} người)
-                  {isDraw && (
-                    <span style={{ fontSize: 11, color: '#e65100', fontWeight: 600 }}>
-                      — Hoà 🤝 Nước 50%
-                    </span>
-                  )}
-                  {!isDraw && isLosingTeam && losingInfo && (
-                    <span style={{ fontSize: 11, color: '#e65100', fontWeight: 600 }}>
-                      — Nước {losingInfo.drinkPercent}%
-                    </span>
-                  )}
-                  {!isDraw && !isLosingTeam && <span style={{ fontSize: 11, color: '#2e7d32' }}>— Thắng 🏆</span>}
+                  <span style={{ fontSize: 11, fontWeight: 600, color: teams.length === 1 ? '#8a8aaa' : '#e65100' }}>
+                    {displayLabel}
+                  </span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -869,6 +909,73 @@ export default function PaymentPage() {
                 style={{ flex: 2, padding: '12px', background: 'linear-gradient(135deg, #1976d2, #2196f3)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', color: 'white' }}
               >
                 Đồng ý & Lưu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 1-Team Split Money Modal */}
+      {showOneTeamModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', maxHeight: '90vh' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid #eee' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#1a1a2e' }}>⚽ Chia tiền trận đấu</h3>
+              <p style={{ margin: '8px 0 0', fontSize: 13, color: '#666' }}>
+                Chọn các cầu thủ tham gia chia tiền sân và nước. Những người không được tick sẽ không phải trả tiền (0đ).
+              </p>
+            </div>
+            
+            <div style={{ padding: '0 20px', overflowY: 'auto' }}>
+              {losingTeams.map(lt => {
+                const team = matchInfo?.teams.find(t => t.name === lt.teamName);
+                if (!team) return null;
+                return (
+                  <div key={lt.teamName} style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#c62828', marginBottom: 8 }}>
+                      DANH SÁCH THÀNH VIÊN ({team.players.length})
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {team.players.map(p => {
+                        const isSelected = !excludedOneTeamPlayers.includes(p.name);
+                        return (
+                          <label key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: isSelected ? 'rgba(46,125,50,0.06)' : '#f5f5f5', borderRadius: 8, cursor: 'pointer', border: `1px solid ${isSelected ? 'rgba(46,125,50,0.2)' : '#eee'}` }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setExcludedOneTeamPlayers(prev => prev.filter(name => name !== p.name));
+                                } else {
+                                  setExcludedOneTeamPlayers(prev => [...prev, p.name]);
+                                }
+                              }}
+                              style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#2e7d32' }}
+                            />
+                            <span style={{ fontSize: 14, fontWeight: isSelected ? 600 : 400, color: isSelected ? '#1a1a2e' : '#888', textDecoration: isSelected ? 'none' : 'line-through' }}>
+                              {p.name}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ padding: '20px', borderTop: '1px solid #eee', display: 'flex', gap: '12px', marginTop: 16 }}>
+              <button 
+                onClick={() => setShowOneTeamModal(false)}
+                style={{ flex: 1, padding: '12px', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', color: '#4a4a6a' }}
+              >
+                Hủy
+              </button>
+              <button 
+                onClick={handleConfirmOneTeamModal}
+                style={{ flex: 2, padding: '12px', background: 'linear-gradient(135deg, #1976d2, #2196f3)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', color: 'white' }}
+              >
+                Đồng ý & Tính toán
               </button>
             </div>
           </div>

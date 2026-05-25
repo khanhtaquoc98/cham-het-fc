@@ -73,7 +73,7 @@ export default function VenuePage() {
   const handleCreateTeams = async () => {
     // When click "Tạo Team", initialize empty teams based on config and ensure bench exists if null
     const newTeams: Team[] = [];
-    const teamNames = venue.teamConfig === 3 ? ['Home', 'Away', 'Extra'] : ['Home', 'Away'];
+    const teamNames = venue.teamConfig === 3 ? ['Home', 'Away', 'Extra'] : venue.teamConfig === 1 ? ['Home'] : ['Home', 'Away'];
     
     for (const name of teamNames) {
       newTeams.push({ name, players: [] });
@@ -101,7 +101,7 @@ export default function VenuePage() {
     // Copy the bench array to shuffle it
     const shuffledBench = [...bench].sort(() => Math.random() - 0.5);
     let currentTeams = JSON.parse(JSON.stringify(teams)) as Team[];
-    const teamNames = venue.teamConfig === 3 ? ['Home', 'Away', 'Extra'] : ['Home', 'Away'];
+    const teamNames = venue.teamConfig === 3 ? ['Home', 'Away', 'Extra'] : venue.teamConfig === 1 ? ['Home'] : ['Home', 'Away'];
     
     for (const name of teamNames) {
       if (!currentTeams.find(t => t.name.toLowerCase() === name.toLowerCase())) {
@@ -293,6 +293,7 @@ export default function VenuePage() {
               value={venue.teamConfig} 
               onChange={e => setVenue(v => ({ ...v, teamConfig: parseInt(e.target.value) }))}
             >
+              <option value={1}>1 Đội (Home)</option>
               <option value={2}>2 Đội (Home - Away)</option>
               <option value={3}>3 Đội (Home - Away - Extra)</option>
             </select>

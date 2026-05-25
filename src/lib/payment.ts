@@ -197,6 +197,61 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
   if (!matchData || !matchData.teams || matchData.teams.length === 0) return [];
 
   const allPlayers = await getPlayers();
+
+  if (matchData.teams.length === 1) {
+    const team = matchData.teams[0];
+    const teamNameUpper = team.name.toUpperCase();
+    
+    // Find losing team info for exclusion
+    const losingInfo = matchPayment.losingTeams.find(lt => lt.teamName.toUpperCase() === teamNameUpper);
+    const excludedPlayers = losingInfo?.excludedPlayers || [];
+    
+    const activePlayers = team.players.filter(p => !excludedPlayers.includes(p.name));
+    const activeCount = activePlayers.length;
+    
+    const fieldPerPerson = activeCount > 0 ? Math.ceil(matchPayment.fieldCost / activeCount) : 0;
+    const drinkPerPerson = activeCount > 0 ? Math.ceil(matchPayment.drinkCost / activeCount) : 0;
+    
+    // Xóa player_payments cũ
+    await supabase
+      .from('player_payments')
+      .delete()
+      .eq('match_payment_id', matchPaymentId);
+      
+    const rows: Array<{
+      match_payment_id: string;
+      player_name: string;
+      player_id: string | null;
+      team_name: string;
+      field_amount: number;
+      drink_amount: number;
+      total_amount: number;
+    }> = [];
+    
+    for (const player of team.players) {
+      const matched = findRegisteredPlayer(player.name, player.telegramHandle, allPlayers);
+      const isExcluded = excludedPlayers.includes(player.name);
+      
+      const fieldAmount = isExcluded ? 0 : fieldPerPerson;
+      const drinkAmount = isExcluded ? 0 : drinkPerPerson;
+      
+      rows.push({
+        match_payment_id: matchPaymentId,
+        player_name: player.name,
+        player_id: matched?.id || null,
+        team_name: team.name,
+        field_amount: fieldAmount,
+        drink_amount: drinkAmount,
+        total_amount: fieldAmount + drinkAmount,
+      });
+    }
+    
+    if (rows.length > 0) {
+      await supabase.from('player_payments').insert(rows);
+    }
+    
+    return getPlayerPayments(matchPaymentId);
+  }
   const totalPlayers = matchData.teams.reduce((s, t) => s + t.players.length, 0);
   if (totalPlayers === 0) return [];
 

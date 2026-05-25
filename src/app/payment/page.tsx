@@ -253,26 +253,34 @@ export default function PublicPaymentPage() {
               const losingInfo = losingTeams.find(lt => lt.teamName === team.name);
               const isDraw = teams.length === 2 && losingTeams.length === 2 && losingTeams.every(lt => lt.drinkPercent === 50);
 
+              const displayLabel = teams.length === 1 
+                ? '— Chia đều tiền sân & nước' 
+                : isDraw 
+                  ? '— Hoà 🤝 Nước 50%' 
+                  : isLosing 
+                    ? `— Nước ${losingInfo?.drinkPercent}%` 
+                    : '— Thắng 🏆';
+
+              const displayColor = teams.length === 1
+                ? '#1a1a2e'
+                : isDraw 
+                  ? '#e65100' 
+                  : isLosing 
+                    ? '#c62828' 
+                    : '#2e7d32';
+
               return (
                 <div key={team.name} style={{ marginBottom: 16 }}>
                   <div style={{
                     fontSize: 13, fontWeight: 700, marginBottom: 8, display: 'flex',
                     alignItems: 'center', gap: 6,
-                    color: isDraw ? '#e65100' : isLosing ? '#c62828' : '#2e7d32',
+                    color: displayColor,
                   }}>
                     {team.name === 'HOME' ? '⚪ ' : team.name === 'AWAY' ? '⚫ ' : '🟠 '}
-                    {team.name}
-                    {isDraw ? (
-                      <span style={{ fontSize: 11, color: '#e65100' }}>
-                        — Hoà 🤝 Nước 50%
-                      </span>
-                    ) : isLosing ? (
-                      <span style={{ fontSize: 11, color: '#e65100' }}>
-                        — Nước {losingInfo?.drinkPercent}%
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 11 }}>— Thắng 🏆</span>
-                    )}
+                    {team.name} {teams.length > 1 && `(${teamPlayers.length} người)`}
+                    <span style={{ fontSize: 11, color: teams.length === 1 ? '#8a8aaa' : '#e65100', fontWeight: 600 }}>
+                      {displayLabel}
+                    </span>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
