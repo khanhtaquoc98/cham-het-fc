@@ -10,6 +10,7 @@ import {
   autoCheckoutAllApp,
 } from '@/lib/payment';
 import { getMatchData } from '@/lib/storage';
+import { saveMatchHistory } from '@/lib/history';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +91,47 @@ export async function POST(request: Request) {
       const stats = await autoCheckoutAllApp(matchData.id);
       const summary = await getPaymentSummary();
       return NextResponse.json({ summary, stats });
+    } else if (action === 'save-history') {
+      // Save match history (giống logic /tiso) — chỉ khi >= 2 team
+      const matchData = await getMatchData();
+      if (!matchData) return NextResponse.json({ error: 'No match data' }, { status: 400 });
+      if (!matchData.teams || matchData.teams.length === 0) {
+        return NextResponse.json({ error: 'No teams data' }, { status: 400 });
+      }
+      if (matchData.teams.length === 1) {
+        // 1 team → skip lưu lịch sử, không có tỉ số thắng/thua
+        return NextResponse.json({ ok: true, skipped: true, reason: '1 team - no match result to save' });
+      }
+
+      const { scores } = body; // Record<string, number> e.g. { HOME: 1, AWAY: 2 }
+      if (!scores || typeof scores !== 'object') {
+        return NextResponse.json({ error: 'Missing scores' }, { status: 400 });
+      }
+
+      const teamNames = matchData.teams.map(t => t.name.toUpperCase());
+      const homeScore = scores['HOME'] ?? scores[teamNames[0]] ?? 0;
+      const awayScore = scores['AWAY'] ?? scores[teamNames[1]] ?? 0;
+      const extraScore = teamNames.length >= 3 ? (scores['EXTRA'] ?? scores[teamNames[2]] ?? 0) : null;
+
+      const saved = await saveMatchHistory(
+        homeScore,
+        awayScore,
+        extraScore,
+        matchData.teams,
+        matchData.venue?.date,
+        matchData.venue?.time,
+        matchData.venue?.venue,
+      );
+
+      if (!saved) {
+        return NextResponse.json({ error: 'Failed to save match history' }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        matchHistory: saved,
+        playerCount: matchData.teams.reduce((s, t) => s + t.players.length, 0),
+      });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

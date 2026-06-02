@@ -315,6 +315,30 @@ export default function PaymentPage() {
     if (!summary) return;
     setSendingNoti(true);
     try {
+      // Step 1: Lưu lịch sử trận đấu (giống /tiso) — API tự skip nếu 1 team
+      try {
+        const historyRes = await fetch('/api/payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'save-history', scores }),
+        });
+        const historyData = await historyRes.json();
+        if (historyRes.ok && historyData.ok) {
+          if (historyData.skipped) {
+            // 1 team, skip silently
+          } else {
+            toast.success(`📊 Đã lưu tỉ số & cập nhật thống kê ${historyData.playerCount} cầu thủ!`, { duration: 3000 });
+          }
+        } else if (!historyRes.ok) {
+          console.error('Save history error:', historyData.error);
+          toast.error('⚠️ Lưu tỉ số thất bại: ' + (historyData.error || 'Unknown'));
+        }
+      } catch (historyErr) {
+        console.error('Save history error:', historyErr);
+        toast.error('⚠️ Lỗi khi lưu tỉ số trận đấu');
+      }
+
+      // Step 2: Gửi thông báo Chốt Thanh Toán
       const venue = matchInfo?.venue;
       const dateStr = venue?.date ?? '';
       const timeStr = venue?.time ?? '';
@@ -922,7 +946,7 @@ export default function PaymentPage() {
             <div style={{ padding: '20px', borderBottom: '1px solid #eee' }}>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#1a1a2e' }}>⚽ Chia tiền trận đấu</h3>
               <p style={{ margin: '8px 0 0', fontSize: 13, color: '#666' }}>
-                Chọn các cầu thủ tham gia chia tiền sân và nước. Những người không được tick sẽ không phải trả tiền (0đ).
+                Tiền sân sẽ chia đều cho <b>tất cả</b> thành viên. Bỏ chọn những cầu thủ <b>không uống nước</b> (họ vẫn trả tiền sân, nhưng không phải chia tiền nước).
               </p>
             </div>
             

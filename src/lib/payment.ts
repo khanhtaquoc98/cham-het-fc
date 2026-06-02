@@ -206,11 +206,12 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
     const losingInfo = matchPayment.losingTeams.find(lt => lt.teamName.toUpperCase() === teamNameUpper);
     const excludedPlayers = losingInfo?.excludedPlayers || [];
     
-    const activePlayers = team.players.filter(p => !excludedPlayers.includes(p.name));
-    const activeCount = activePlayers.length;
+    const totalCount = team.players.length;
+    const drinkingPlayers = team.players.filter(p => !excludedPlayers.includes(p.name));
+    const drinkingCount = drinkingPlayers.length;
     
-    const fieldPerPerson = activeCount > 0 ? Math.ceil(matchPayment.fieldCost / activeCount) : 0;
-    const drinkPerPerson = activeCount > 0 ? Math.ceil(matchPayment.drinkCost / activeCount) : 0;
+    const fieldPerPerson = totalCount > 0 ? Math.ceil(matchPayment.fieldCost / totalCount) : 0;
+    const drinkPerPerson = drinkingCount > 0 ? Math.ceil(matchPayment.drinkCost / drinkingCount) : 0;
     
     // Xóa player_payments cũ
     await supabase
@@ -232,8 +233,8 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
       const matched = findRegisteredPlayer(player.name, player.telegramHandle, allPlayers);
       const isExcluded = excludedPlayers.includes(player.name);
       
-      const fieldAmount = isExcluded ? 0 : fieldPerPerson;
-      const drinkAmount = isExcluded ? 0 : drinkPerPerson;
+      const fieldAmount = fieldPerPerson; // Tất cả đều trả tiền sân
+      const drinkAmount = isExcluded ? 0 : drinkPerPerson; // Chỉ người được tick trả tiền nước
       
       rows.push({
         match_payment_id: matchPaymentId,
