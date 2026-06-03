@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, DragEvent } from 'react';
+import React, { useEffect, useState, DragEvent, useRef } from 'react';
 import { Player, Team, MatchData } from '@/types/match';
 import { toast } from 'react-hot-toast';
 
@@ -204,7 +204,7 @@ export default function VenuePage() {
     }
   };
 
-  /* ----- Drag and Drop Logic ----- */
+  /* ----- Drag and Drop Logic (Desktop) ----- */
   const onDragStart = (e: DragEvent<HTMLDivElement>, player: Player, sourceId: string, index: number) => {
     setDraggedPlayer({ player, sourceId, index });
     e.dataTransfer.effectAllowed = 'move';
@@ -218,9 +218,94 @@ export default function VenuePage() {
   const onDrop = (e: DragEvent<HTMLDivElement>, targetId: string) => {
     e.preventDefault();
     if (!draggedPlayer) return;
-    
-    const { player, sourceId, index } = draggedPlayer;
-    if (sourceId === targetId) return; // Dropped in same place
+    executeDrop(draggedPlayer, targetId);
+  };
+
+  /* ----- Touch Drag and Drop (Mobile / iOS) ----- */
+  // Use refs for state that native event listeners need (avoids stale closures)
+  const [touchGhost, setTouchGhost] = useState<{ x: number; y: number; name: string } | null>(null);
+  const [touchOverTarget, setTouchOverTarget] = useState<string | null>(null);
+  const touchDragRef = useRef<{ player: Player; sourceId: string; index: number } | null>(null);
+  const touchGhostRef = useRef<{ x: number; y: number; name: string } | null>(null);
+  const touchOverRef = useRef<string | null>(null);
+  const dashboardRef = useRef<HTMLDivElement>(null);
+
+  const onTouchStart = (player: Player, sourceId: string, index: number) => (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    touchDragRef.current = { player, sourceId, index };
+    setDraggedPlayer({ player, sourceId, index });
+    const ghost = { x: touch.clientX, y: touch.clientY, name: player.name };
+    touchGhostRef.current = ghost;
+    setTouchGhost(ghost);
+  };
+
+  // Attach non-passive touchmove/touchend on the dashboard container
+  // This is REQUIRED for iOS Safari — React synthetic events are passive and ignore preventDefault()
+  useEffect(() => {
+    const container = dashboardRef.current;
+    if (!container) return;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!touchDragRef.current) return;
+      e.preventDefault(); // NOW this actually works because { passive: false }
+      const touch = e.touches[0];
+      const ghost = { x: touch.clientX, y: touch.clientY, name: touchDragRef.current.player.name };
+      touchGhostRef.current = ghost;
+      setTouchGhost(ghost);
+
+      // Hit-test: find which drop zone the finger is over
+      const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (elem) {
+        const dropZone = (elem as HTMLElement).closest('[data-dropzone-id]') as HTMLElement | null;
+        const target = dropZone?.dataset.dropzoneId || null;
+        touchOverRef.current = target;
+        setTouchOverTarget(target);
+      } else {
+        touchOverRef.current = null;
+        setTouchOverTarget(null);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (!touchDragRef.current) return;
+      const dragged = touchDragRef.current;
+      const target = touchOverRef.current;
+
+      if (target && target !== dragged.sourceId) {
+        // Use setTimeout to batch state updates after cleanup
+        const dragData = { ...dragged };
+        const targetId = target;
+        setTimeout(() => executeDrop(dragData, targetId), 0);
+      }
+
+      // Cleanup
+      touchDragRef.current = null;
+      touchGhostRef.current = null;
+      touchOverRef.current = null;
+      setTouchGhost(null);
+      setTouchOverTarget(null);
+      setDraggedPlayer(null);
+    };
+
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+    container.addEventListener('touchcancel', handleTouchEnd);
+
+    return () => {
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bench, teams]); // Re-attach when data changes so executeDrop has fresh state
+
+  /* ----- Shared Drop Logic ----- */
+  const executeDrop = (dragged: { player: Player; sourceId: string; index: number }, targetId: string) => {
+    const { player, sourceId, index } = dragged;
+    if (sourceId === targetId) {
+      setDraggedPlayer(null);
+      return;
+    }
 
     const currentBench = [...bench];
     const currentTeams = JSON.parse(JSON.stringify(teams)) as Team[];
@@ -235,7 +320,7 @@ export default function VenuePage() {
 
     // Add to target
     if (targetId === 'trash') {
-      // Do nothing! They are just removed from source
+      // Just remove, don't add anywhere
     } else if (targetId === 'bench') {
       currentBench.push(player);
     } else {
@@ -321,10 +406,11 @@ export default function VenuePage() {
             </button>
           </div>
 
-          <div className="admin-dashboard-grid">
+          <div className="admin-dashboard-grid" ref={dashboardRef}>
             {/* BENCH COLUMN */}
             <div 
-              style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px', minHeight: '300px' }}
+              data-dropzone-id="bench"
+              style={{ background: touchOverTarget === 'bench' ? 'rgba(25,118,210,0.1)' : 'var(--bg-secondary)', borderRadius: '12px', padding: '16px', minHeight: '300px', transition: 'background 0.15s' }}
               onDragOver={onDragOver}
               onDrop={(e) => onDrop(e, 'bench')}
             >
@@ -343,9 +429,11 @@ export default function VenuePage() {
                     key={`bench-${idx}`}
                     draggable
                     onDragStart={(e) => onDragStart(e, player, 'bench', idx)}
+                    onTouchStart={onTouchStart(player, 'bench', idx)}
                     style={{
                       background: 'var(--bg-primary)', padding: '10px', borderRadius: '8px', cursor: 'grab',
-                      border: '1px solid var(--border-subtle)', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px'
+                      border: '1px solid var(--border-subtle)', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px',
+                      touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none',
                     }}
                   >
                     <span style={{ cursor: 'grab' }}>≡</span> {player.name}
@@ -369,7 +457,8 @@ export default function VenuePage() {
                 teams.map((team) => (
                   <div 
                     key={team.name}
-                    style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '16px', minHeight: '300px' }}
+                    data-dropzone-id={team.name}
+                    style={{ background: touchOverTarget === team.name ? 'rgba(25,118,210,0.1)' : 'var(--bg-secondary)', borderRadius: '12px', padding: '16px', minHeight: '300px', transition: 'background 0.15s' }}
                     onDragOver={onDragOver}
                     onDrop={(e) => onDrop(e, team.name)}
                   >
@@ -385,9 +474,11 @@ export default function VenuePage() {
                           key={`team-${team.name}-${idx}`}
                           draggable
                           onDragStart={(e) => onDragStart(e, player, team.name, idx)}
+                          onTouchStart={onTouchStart(player, team.name, idx)}
                           style={{
                             background: 'var(--bg-primary)', padding: '10px', borderRadius: '8px', cursor: 'grab',
-                            border: '1px solid var(--border-subtle)', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px'
+                            border: '1px solid var(--border-subtle)', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px',
+                            touchAction: 'none', userSelect: 'none', WebkitUserSelect: 'none',
                           }}
                         >
                           <span style={{ cursor: 'grab' }}>≡</span> {player.name}
@@ -406,12 +497,13 @@ export default function VenuePage() {
           </div>
           
           <div
+            data-dropzone-id="trash"
             onDragOver={onDragOver}
             onDrop={(e) => onDrop(e, 'trash')}
             style={{
               marginTop: '24px',
-              border: '2px dashed #e53935',
-              background: draggedPlayer ? 'rgba(229,57,53,0.1)' : 'transparent',
+              border: `2px dashed ${touchOverTarget === 'trash' ? '#b71c1c' : '#e53935'}`,
+              background: (draggedPlayer || touchOverTarget === 'trash') ? 'rgba(229,57,53,0.15)' : 'transparent',
               borderRadius: '12px',
               padding: '20px',
               textAlign: 'center',
@@ -427,6 +519,28 @@ export default function VenuePage() {
           >
             <span style={{ fontSize: '24px' }}>🗑️</span> Kéo thả vào đây để XÓA cầu khỏi bench or team
           </div>
+
+          {/* Touch Drag Ghost (floating element following finger) */}
+          {touchGhost && (
+            <div style={{
+              position: 'fixed',
+              left: touchGhost.x - 60,
+              top: touchGhost.y - 20,
+              background: 'linear-gradient(135deg, #1976d2, #42a5f5)',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 700,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+              pointerEvents: 'none',
+              zIndex: 9999,
+              transform: 'scale(1.05)',
+              whiteSpace: 'nowrap',
+            }}>
+              ≡ {touchGhost.name}
+            </div>
+          )}
         </>
       )}
       {/* Add From Player DB Modal */}
