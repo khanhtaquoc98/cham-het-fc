@@ -3,6 +3,7 @@
 import React, { useEffect, useState, DragEvent, useRef } from 'react';
 import { Player, Team, MatchData } from '@/types/match';
 import { toast } from 'react-hot-toast';
+import { Wand2, Dices, ClipboardCopy, Armchair, Trash2, GripVertical } from 'lucide-react';
 
 interface VenueInfo {
   date: string;
@@ -396,13 +397,13 @@ export default function VenuePage() {
           <h2 className="admin-section-title" style={sectionTitleStyle}>2. Dashboard Chia Team (Kéo & Thả)</h2>
           <div className="admin-action-row">
             <button style={{ ...btnBase, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }} onClick={handleCreateTeams}>
-              🪄 Khởi tạo Team
+              <Wand2 size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Khởi tạo Team
             </button>
             <button style={{ ...btnBase, background: 'var(--field-accent-light)', color: 'white' }} onClick={handleAutoSplitTeams}>
-              🎲 Auto Chia Đều
+              <Dices size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Auto Chia Đều
             </button>
             <button style={{ ...btnBase, background: '#0088cc', color: 'white' }} onClick={handleCopyTelegramCommand} title="Copy để paste vào nhóm chat">
-              📋 Copy Telegram
+              <ClipboardCopy size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Copy Telegram
             </button>
           </div>
 
@@ -415,7 +416,7 @@ export default function VenuePage() {
               onDrop={(e) => onDrop(e, 'bench')}
             >
               <h3 style={{ fontSize: '14px', fontWeight: 800, marginBottom: '16px', textAlign: 'center', color: 'var(--text-primary)', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-                🪑 BENCH DỰ BỊ ({bench.length})
+                <Armchair size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> BENCH DỰ BỊ ({bench.length})
                 <button 
                   onClick={handleOpenAddModal}
                   style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' }}
@@ -517,7 +518,7 @@ export default function VenuePage() {
               opacity: draggedPlayer ? 1 : 0.6
             }}
           >
-            <span style={{ fontSize: '24px' }}>🗑️</span> Kéo thả vào đây để XÓA cầu khỏi bench or team
+            <Trash2 size={24} /> Kéo thả vào đây để XÓA cầu khỏi bench or team
           </div>
 
           {/* Touch Drag Ghost (floating element following finger) */}

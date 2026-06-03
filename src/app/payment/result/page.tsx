@@ -3,6 +3,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { XCircle, CheckCircle, Clock, Home, ArrowLeft, Loader2 } from 'lucide-react';
 
 interface OrderResult {
   id: string;
@@ -55,12 +56,9 @@ function PaymentResultContent() {
     return (
       <div style={rootStyle}>
         <div style={containerStyle}>
-          <div style={cardStyle}>
-            <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-              <div style={{ fontSize: 48, marginBottom: 16, animation: 'spin 1s linear infinite' }}>⏳</div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1a1a2e', margin: 0, marginBottom: 8 }}>
-                Đang xác nhận thanh toán...
-              </h2>
+          <div className="content-appear" style={cardStyle}>
+            <div className="loading-spinner" style={{ padding: '48px 20px' }}>
+              <span className="loading-spinner-text">Đang xác nhận thanh toán...</span>
               <p style={{ fontSize: 13, color: '#8a8aaa', margin: 0 }}>
                 Vui lòng đợi trong giây lát
               </p>
@@ -76,9 +74,9 @@ function PaymentResultContent() {
     return (
       <div style={rootStyle}>
         <div style={containerStyle}>
-          <div style={cardStyle}>
+          <div className="content-appear" style={cardStyle}>
             <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-              <div style={{ fontSize: 56, marginBottom: 16 }}>❌</div>
+              <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><XCircle size={56} color="#c62828" /></div>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: '#c62828', margin: 0, marginBottom: 8 }}>
                 Thanh toán bị huỷ
               </h2>
@@ -90,8 +88,8 @@ function PaymentResultContent() {
                   Mã đơn: #{orderCode}
                 </div>
               )}
-              <Link href="/payment" style={btnStyle}>
-                ← Quay lại trang thanh toán
+              <Link href="/payment" style={{ ...btnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <ArrowLeft size={16} /> Quay lại trang thanh toán
               </Link>
             </div>
           </div>
@@ -106,10 +104,10 @@ function PaymentResultContent() {
   return (
     <div style={rootStyle}>
       <div style={containerStyle}>
-        <div style={cardStyle}>
+        <div className="content-appear" style={cardStyle}>
           <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <div style={{ fontSize: 56, marginBottom: 16 }}>
-              {isPaid ? '✅' : '⏳'}
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
+              {isPaid ? <CheckCircle size={56} color="#2e7d32" /> : <Clock size={56} color="#e65100" />}
             </div>
             <h2 style={{
               fontSize: 20, fontWeight: 800, margin: 0, marginBottom: 8,
@@ -143,7 +141,7 @@ function PaymentResultContent() {
                     fontWeight: 700,
                     color: isPaid ? '#2e7d32' : '#e65100',
                   }}>
-                    {isPaid ? '✅ Đã thanh toán' : '⏳ Đang xử lý'}
+                    {isPaid ? <><CheckCircle size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Đã thanh toán</> : <><Clock size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Đang xử lý</>}
                   </span>
                 </div>
                 {result.playerNames.length > 0 && (
@@ -158,11 +156,11 @@ function PaymentResultContent() {
             )}
 
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <Link href="/payment" style={btnStyle}>
-                ← Trang thanh toán
+              <Link href="/payment" style={{ ...btnStyle, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <ArrowLeft size={16} /> Trang thanh toán
               </Link>
-              <Link href="/" style={{ ...btnStyle, background: '#f5f5f5', color: '#4a4a6a' }}>
-                🏠 Trang chủ
+              <Link href="/" style={{ ...btnStyle, background: '#f5f5f5', color: '#4a4a6a', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Home size={16} /> Trang chủ
               </Link>
             </div>
           </div>
@@ -177,7 +175,9 @@ export default function PaymentResultPage() {
     <Suspense fallback={
       <div style={rootStyle}>
         <div style={containerStyle}>
-          <div style={{ textAlign: 'center', padding: 40, color: '#8a8aaa' }}>⏳ Đang tải...</div>
+          <div className="loading-spinner">
+            <span className="loading-spinner-text">Đang tải...</span>
+          </div>
         </div>
       </div>
     }>

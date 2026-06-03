@@ -6,6 +6,7 @@ import { MatchData, Team } from '@/types/match';
 import { PlayerConfig } from '@/types/player';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
+import { Trophy, Handshake, XCircle, RefreshCw, Megaphone, Timer, CupSoda, Coins, Dices, CircleDot, ClipboardList, CalendarDays, Clock, MapPin, Ghost, Users, CreditCard, Armchair, Hand, UserCheck, Bell, CheckCircle } from 'lucide-react';
 
 interface PlayerStatsSummary {
   playerName: string;
@@ -194,7 +195,7 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
       <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
         {team.players.length === 0 ? (
           <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '20px', opacity: 0.4 }}>👻</span>
+            <span style={{ fontSize: '20px', opacity: 0.4 }}><Ghost size={20} /></span>
             Chưa có thông tin
           </div>
         ) : (
@@ -291,26 +292,26 @@ function MatchInfoSection({ matchData }: { matchData: MatchData }) {
   if (!venue.date && !venue.time && !venue.venue) return null;
 
   return (
-    <div className="match-info-bar" style={{ marginBottom: '24px' }}>
+    <div className="match-info-bar content-appear" style={{ marginBottom: '24px' }}>
       <div className="match-info-label">
-        ⚽ Thông tin trận đấu
+        <CircleDot size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thông tin trận đấu
       </div>
       <div className="match-info-chips">
         {venue.date && (
           <div className="info-chip">
-            <span className="label">Ngày</span>
+            <span className="label"><CalendarDays size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Ngày</span>
             <span className="value">{venue.date}</span>
           </div>
         )}
         {venue.time && (
           <div className="info-chip">
-            <span className="label">Giờ</span>
+            <span className="label"><Clock size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Giờ</span>
             <span className="value">{venue.time}</span>
           </div>
         )}
         {venue.venue && (
           <div className="info-chip">
-            <span className="label">Sân</span>
+            <span className="label"><MapPin size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Sân</span>
             <span className="value">
               {venue.googleMapLink ? (
                 <a href={venue.googleMapLink} target="_blank" rel="noopener noreferrer" className="venue-link">
@@ -354,7 +355,7 @@ function RulesSection({ teamCount }: { teamCount: number }) {
   return (
     <div className="match-info-bar" style={{ marginTop: '24px', flexDirection: 'column' }}>
       <div className="match-info-label" style={{ minWidth: 'unset', justifyContent: 'center' }}>
-        📋 Rule
+        <ClipboardList size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Rule
       </div>
       <div style={{ padding: '16px 20px' }}>
         {teamCount === 3 ? (
@@ -362,52 +363,52 @@ function RulesSection({ teamCount }: { teamCount: number }) {
             {/* Điểm */}
             <div style={sectionTitle}>Hệ thống tính điểm</div>
             <div style={{ display: 'flex', gap: 16, marginBottom: 4 }}>
-              <span style={{ ...ruleStyle, fontWeight: 700, color: '#2e7d32' }}>🏆 Thắng: 3đ</span>
-              <span style={{ ...ruleStyle, fontWeight: 700, color: 'var(--text-muted)' }}>🤝 Hoà: 1đ</span>
-              <span style={{ ...ruleStyle, fontWeight: 700, color: '#c62828' }}>❌ Thua: 0đ</span>
+              <span style={{ ...ruleStyle, fontWeight: 700, color: '#2e7d32' }}><Trophy size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thắng: 3đ</span>
+              <span style={{ ...ruleStyle, fontWeight: 700, color: 'var(--text-muted)' }}><Handshake size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Hoà: 1đ</span>
+              <span style={{ ...ruleStyle, fontWeight: 700, color: '#c62828' }}><XCircle size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thua: 0đ</span>
             </div>
 
             <div style={dividerStyle} />
 
             {/* Luật chung */}
             <div style={sectionTitle}>Luật thi đấu</div>
-            <div style={ruleStyle}>🔄 Thay người, Nằm sân, Cột giày → được <strong>dừng trận đấu</strong>, còn lại chưa chết thì vẫn phải đá</div>
-            <div style={ruleStyle}>📣 Thay người khi trái banh <strong>không còn nằm trong sân</strong> và phải <strong>&quot;La&quot;</strong> khi thay người</div>
+            <div style={ruleStyle}><RefreshCw size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thay người, Nằm sân, Cột giày → được <strong>dừng trận đấu</strong>, còn lại chưa chết thì vẫn phải đá</div>
+            <div style={ruleStyle}><Megaphone size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thay người khi trái banh <strong>không còn nằm trong sân</strong> và phải <strong>&quot;La&quot;</strong> khi thay người</div>
 
             <div style={dividerStyle} />
 
             {/* Team out */}
             <div style={sectionTitle}>Team out sau mỗi trận</div>
-            <div style={ruleStyle}>👉 Team nào vào sau, nếu <strong>hoà thì ở lại</strong></div>
-            <div style={ruleStyle}>⚽ Thua <strong>2 bàn = out</strong></div>
-            <div style={ruleStyle}>🎲 Trận đấu đầu tiên nếu hoà sẽ <strong>random 1 đội ra</strong></div>
+            <div style={ruleStyle}>→ Team nào vào sau, nếu <strong>hoà thì ở lại</strong></div>
+            <div style={ruleStyle}><CircleDot size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thua <strong>2 bàn = out</strong></div>
+            <div style={ruleStyle}><Dices size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Trận đấu đầu tiên nếu hoà sẽ <strong>random 1 đội ra</strong></div>
 
             <div style={dividerStyle} />
 
             {/* Thời gian */}
             <div style={sectionTitle}>Thời gian</div>
-            <div style={ruleStyle}>⏱️ <strong>7 phút / 1 trận</strong></div>
-            <div style={ruleStyle}>🥤 Team đá trận cuối cùng <strong>kết quả</strong> sẽ được tính tại thời điểm hết tiền sân</div>
+            <div style={ruleStyle}><Timer size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> <strong>7 phút / 1 trận</strong></div>
+            <div style={ruleStyle}><CupSoda size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Team đá trận cuối cùng <strong>kết quả</strong> sẽ được tính tại thời điểm hết tiền sân</div>
             <div style={dividerStyle} />
 
             {/* Tiền nước */}
             <div style={sectionTitle}>Sau trận đấu</div>
-            <div style={ruleStyle}>💰 Nếu 2 team đồng top 1 → Tính thêm <strong>hệ số phụ: số trận ít hơn, bàn thắng nhiều hơn</strong> để cộng vào Win-rate từng cá nhân</div>
-            <div style={ruleStyle}>💰 Nếu 2 team đồng hạng bét. Để tìm hạng nhì → Tính thêm <strong>hệ số phụ: số trận ít hơn, bàn thắng nhiều hơn</strong></div>
-            <div style={ruleStyle}>🥤 Team <strong>bét</strong> sẽ trả <strong>70% tiền nước</strong> và Team <strong>nhì</strong> sẽ trả <strong>30% tiền nước</strong> và mặc định <strong>2</strong> lốc nếu không hết trả lại</div>
-            <div style={ruleStyle}>🥤 Ai đi vễ vẫn sẽ phải trả tiền nước nếu team mình thua, nên hãy uống nước trước khi về nhé!</div>
+            <div style={ruleStyle}><Coins size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Nếu 2 team đồng top 1 → Tính thêm <strong>hệ số phụ: số trận ít hơn, bàn thắng nhiều hơn</strong> để cộng vào Win-rate từng cá nhân</div>
+            <div style={ruleStyle}><Coins size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Nếu 2 team đồng hạng bét. Để tìm hạng nhì → Tính thêm <strong>hệ số phụ: số trận ít hơn, bàn thắng nhiều hơn</strong></div>
+            <div style={ruleStyle}><CupSoda size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Team <strong>bét</strong> sẽ trả <strong>70% tiền nước</strong> và Team <strong>nhì</strong> sẽ trả <strong>30% tiền nước</strong> và mặc định <strong>2</strong> lốc nếu không hết trả lại</div>
+            <div style={ruleStyle}><CupSoda size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Ai đi vễ vẫn sẽ phải trả tiền nước nếu team mình thua, nên hãy uống nước trước khi về nhé!</div>
           </>
         ) : (
           <>
             <div style={sectionTitle}>Luật thi đấu</div>
-            <div style={ruleStyle}>🥤 Team nào <strong>thua</strong> sẽ phải trả <strong>tiền nước</strong></div>
+            <div style={ruleStyle}><CupSoda size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Team nào <strong>thua</strong> sẽ phải trả <strong>tiền nước</strong></div>
 
             <div style={dividerStyle} />
 
-            <div style={ruleStyle}>🔄 Thay người, Nằm sân, Cột giày → được <strong>dừng trận đấu</strong>, còn lại chưa chết thì vẫn phải đá</div>
-            <div style={ruleStyle}>📣 Thay người khi trái banh <strong>không còn nằm trong sân</strong> và phải <strong>&quot;La&quot;</strong> khi thay người</div>
-            <div style={ruleStyle}>🥤 Team <strong>thua</strong> sẽ trả <strong>100% tiền nước</strong> và mặc định <strong>1</strong> lốc nếu không hết trả lại</div>
-            <div style={ruleStyle}>🥤 Ai đi vễ vẫn sẽ phải trả tiền nước nếu team mình thua, nên hãy uống nước trước khi về nhé!</div>
+            <div style={ruleStyle}><RefreshCw size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thay người, Nằm sân, Cột giày → được <strong>dừng trận đấu</strong>, còn lại chưa chết thì vẫn phải đá</div>
+            <div style={ruleStyle}><Megaphone size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thay người khi trái banh <strong>không còn nằm trong sân</strong> và phải <strong>&quot;La&quot;</strong> khi thay người</div>
+            <div style={ruleStyle}><CupSoda size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Team <strong>thua</strong> sẽ trả <strong>100% tiền nước</strong> và mặc định <strong>1</strong> lốc nếu không hết trả lại</div>
+            <div style={ruleStyle}><CupSoda size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> Ai đi vễ vẫn sẽ phải trả tiền nước nếu team mình thua, nên hãy uống nước trước khi về nhé!</div>
           </>
         )}
       </div>
@@ -422,7 +423,7 @@ function RulesSection({ teamCount }: { teamCount: number }) {
 function EmptyState() {
   return (
     <div className="empty-state">
-      <span className="empty-icon">⚽</span>
+      <span className="empty-icon"><CircleDot size={48} /></span>
       <h2>Chưa có dữ liệu trận đấu</h2>
       <p>
         Đăng ký với Captain để được thêm vào trận đấu sắp tới nhé
@@ -790,7 +791,7 @@ export default function Home() {
       </button> */}
 
       {matchData?.updatedAt && (
-        <div className="update-ticker" style={{ justifyContent: 'center', marginBottom: '24px', color: 'var(--text-muted)' }}>
+        <div className="update-ticker content-appear" style={{ justifyContent: 'center', marginBottom: '24px', color: 'var(--text-muted)' }}>
           <div className="live-dot" style={{ backgroundColor: 'var(--accent)' }}/>
           <span>Cập nhật {formatRelativeTime(matchData.updatedAt)}</span>
         </div>
@@ -807,7 +808,7 @@ export default function Home() {
           </div>
         ) : error ? (
           <div className="empty-state">
-            <span className="empty-icon">❌</span>
+            <span className="empty-icon"><XCircle size={48} /></span>
             <h2>{error}</h2>
           </div>
         ) : !matchData || (!matchData.teams?.length && !matchData.bench?.length && !matchData.venue?.date && !matchData.venue?.time && !matchData.venue?.venue) ? (
@@ -818,7 +819,7 @@ export default function Home() {
 
             {/* Bench Section */}
             {matchData.bench !== undefined && !(paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0) && (
-              <div style={{ marginTop: '24px', marginBottom: '24px', padding: '24px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-subtle)', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
+              <div className="content-appear stagger-1" style={{ marginTop: '24px', marginBottom: '24px', padding: '24px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-subtle)', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
                 {currentUser ? (
                   <div style={{ textAlign: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px dashed var(--border-subtle)', marginBottom: '24px' }}>
                     <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>
@@ -826,7 +827,7 @@ export default function Home() {
                     </p>
                     {isInTeam ? (
                       <span style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>
-                        ✅ Bạn đã được xếp vào đội
+                        <CheckCircle size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Bạn đã được xếp vào đội
                       </span>
                     ) : isInBench ? (
                       <button 
@@ -839,7 +840,7 @@ export default function Home() {
                           opacity: benchSaving ? 0.7 : 1, transition: 'all 0.2s ease', 
                           boxShadow: '0 4px 12px rgba(0,0,0,0.15)' 
                         }}>
-                        {benchSaving ? 'Đang xử lý...' : '👋 Rời khỏi Bench'}
+                        {benchSaving ? 'Đang xử lý...' : <><Hand size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Rời khỏi Bench</>}
                       </button>
                     ) : (
                       <button 
@@ -852,7 +853,7 @@ export default function Home() {
                           opacity: benchSaving ? 0.7 : 1, transition: 'all 0.2s ease', 
                           boxShadow: '0 4px 12px rgba(229,57,53,0.2)' 
                         }}>
-                        {benchSaving ? 'Đang điểm danh...' : '✋ Điểm danh vào Bench'}
+                        {benchSaving ? 'Đang điểm danh...' : <><Hand size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Điểm danh vào Bench</>}
                       </button>
                     )}
                   </div>
@@ -865,7 +866,7 @@ export default function Home() {
                 )}
 
                 <h3 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  🪑 BENCH DỰ BỊ ({matchData.bench.length})
+                  <Armchair size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> BENCH DỰ BỊ ({matchData.bench.length})
                 </h3>
                 
                 {matchData.bench.length > 0 ? (
@@ -885,7 +886,7 @@ export default function Home() {
             )}
 
             {/* Stats */}
-            <div className="stat-bar" style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '24px' }}>
+            <div className="stat-bar content-appear stagger-2" style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '24px' }}>
               <div className="stat-box">
                 <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--accent)' }}>{totalPlayers}</div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
@@ -899,7 +900,7 @@ export default function Home() {
                 </div>
               </div>
               <Link href="/match-now" className="stat-box" style={{ textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s ease' }}>
-                <div style={{ fontSize: '24px' }}>⚽</div>
+                <div style={{ fontSize: '24px' }}><CircleDot size={24} /></div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
                   Trận đấu
                 </div>
@@ -908,7 +909,7 @@ export default function Home() {
 
             {/* Thanh toán Button (nếu đủ thông tin) */}
             {paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px', marginTop: '24px' }}>
+              <div className="content-appear stagger-3" style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px', marginTop: '24px' }}>
                 <Link href="/payment" style={{
                   display: 'flex', alignItems: 'center', gap: '8px',
                   background: 'linear-gradient(135deg, #e53935, #ef5350)',
@@ -917,13 +918,13 @@ export default function Home() {
                   boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
                   transition: 'transform 0.2s ease'
                 }}>
-                  💳 Thanh toán trận này
+                  <CreditCard size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thanh toán trận này
                 </Link>
               </div>
             )}
 
             {/* Teams Grid */}
-            <div className="teams-grid" style={{
+            <div className="teams-grid content-appear stagger-3" style={{
               display: 'grid',
               gridTemplateColumns: teamCount === 2 ? '1fr auto 1fr' : `repeat(${teamCount}, 1fr)`,
               gap: teamCount === 2 ? '0' : '16px',
@@ -959,7 +960,7 @@ export default function Home() {
           localStorage.setItem('noti-dismissed-at', String(Date.now()));
         }}>
           <div className="install-modal" onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔔</div>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}><Bell size={48} /></div>
             <h3 className="install-modal-title">Bật thông báo</h3>
             <p className="install-modal-desc">
               Nhận nhắc nhở trước giờ đá để không bỏ lỡ trận nào!

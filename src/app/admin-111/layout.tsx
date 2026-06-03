@@ -3,14 +3,15 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import './admin-responsive.css';
+import { Landmark, Bell, User, BarChart3, Coins, Users, ArrowLeft } from 'lucide-react';
 
 const navItems = [
-  { href: '/admin-111', label: 'Sân bóng', icon: '🏟️' },
-  { href: '/admin-111/notifications', label: 'Thông báo', icon: '🔔' },
-  { href: '/admin-111/players', label: 'Cầu thủ', icon: '👤' },
-  { href: '/admin-111/history', label: 'Lịch sử', icon: '📊' },
-  { href: '/admin-111/payment', label: 'Thanh toán', icon: '💰' },
-  { href: '/admin-111/users', label: 'Tài khoản', icon: '👥' },
+  { href: '/admin-111', label: 'Sân bóng', icon: <Landmark size={16} /> },
+  { href: '/admin-111/notifications', label: 'Thông báo', icon: <Bell size={16} /> },
+  { href: '/admin-111/players', label: 'Cầu thủ', icon: <User size={16} /> },
+  { href: '/admin-111/history', label: 'Lịch sử', icon: <BarChart3 size={16} /> },
+  { href: '/admin-111/payment', label: 'Thanh toán', icon: <Coins size={16} /> },
+  { href: '/admin-111/users', label: 'Tài khoản', icon: <Users size={16} /> },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -37,7 +38,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           padding: '8px 18px', background: 'rgba(255,255,255,0.18)',
           borderRadius: '10px', fontSize: '13px', fontWeight: 600,
         }}>
-          ← Trang chủ
+          <ArrowLeft size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Trang chủ
         </Link>
       </div>
 
@@ -61,7 +62,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   color: isActive ? 'white' : '#6a6a8a',
                 }}
               >
-                <span style={{ fontSize: '16px' }}>{item.icon}</span>
+                <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>
                 <span className="admin-nav-label">{item.label}</span>
               </Link>
             );

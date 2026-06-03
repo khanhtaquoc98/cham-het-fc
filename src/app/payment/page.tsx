@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { PaymentSummary, LosingTeam } from '@/types/payment';
 import { Team } from '@/types/match';
 import toast, { Toaster } from 'react-hot-toast';
+import { Clock, Info, XCircle, CheckCircle, Coins, CalendarDays, Handshake, Trophy, CreditCard, Loader2 } from 'lucide-react';
 
 interface MatchInfo {
   id: string;
@@ -78,9 +79,8 @@ export default function PublicPaymentPage() {
     return (
       <div style={rootStyle}>
         <div style={containerStyle}>
-          <div style={{ textAlign: 'center', padding: 40, color: '#8a8aaa' }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
-            Đang tải thông tin thanh toán...
+          <div className="loading-spinner">
+            <span className="loading-spinner-text">Đang tải thông tin thanh toán...</span>
           </div>
         </div>
       </div>
@@ -94,8 +94,8 @@ export default function PublicPaymentPage() {
         <div style={containerStyle}>
           <Link href="/" style={backLinkStyle}>← Trang chủ</Link>
 
-          <div style={heroCardStyle}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+          <div className="content-appear" style={heroCardStyle}>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><Clock size={48} color="#e65100" /></div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#1a1a2e', margin: 0, marginBottom: 8 }}>
               Chưa có thông tin thanh toán
             </h1>
@@ -108,7 +108,7 @@ export default function PublicPaymentPage() {
           {/* Show partial info if available */}
           {summary?.matchPayment && (
             <div style={infoCardStyle}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#c62828', marginBottom: 10 }}>ℹ️ Thông tin hiện tại</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#c62828', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}><Info size={14} /> Thông tin hiện tại</div>
               <div style={infoRowStyle}>
                 <span>Tiền sân</span>
                 <span style={{ fontWeight: 700, color: '#1a1a2e' }}>
@@ -181,17 +181,17 @@ export default function PublicPaymentPage() {
           }
         }
       `}} />
-      <div style={containerStyle}>
+      <div className="content-appear" style={containerStyle}>
         <Link href="/" style={backLinkStyle}>← Trang chủ</Link>
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: '#1a1a2e', margin: 0, marginBottom: 4 }}>
-            💰 Thanh toán trận đấu
+            <Coins size={22} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thanh toán trận đấu
           </h1>
           {matchInfo?.venue?.date && (
             <p style={{ fontSize: 13, color: '#8a8aaa', margin: 0 }}>
-              📅 {matchInfo.venue.date} {matchInfo.venue.time && `• ⏰ ${matchInfo.venue.time}`}
+              <CalendarDays size={13} style={{ display: 'inline', verticalAlign: 'middle' }} /> {matchInfo.venue.date} {matchInfo.venue.time && `• ${matchInfo.venue.time}`}
             </p>
           )}
         </div>
@@ -256,10 +256,10 @@ export default function PublicPaymentPage() {
               const displayLabel = teams.length === 1 
                 ? '— Chia đều tiền sân & nước' 
                 : isDraw 
-                  ? '— Hoà 🤝 Nước 50%' 
+                  ? '— Hoà · Nước 50%' 
                   : isLosing 
                     ? `— Nước ${losingInfo?.drinkPercent}%` 
-                    : '— Thắng 🏆';
+                    : '— Thắng';
 
               const displayColor = teams.length === 1
                 ? '#1a1a2e'
@@ -333,7 +333,7 @@ export default function PublicPaymentPage() {
                               </div>
                               {pp.isPaid && (
                                 <div style={{ fontSize: 11, color: '#2e7d32', marginTop: 2, fontWeight: 600 }}>
-                                  ✅ Đã thanh toán
+                                  <CheckCircle size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Đã thanh toán
                                 </div>
                               )}
                             </div>
@@ -426,7 +426,7 @@ export default function PublicPaymentPage() {
                   }
                 }}
               >
-                {paying ? '⏳ Đang tạo link...' : `💳 Thanh toán ${formatVND(invoiceTotal)}`}
+                {paying ? <><Loader2 size={16} style={{ display: 'inline', verticalAlign: 'middle', animation: 'spin 1s linear infinite' }} /> Đang tạo link...</> : <><CreditCard size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thanh toán {formatVND(invoiceTotal)}</>}
               </button>
             </div>
           )}

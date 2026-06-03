@@ -1,6 +1,7 @@
 "use client";
 
 import toast from "react-hot-toast";
+import { LogOut } from 'lucide-react';
 
 export default function LogoutButton() {
   const handleLogout = async () => {
@@ -41,7 +42,7 @@ export default function LogoutButton() {
       onMouseDown={e => e.currentTarget.style.transform = 'scale(0.96)'}
       onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
     >
-      <span style={{ fontSize: '18px' }}>🚪</span> Đăng Xuất
+      <LogOut size={18} /> Đăng Xuất
     </button>
   );
 }

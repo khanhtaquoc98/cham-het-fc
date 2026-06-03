@@ -16,6 +16,7 @@
     "bcrypt": "^6.0.0",
     "jose": "^6.2.3",
     "js-cookie": "^3.0.5",
+    "lucide-react": "^1.17.0",
     "next": "16.1.7",
     "node-telegram-bot-api": "^0.67.0",
     "react": "19.2.3",

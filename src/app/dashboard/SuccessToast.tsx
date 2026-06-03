@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CheckCircle, Clock } from 'lucide-react';
 
 export default function SuccessToast({ confirmed }: { confirmed: boolean }) {
   const [visible, setVisible] = useState(true);
@@ -32,7 +33,7 @@ export default function SuccessToast({ confirmed }: { confirmed: boolean }) {
       animation: 'fadeIn 0.3s ease-out'
     }}>
       <div style={{ fontSize: '24px' }}>
-        {confirmed ? '✅' : '⏳'}
+        {confirmed ? <CheckCircle size={24} color="#2e7d32" /> : <Clock size={24} color="#e65100" />}
       </div>
       <div>
         <div style={{ fontWeight: 700, fontSize: '14px', color: confirmed ? '#2e7d32' : '#e65100' }}>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { CircleDot, User, ClipboardList, CalendarDays, Clock3, MapPin, CheckCircle, Link2 } from 'lucide-react';
 
 // ==========================================
 // TYPES
@@ -62,7 +63,7 @@ export default function HistoryPage() {
             cursor: 'pointer', transition: 'all 0.2s',
           }}
         >
-          ⚽ Trận đấu
+          <CircleDot size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Trận đấu
         </button>
         <button
           onClick={() => setSubTab('players')}
@@ -74,7 +75,7 @@ export default function HistoryPage() {
             cursor: 'pointer', transition: 'all 0.2s',
           }}
         >
-          👤 Cầu thủ
+          <User size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Cầu thủ
         </button>
       </div>
 
@@ -127,7 +128,7 @@ function MatchHistoryList() {
         <div style={{ padding: '40px', textAlign: 'center', color: '#8a8aaa' }}>Đang tải...</div>
       ) : matches.length === 0 ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#8a8aaa' }}>
-          <p style={{ fontSize: '40px', marginBottom: '12px' }}>📋</p>
+          <p style={{ fontSize: '40px', marginBottom: '12px' }}><ClipboardList size={40} color="#8a8aaa" /></p>
           <p style={{ fontSize: '14px' }}>Chưa có lịch sử trận đấu</p>
           <p style={{ fontSize: '12px', marginTop: '4px' }}>Dùng lệnh /tiso trên Telegram để ghi tỉ số</p>
         </div>
@@ -152,17 +153,17 @@ function MatchHistoryList() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       {match.matchDate && (
                         <span style={{ fontSize: '12px', color: '#8a8aaa', fontWeight: 600 }}>
-                          📅 {match.matchDate}
+                          <CalendarDays size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> {match.matchDate}
                         </span>
                       )}
                       {match.matchTime && (
                         <span style={{ fontSize: '12px', color: '#8a8aaa', fontWeight: 600 }}>
-                          ⏰ {match.matchTime}
+                          <Clock3 size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> {match.matchTime}
                         </span>
                       )}
                       {match.venue && (
                         <span style={{ fontSize: '12px', color: '#8a8aaa', fontWeight: 600 }}>
-                          📍 {match.venue}
+                          <MapPin size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> {match.venue}
                         </span>
                       )}
                     </div>
@@ -314,7 +315,7 @@ function PlayerStatsList() {
         <div style={{ padding: '40px', textAlign: 'center', color: '#8a8aaa' }}>Đang tải...</div>
       ) : players.length === 0 ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#8a8aaa' }}>
-          <p style={{ fontSize: '40px', marginBottom: '12px' }}>👤</p>
+          <p style={{ fontSize: '40px', marginBottom: '12px' }}><User size={40} color="#8a8aaa" /></p>
           <p style={{ fontSize: '14px' }}>Chưa có thống kê cầu thủ</p>
         </div>
       ) : (
@@ -388,7 +389,7 @@ function PlayerStatsList() {
                           style={{ ...btnBase, fontSize: '11px', padding: '4px 10px', background: player.playerId ? '#e8f5e9' : '#fff3e0', color: player.playerId ? '#2e7d32' : '#e65100' }}
                           onClick={() => setLinkingPlayer(player.playerName)}
                         >
-                          {player.playerId ? '✅ Đã liên kết' : '🔗 Liên kết'}
+                          {player.playerId ? <><CheckCircle size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> Đã liên kết</> : <><Link2 size={12} style={{ display: 'inline', verticalAlign: 'middle' }} /> Liên kết</>}
                         </button>
                       )}
                     </td>

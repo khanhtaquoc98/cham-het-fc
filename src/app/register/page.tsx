@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { CircleDot } from 'lucide-react';
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
@@ -40,7 +41,7 @@ export default function RegisterPage() {
       <div className="glass-card" style={{ width: '100%', maxWidth: '420px', padding: '40px 32px', position: 'relative' }}>
         
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div className="vs-badge" style={{ margin: '0 auto 16px', width: '56px', height: '56px', fontSize: '24px' }}>⚽</div>
+          <div className="vs-badge" style={{ margin: '0 auto 16px', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircleDot size={24} /></div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '8px' }}>
             Đăng Ký
           </h1>

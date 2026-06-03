@@ -495,6 +495,61 @@ body {
 /* ========================= */
 /* ANIMATIONS                */
 /* ========================= */
+
+/* Content appear: smooth fade+slide when data loads from API */
+@keyframes contentAppear {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.content-appear {
+  animation: contentAppear 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.12s; }
+.stagger-3 { animation-delay: 0.2s; }
+.stagger-4 { animation-delay: 0.28s; }
+.stagger-5 { animation-delay: 0.36s; }
+
+/* Loading spinner */
+@keyframes spinPulse {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 20px;
+  animation: contentAppear 0.3s ease both;
+}
+
+.loading-spinner::before {
+  content: '';
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--accent, #e53935);
+  border-radius: 50%;
+  animation: spinPulse 0.8s linear infinite;
+}
+
+.loading-spinner-text {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(0.85); }

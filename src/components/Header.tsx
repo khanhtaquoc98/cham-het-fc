@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { toast } from 'react-hot-toast';
+import { Settings, Coins, LogOut } from 'lucide-react';
 
 export default function Header() {
   const pathname = usePathname();
@@ -49,45 +50,86 @@ export default function Header() {
     <div style={{ position: 'sticky', top: 0, zIndex: 1000, marginBottom: pathname === '/' ? '12px' : '28px' }}>
       {/* Announcement Bar */}
       {tickerText && (
-        <div style={{
-          position: 'relative',
-          zIndex: 20,
-          overflow: 'hidden',
-          background: 'linear-gradient(90deg, #e53935 0%, #c62828 50%, #e53935 100%)',
-          padding: '7px 0',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0',
-          borderBottom: '1px solid rgba(255,255,255,0.15)',
-        }}>
-          {/* Pinned icon left */}
-          <span style={{
-            flexShrink: 0,
-            padding: '0 10px',
-            fontSize: '13px',
-            color: 'rgba(255,255,255,0.9)',
-          }}></span>
+        <div
+          className="announcement-bar"
+          style={{
+            position: 'relative',
+            zIndex: 20,
+            overflow: 'hidden',
+            background: 'linear-gradient(90deg, #e53935 0%, #c62828 50%, #e53935 100%)',
+            borderBottom: '1px solid rgba(255,255,255,0.15)',
+            animation: 'announcement-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+          }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '7px 0',
+            gap: '0',
+          }}>
+            {/* Pinned icon left */}
+            <span style={{
+              flexShrink: 0,
+              fontSize: '13px',
+              color: 'rgba(255,255,255,0.9)',
+            }}></span>
 
-          {/* Scrolling text */}
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            <div style={{
-              display: 'inline-block',
-              whiteSpace: 'nowrap',
-              animation: 'announcement-scroll 15s linear infinite',
-              color: '#fff',
-              fontWeight: 600,
-              fontSize: '12.5px',
-              letterSpacing: '0.2px',
-              paddingLeft: '100%',
-            }}>
-              {tickerText}
+            {/* Scrolling text */}
+            <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+              <div
+                className="announcement-scroll-text"
+                dangerouslySetInnerHTML={{ __html: tickerText }}
+                style={{
+                  display: 'inline-block',
+                  whiteSpace: 'nowrap',
+                  animation: 'announcement-scroll 15s linear infinite',
+                  animationDelay: '0.6s',
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: '12.5px',
+                  letterSpacing: '0.2px',
+                  paddingLeft: '100%',
+                  opacity: 0,
+                  animationFillMode: 'forwards',
+                }}
+              />
             </div>
           </div>
 
           <style>{`
+            @keyframes announcement-enter {
+              0% {
+                max-height: 0;
+                opacity: 0;
+                transform: translateY(-100%);
+              }
+              60% {
+                opacity: 1;
+              }
+              100% {
+                max-height: 40px;
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
             @keyframes announcement-scroll {
-              0%   { transform: translateX(0); }
-              100% { transform: translateX(-100%); }
+              0%   { transform: translateX(0); opacity: 1; }
+              100% { transform: translateX(-100%); opacity: 1; }
+            }
+            .announcement-bar:hover .announcement-scroll-text {
+              animation-play-state: paused !important;
+            }
+            .announcement-bar {
+              cursor: default;
+            }
+            .announcement-scroll-text a {
+              color: #fff;
+              text-decoration: underline;
+              text-underline-offset: 2px;
+              font-weight: 700;
+              transition: opacity 0.2s ease;
+            }
+            .announcement-scroll-text a:hover {
+              opacity: 0.8;
             }
           `}</style>
         </div>
@@ -162,13 +204,13 @@ export default function Header() {
               }}>
                 <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border-subtle)', marginBottom: '4px' }}>
                   <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Số bóng</div>
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--accent)' }}>{user.balance.toLocaleString()} ⚽</div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--accent)' }}>{user.balance.toLocaleString()} Bóng</div>
                 </div>
-                <Link href="/dashboard" style={{ display: 'block', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px' }}>
-                  ⚙️ Tài khoản
+                <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px' }}>
+                  <Settings size={16} /> Tài khoản
                 </Link>
-                <Link href="/dashboard/deposit" style={{ display: 'block', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}>
-                  💰 Thêm bóng
+                <Link href="/dashboard/deposit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}>
+                  <Coins size={16} /> Thêm bóng
                 </Link>
                 <div 
                   onClick={async () => {
@@ -177,9 +219,9 @@ export default function Header() {
                     toast.success("Đã đăng xuất");
                     window.location.href = "/";
                   }}
-                  style={{ display: 'block', padding: '10px 12px', color: '#e53935', cursor: 'pointer', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: '#e53935', cursor: 'pointer', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}
                 >
-                  🚪 Đăng xuất
+                  <LogOut size={16} /> Đăng xuất
                 </div>
               </div>
             )}

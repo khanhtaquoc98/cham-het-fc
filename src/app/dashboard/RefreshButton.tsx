@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { RefreshCw } from 'lucide-react';
 
 export default function RefreshButton() {
   const router = useRouter();
@@ -38,14 +39,10 @@ export default function RefreshButton() {
       onMouseDown={e => { if (!isRefreshing) e.currentTarget.style.transform = 'scale(0.92)' }}
       onMouseUp={e => { if (!isRefreshing) e.currentTarget.style.transform = 'scale(1)' }}
     >
-      <span style={{ 
-        display: 'inline-block', 
-        fontSize: '14px',
+      <RefreshCw size={14} style={{ 
         transition: 'transform 1s ease',
         transform: isRefreshing ? 'rotate(360deg)' : 'rotate(0deg)'
-      }}>
-        🔄
-      </span>
+      }} />
     </button>
   );
 }

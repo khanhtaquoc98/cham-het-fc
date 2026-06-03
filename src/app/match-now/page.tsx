@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { CircleDot, RefreshCw, Pause, Play, CheckCircle, Landmark, Trophy, Handshake, Save } from 'lucide-react';
 
 /* ────────────────────────────────
    WEB AUDIO BEEP/BELL
@@ -121,9 +122,9 @@ export default function MatchNowPage() {
   if (loading) {
     return (
       <div className="match-now-root">
-        <header className="mn-header">
-          <h1 className="mn-title">Đang đồng bộ dữ liệu...</h1>
-        </header>
+        <div className="loading-spinner" style={{ flex: 1 }}>
+          <span className="loading-spinner-text">Đang đồng bộ dữ liệu...</span>
+        </div>
       </div>
     );
   }
@@ -282,13 +283,13 @@ function TwoTeamMode({
                   return (
                     <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <td style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text-primary)', fontWeight: isHome ? 700 : 400 }}>
-                        {isHome && <span>⚽</span>}
+                        {isHome && <CircleDot size={14} />}
                       </td>
                       <td style={{ padding: '10px 8px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, fontFamily: "'Chiron GoRound TC', monospace" }}>
                         {g.timestamp_minute}
                       </td>
                       <td style={{ padding: '10px 16px', textAlign: 'right', color: 'var(--text-primary)', fontWeight: !isHome ? 700 : 400 }}>
-                        {!isHome && <span>⚽</span>}
+                        {!isHome && <CircleDot size={14} />}
                       </td>
                     </tr>
                   );
@@ -302,7 +303,7 @@ function TwoTeamMode({
         </div>
 
         <button className="mn-reset-score-btn" onClick={resetScore} style={{ marginTop: 24 }}>
-          🔄 Chơi lại từ đầu
+          <RefreshCw size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Chơi lại từ đầu
         </button>
       </div>
     );
@@ -314,7 +315,7 @@ function TwoTeamMode({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button className="mn-play-btn" onClick={togglePlay} style={{ fontSize: 13, padding: '8px 16px' }}>
-            {liveMatch.status === 'playing' ? "⏸ Dừng" : "▶ Bắt Đầu"}
+            {liveMatch.status === 'playing' ? <><Pause size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Dừng</> : <><Play size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Bắt Đầu</>}
           </button>
           <button className="mn-reset-btn" onClick={finishMatch} style={{ background: '#d32f2f', color: 'white', border: 'none', fontSize: 12, padding: '6px 12px' }}>
              Kết thúc
@@ -323,7 +324,7 @@ function TwoTeamMode({
             ↩ Reset trận
           </button>
           <button className="mn-reset-btn" onClick={resetScore} style={{ fontSize: 12, padding: '6px 12px' }}>
-            🔄
+            <RefreshCw size={14} />
           </button>
         </div>
         <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', fontFamily: "'Chiron GoRound TC', monospace", letterSpacing: 2 }}>
@@ -628,7 +629,7 @@ function ThreeTeamMode({
               className="mn-start-btn"
               style={{ flex: 1, padding: '12px 24px', fontSize: 14, borderRadius: 12, margin: 0 }}
             >
-              ✅ Lưu
+              <Save size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Lưu
             </button>
           </div>
         </div>
@@ -644,7 +645,7 @@ function ThreeTeamMode({
         <StatsBar />
 
         <div className="mn-pick-title">
-          🏟️ Chọn 2 đội đá trận {matchNumber > 1 ? `#${matchNumber}` : "đầu tiên"}
+          <Landmark size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Chọn 2 đội đá trận {matchNumber > 1 ? `#${matchNumber}` : "đầu tiên"}
         </div>
 
         <div className="mn-pick-grid">
@@ -667,7 +668,7 @@ function ThreeTeamMode({
         </div>
 
         <button className="mn-start-btn" disabled={pickedTeams.length !== 2} onClick={startFirstMatch}>
-          ⚽ Bắt đầu trận đấu
+          <CircleDot size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Bắt đầu trận đấu
         </button>
       </div>
     );
@@ -745,7 +746,7 @@ function ThreeTeamMode({
             </div>
 
             <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 800, color: isDraw ? '#f57c00' : '#2e7d32', marginBottom: 20, padding: '6px 16px', borderRadius: 20, background: isDraw ? 'rgba(245,124,0,0.08)' : 'rgba(46,125,50,0.08)', display: 'inline-block' }}>
-              {isDraw ? '🤝 ' : '🏆 '}{resultText}
+              {isDraw ? <><Handshake size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> </> : <><Trophy size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> </>}{resultText}
             </div>
 
             {/* Next match editor */}
@@ -777,7 +778,7 @@ function ThreeTeamMode({
                 Quay lại
               </button>
               <button onClick={handleConfirm} className="mn-start-btn" style={{ flex: 1, padding: '14px', borderRadius: 12, fontSize: 14, margin: 0 }}>
-                ✅ Xác nhận
+                <CheckCircle size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Xác nhận
               </button>
             </div>
           </div>
@@ -836,7 +837,7 @@ function ThreeTeamMode({
         </div>
 
         <button className="mn-reset-score-btn" onClick={resetAll} style={{ marginTop: 24 }}>
-          🔄 Chơi lại từ đầu
+          <RefreshCw size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Chơi lại từ đầu
         </button>
       </div>
     );
@@ -911,7 +912,7 @@ function ThreeTeamMode({
               boxShadow: running ? '0 4px 12px rgba(229, 57, 53, 0.4)' : '0 4px 12px rgba(76, 175, 80, 0.4)'
             }}
           >
-            {running ? "⏸ Tạm dừng" : "▶ Bắt đầu"}
+            {running ? <><Pause size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Tạm dừng</> : <><Play size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Bắt đầu</>}
           </button>
         </div>
 
