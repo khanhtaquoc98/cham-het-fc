@@ -6,7 +6,7 @@ import { MatchData, Team } from '@/types/match';
 import { PlayerConfig } from '@/types/player';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import { Trophy, Handshake, XCircle, RefreshCw, Megaphone, Timer, CupSoda, Coins, Dices, CircleDot, ClipboardList, CalendarDays, Clock, MapPin, Ghost, Users, CreditCard, Armchair, Hand, UserCheck, Bell, CheckCircle } from 'lucide-react';
+import { Trophy, Handshake, XCircle, RefreshCw, Megaphone, Timer, CupSoda, Coins, Dices, CircleDot, ClipboardList, CalendarDays, Clock, MapPin, Ghost, Users, CreditCard, Armchair, Hand, Bell, CheckCircle, Flame } from 'lucide-react';
 
 interface PlayerStatsSummary {
   playerName: string;
@@ -293,9 +293,11 @@ function MatchInfoSection({ matchData }: { matchData: MatchData }) {
 
   return (
     <div className="match-info-bar content-appear" style={{ marginBottom: '24px' }}>
-      <div className="match-info-label">
-        <CircleDot size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thông tin trận đấu
-      </div>
+        <div className="match-info-label">
+            <Link href='/match-now'>
+                <CircleDot size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thông tin trận đấu
+            </Link>
+        </div>
       <div className="match-info-chips">
         {venue.date && (
           <div className="info-chip">
@@ -899,12 +901,6 @@ export default function Home() {
                   Số đội
                 </div>
               </div>
-              <Link href="/match-now" className="stat-box" style={{ textDecoration: 'none', cursor: 'pointer', transition: 'all 0.2s ease' }}>
-                <div style={{ fontSize: '24px' }}><CircleDot size={24} /></div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
-                  Trận đấu
-                </div>
-              </Link>
             </div>
 
             {/* Thanh toán Button (nếu đủ thông tin) */}
