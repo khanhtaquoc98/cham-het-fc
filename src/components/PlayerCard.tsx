@@ -166,12 +166,13 @@ export function PlayerCardCarousel({ playerStats, playerConfigs }: {
       </div>
       <div className="wc26-players-grid">
         {allPlayers.map((p, i) => (
-          <PlayerCard
+          <div
             key={p.playerName}
-            player={p}
             className="wc26-grid-item"
             style={{ animationDelay: `${i * 0.05}s` }}
-          />
+          >
+            <PlayerCard player={p} />
+          </div>
         ))}
       </div>
     </div>
