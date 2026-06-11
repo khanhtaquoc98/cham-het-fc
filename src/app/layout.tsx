@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "react-hot-toast";
 import Header from "@/components/Header";
+import ThemeProvider from "@/components/ThemeProvider";
 import "./globals.css";
 
 const SITE_URL = "https://chamhetfc.vercel.app";
@@ -147,6 +148,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body>
+        <ThemeProvider />
         <Toaster position="top-center" />
         <Header />
         {children}
@@ -154,4 +156,5 @@ export default function RootLayout({
     </html>
   );
 }
+
 

@@ -100,6 +100,624 @@
   --toggle-hover-bg: rgba(239,83,80,0.2);
 }
 
+/* ===================================== */
+/* WORLD CUP 2026 LIGHT THEME           */
+/* ===================================== */
+[data-site-theme="worldcup2026"] {
+  --bg-primary: #f0f7f6;
+  --bg-secondary: #e4f0ee;
+  --bg-card: #ffffff;
+  --accent: #00897B;
+  --accent-light: #26A69A;
+  --accent-dark: #00695C;
+  --accent-soft: #80CBC4;
+  --accent-orange: #E91E63;
+  --accent-orange-light: #F06292;
+  --text-primary: #0D1B2A;
+  --text-secondary: #37474F;
+  --text-muted: #78909C;
+  --border-subtle: rgba(0, 137, 123, 0.08);
+  --border-accent: rgba(0, 137, 123, 0.18);
+  --field-accent: #00897B;
+  --field-accent-light: #26A69A;
+  --field-accent-dark: #00695C;
+  --shadow-soft: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,137,123,0.06);
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.04), 0 8px 24px rgba(0,137,123,0.07);
+  --shadow-hover: 0 4px 16px rgba(0,0,0,0.06), 0 12px 32px rgba(0,137,123,0.12);
+  --bg-body-gradient-1: rgba(0,137,123,0.04);
+  --bg-body-gradient-2: rgba(233,30,99,0.03);
+  --header-gradient: linear-gradient(160deg, #0D1B2A 0%, #1B3A4B 25%, #00695C 50%, #00897B 75%, #26A69A 100%);
+  --stripe-opacity: 0.04;
+  --circle-border-opacity: 0.1;
+  --corner-border-opacity: 0.07;
+  --card-header-bg: rgba(0,137,123,0.02);
+  --player-hover-bg: rgba(0,137,123,0.04);
+  --player-hover-border: rgba(0,137,123,0.08);
+  --player-number-bg: rgba(0,137,123,0.08);
+  --skeleton-1: rgba(0,137,123,0.04);
+  --skeleton-2: rgba(0,137,123,0.09);
+  --scrollbar-thumb: rgba(0,137,123,0.14);
+  --scrollbar-thumb-hover: rgba(0,137,123,0.28);
+  --chip-hover-bg: rgba(0,137,123,0.04);
+  --footer-bg: rgba(240,247,246,0.7);
+  --vs-badge-border: white;
+  --vs-badge-shadow: rgba(0,137,123,0.3);
+  --live-dot-color: #26A69A;
+  --live-dot-shadow: rgba(38,166,154,0.5);
+  --venue-link-border: rgba(0,137,123,0.3);
+  --toggle-bg: rgba(0,137,123,0.08);
+  --toggle-hover-bg: rgba(0,137,123,0.16);
+}
+
+/* ===================================== */
+/* WORLD CUP 2026 DARK THEME            */
+/* ===================================== */
+[data-site-theme="worldcup2026"][data-theme="dark"] {
+  --bg-primary: #060d14;
+  --bg-secondary: #0f1a24;
+  --bg-card: #0c1620;
+  --accent: #4DB6AC;
+  --accent-light: #80CBC4;
+  --accent-dark: #00897B;
+  --accent-soft: #80CBC4;
+  --accent-orange: #F06292;
+  --accent-orange-light: #F48FB1;
+  --text-primary: #E0F2F1;
+  --text-secondary: #90A4AE;
+  --text-muted: #546E7A;
+  --border-subtle: rgba(77, 182, 172, 0.1);
+  --border-accent: rgba(77, 182, 172, 0.22);
+  --field-accent: #4DB6AC;
+  --field-accent-light: #80CBC4;
+  --field-accent-dark: #00897B;
+  --shadow-soft: 0 1px 3px rgba(0,0,0,0.4), 0 4px 12px rgba(77,182,172,0.06);
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.5), 0 8px 24px rgba(77,182,172,0.08);
+  --shadow-hover: 0 4px 16px rgba(0,0,0,0.6), 0 12px 32px rgba(77,182,172,0.14);
+  --bg-body-gradient-1: rgba(77,182,172,0.05);
+  --bg-body-gradient-2: rgba(233,30,99,0.03);
+  --header-gradient: linear-gradient(160deg, #040a10 0%, #0a1520 25%, #0f2318 50%, #0c3028 75%, #154038 100%);
+  --stripe-opacity: 0.05;
+  --circle-border-opacity: 0.12;
+  --corner-border-opacity: 0.09;
+  --card-header-bg: rgba(77,182,172,0.04);
+  --player-hover-bg: rgba(77,182,172,0.06);
+  --player-hover-border: rgba(77,182,172,0.1);
+  --player-number-bg: rgba(77,182,172,0.1);
+  --skeleton-1: rgba(77,182,172,0.06);
+  --skeleton-2: rgba(77,182,172,0.12);
+  --scrollbar-thumb: rgba(77,182,172,0.16);
+  --scrollbar-thumb-hover: rgba(77,182,172,0.32);
+  --chip-hover-bg: rgba(77,182,172,0.06);
+  --footer-bg: rgba(6,13,20,0.6);
+  --vs-badge-border: #0c1620;
+  --vs-badge-shadow: rgba(77,182,172,0.4);
+  --live-dot-color: #4DB6AC;
+  --live-dot-shadow: rgba(77,182,172,0.5);
+  --venue-link-border: rgba(77,182,172,0.3);
+  --toggle-bg: rgba(77,182,172,0.1);
+  --toggle-hover-bg: rgba(77,182,172,0.2);
+}
+
+/* WC26 theme overrides for team card borders */
+[data-site-theme="worldcup2026"] .team-card-home { border-top: 4px solid var(--accent); }
+[data-site-theme="worldcup2026"] .team-card-away { border-top: 4px solid #E91E63; }
+[data-site-theme="worldcup2026"] .team-card-extra { border-top: 4px solid #FFD54F; }
+[data-site-theme="worldcup2026"][data-theme="dark"] .team-card-home { border-top: 4px solid #4DB6AC; }
+[data-site-theme="worldcup2026"][data-theme="dark"] .team-card-away { border-top: 4px solid #F06292; }
+
+[data-site-theme="worldcup2026"] .team-name.home-name { color: var(--accent); }
+[data-site-theme="worldcup2026"] .team-name.away-name { color: #E91E63; }
+[data-site-theme="worldcup2026"][data-theme="dark"] .team-name.home-name { color: #4DB6AC; }
+[data-site-theme="worldcup2026"][data-theme="dark"] .team-name.away-name { color: #F06292; }
+
+[data-site-theme="worldcup2026"] .team-count.home {
+  background: rgba(0,137,123,0.1);
+  color: var(--accent);
+}
+[data-site-theme="worldcup2026"] .team-count.away {
+  background: rgba(233,30,99,0.08);
+  color: #E91E63;
+}
+[data-site-theme="worldcup2026"][data-theme="dark"] .team-count.home {
+  background: rgba(77,182,172,0.12);
+  color: #4DB6AC;
+}
+[data-site-theme="worldcup2026"][data-theme="dark"] .team-count.away {
+  background: rgba(240,98,146,0.12);
+  color: #F06292;
+}
+
+/* ===================================== */
+/* WC26 HERO BANNER                      */
+/* ===================================== */
+.wc26-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 20px 24px 16px;
+  text-align: center;
+  border-radius: 0 0 24px 24px;
+  background: linear-gradient(135deg, #0D1B2A 0%, #00695C 40%, #00897B 60%, #26A69A 100%);
+  margin-bottom: 8px;
+}
+
+.wc26-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 80%, rgba(233,30,99,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(255,213,79,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(0,137,123,0.1) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.wc26-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent 0px,
+    transparent 20px,
+    rgba(255,255,255,0.02) 20px,
+    rgba(255,255,255,0.02) 40px
+  );
+  pointer-events: none;
+}
+
+.wc26-hero-content {
+  position: relative;
+  z-index: 2;
+}
+
+.wc26-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.95);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  animation: wc26-badge-glow 3s ease-in-out infinite;
+}
+
+@keyframes wc26-badge-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(255,213,79,0.15); }
+  50% { box-shadow: 0 0 24px rgba(255,213,79,0.3); }
+}
+
+.wc26-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: white;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.wc26-title span {
+  background: linear-gradient(135deg, #FFD54F, #FFB300);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.wc26-subtitle {
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+/* Floating geometric shapes */
+.wc26-shape {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.08;
+}
+
+.wc26-shape-1 {
+  width: 120px;
+  height: 120px;
+  top: -30px;
+  right: -20px;
+  background: #FFD54F;
+  animation: wc26-float 8s ease-in-out infinite;
+}
+
+.wc26-shape-2 {
+  width: 80px;
+  height: 80px;
+  bottom: -20px;
+  left: 10%;
+  background: #E91E63;
+  animation: wc26-float 6s ease-in-out infinite reverse;
+}
+
+.wc26-shape-3 {
+  width: 50px;
+  height: 50px;
+  top: 20%;
+  left: -10px;
+  background: #4DB6AC;
+  animation: wc26-float 7s ease-in-out infinite 1s;
+}
+
+@keyframes wc26-float {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(5deg); }
+}
+
+/* WC26 announcement bar color override */
+[data-site-theme="worldcup2026"] .announcement-bar {
+  background: linear-gradient(90deg, #00695C 0%, #00897B 50%, #00695C 100%) !important;
+}
+
+/* WC26 field-header override */
+[data-site-theme="worldcup2026"] .field-header {
+  background: var(--header-gradient);
+}
+
+/* WC26 match-info-label override */
+[data-site-theme="worldcup2026"] .match-info-label {
+  background: linear-gradient(135deg, var(--field-accent-dark), var(--field-accent-light));
+}
+
+/* WC26 vs-badge override */
+[data-site-theme="worldcup2026"] .vs-badge {
+  background: linear-gradient(135deg, #E91E63, #F06292);
+  box-shadow: 0 3px 12px rgba(233,30,99,0.3);
+}
+
+/* WC26 footer styling */
+[data-site-theme="worldcup2026"] .app-footer {
+  border-top-color: rgba(0,137,123,0.12);
+}
+
+/* ===================================== */
+/* PANINI WC26 PLAYER CARD               */
+/* ===================================== */
+.panini-card {
+  width: 170px;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.05);
+  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.35s ease;
+  cursor: default;
+  background: #0D1B2A;
+}
+
+/* Shine sweep overlay */
+.panini-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255,255,255,0.12) 45%,
+    rgba(255,255,255,0.25) 50%,
+    rgba(255,255,255,0.12) 55%,
+    transparent 70%
+  );
+  transform: translateX(-120%);
+  transition: none;
+  pointer-events: none;
+}
+
+.panini-card:hover::before {
+  transform: translateX(120%);
+  transition: transform 0.6s ease;
+}
+
+.panini-card:hover {
+  transform: translateY(-8px) scale(1.04);
+  box-shadow:
+    0 16px 48px rgba(0,0,0,0.35),
+    0 0 0 2px rgba(77,182,172,0.3),
+    0 0 20px rgba(77,182,172,0.12);
+}
+
+/* Player image zoom on hover */
+.panini-card:hover .panini-player-img img {
+  transform: scale(1.06);
+  filter: drop-shadow(0 6px 16px rgba(0,0,0,0.4));
+}
+
+.panini-player-img img {
+  transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), filter 0.3s ease;
+}
+
+/* Name bar glow on hover */
+.panini-card:hover .panini-name-bar {
+  background: linear-gradient(90deg, #00897B, #26A69A, #00897B);
+  background-size: 200% 100%;
+  animation: panini-name-glow 1.5s ease infinite;
+}
+
+@keyframes panini-name-glow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Jersey badge bounce on hover */
+.panini-card:hover .panini-jersey {
+  animation: panini-badge-bounce 0.5s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+@keyframes panini-badge-bounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* Card body — bg image + tint set via inline style */
+.panini-card-body {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+}
+
+/* "2" shape */
+.panini-shape-2 {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 80px;
+  height: 100px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* "6" shape */
+.panini-shape-6 {
+  position: absolute;
+  bottom: -10px;
+  right: -8px;
+  width: 85px;
+  height: 105px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* FIFA mark */
+.panini-fifa-mark {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.panini-fifa-mark span {
+  font-size: 7px;
+  font-weight: 900;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* Player image */
+.panini-player-img {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.panini-player-img img {
+  width: 150px;
+  height: 180px;
+  object-fit: cover;
+  object-position: top center;
+  filter: drop-shadow(0 3px 8px rgba(0,0,0,0.3));
+}
+
+.panini-placeholder {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* Info strip */
+.panini-info {
+  position: relative;
+  padding: 0 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.panini-jersey {
+  position: absolute;
+  top: -13px;
+  right: 8px;
+  background: linear-gradient(135deg, #FFD54F, #FFC107);
+  color: #3E2723;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(255,193,7,0.35);
+  z-index: 5;
+}
+
+.panini-name-bar {
+  background: linear-gradient(90deg, #00695C, #00897B);
+  margin: 0 -10px;
+  padding: 5px 10px;
+}
+
+.panini-name {
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  text-transform: uppercase;
+}
+
+.panini-telegram {
+  font-size: 10px;
+  color: rgba(255,255,255,0.4);
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+.panini-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+
+.panini-winrate {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 8px;
+  border-radius: 6px;
+}
+
+.panini-matches {
+  font-size: 9px;
+  color: rgba(255,255,255,0.35);
+  font-weight: 600;
+}
+
+.panini-wdl {
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: auto;
+}
+
+/* ===================================== */
+/* WC26 PLAYERS GRID                     */
+/* ===================================== */
+.wc26-players-section {
+  padding: 20px 0 10px;
+}
+
+.wc26-players-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.wc26-carousel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-soft);
+}
+
+.wc26-players-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  padding: 8px 0;
+}
+
+.wc26-grid-item {
+  animation: wc26-card-appear 0.4s ease both;
+}
+
+@keyframes wc26-card-appear {
+  from { opacity: 0; transform: scale(0.9) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ===================================== */
+/* WC26 HOVER POPUP (Portal-based, body-level tooltips) */
+/* ===================================== */
+.wc26-hover-wrapper {
+  display: block;
+  width: 100%;
+}
+
+.wc26-hover-portal-popup {
+  animation: wc26-popup-fade-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.35));
+  will-change: transform, opacity;
+}
+
+@keyframes wc26-popup-fade-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.wc26-hover-card {
+  width: 160px;
+}
+
+/* Arrows for portal popup */
+.wc26-hover-portal-popup::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #0D1B2A;
+  z-index: -1;
+}
+
+/* Arrow placements */
+.wc26-hover-portal-popup.placement-right::after {
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  box-shadow: -1px 1px 1px rgba(0,0,0,0.08);
+}
+
+.wc26-hover-portal-popup.placement-left::after {
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  box-shadow: 1px -1px 1px rgba(0,0,0,0.08);
+}
+
+.wc26-hover-portal-popup.placement-top::after {
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  box-shadow: 1px 1px 1px rgba(0,0,0,0.08);
+}
+
+.wc26-hover-portal-popup.placement-bottom::after {
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  box-shadow: -1px -1px 1px rgba(0,0,0,0.08);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 
@@ -113,6 +731,13 @@ body {
   background-image:
     radial-gradient(ellipse at 30% 0%, var(--bg-body-gradient-1) 0%, transparent 60%),
     radial-gradient(ellipse at 70% 100%, var(--bg-body-gradient-2) 0%, transparent 50%);
+}
+
+/* ========================= */
+/* ANNOUNCEMENT BAR          */
+/* ========================= */
+.announcement-bar {
+  background: linear-gradient(90deg, #e53935 0%, #c62828 50%, #e53935 100%);
 }
 
 /* ========================= */

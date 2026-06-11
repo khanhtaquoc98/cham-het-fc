@@ -3,7 +3,7 @@
 import React, { useEffect, useState, DragEvent, useRef } from 'react';
 import { Player, Team, MatchData } from '@/types/match';
 import { toast } from 'react-hot-toast';
-import { Wand2, Dices, ClipboardCopy, Armchair, Trash2, GripVertical } from 'lucide-react';
+import { Wand2, Dices, ClipboardCopy, Armchair, Trash2, GripVertical, Palette } from 'lucide-react';
 
 interface VenueInfo {
   date: string;
@@ -20,6 +20,8 @@ export default function VenuePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [siteTheme, setSiteTheme] = useState('default');
+  const [themeSaving, setThemeSaving] = useState(false);
   
   // Players from DB for Modal
   const [allPlayers, setAllPlayers] = useState<{id: string; name: string; telegramHandle?: string}[]>([]);
@@ -51,6 +53,12 @@ export default function VenuePage() {
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
+
+    // Fetch site theme
+    fetch('/api/theme')
+      .then(r => r.json())
+      .then(data => setSiteTheme(data.theme || 'default'))
+      .catch(() => {});
   }, []);
 
   const handleSaveVenue = async () => {
@@ -337,7 +345,86 @@ export default function VenuePage() {
     handleSaveTeamsAndBench(currentBench, currentTeams);
   };
 
+  const handleSaveTheme = async (newTheme: string) => {
+    setThemeSaving(true);
+    try {
+      const res = await fetch('/api/theme', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: newTheme }),
+      });
+      if (res.ok) {
+        setSiteTheme(newTheme);
+        toast.success(`Đã đổi theme: ${newTheme === 'worldcup2026' ? 'World Cup 2026' : 'Mặc định'}`);
+      } else {
+        toast.error('Lỗi khi lưu theme');
+      }
+    } catch {
+      toast.error('Lỗi khi lưu theme');
+    } finally {
+      setThemeSaving(false);
+    }
+  };
+
   return (
+    <>
+    {/* Site Theme Config */}
+    <div className="admin-card" style={{ ...cardStyle, marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <h2 className="admin-section-title" style={sectionTitleStyle}>
+          <Palette size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Theme Trang Chủ
+        </h2>
+        {themeSaving && <span style={{ fontSize: '12px', color: '#e53935', fontWeight: 600 }}>Đang lưu...</span>}
+      </div>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          onClick={() => handleSaveTheme('default')}
+          disabled={themeSaving}
+          style={{
+            ...btnBase,
+            padding: '10px 20px',
+            background: siteTheme === 'default'
+              ? 'linear-gradient(135deg, #c62828, #e53935)'
+              : 'var(--bg-secondary)',
+            color: siteTheme === 'default' ? 'white' : 'var(--text-primary)',
+            border: siteTheme === 'default'
+              ? '2px solid #c62828'
+              : '2px solid var(--border-subtle)',
+            fontWeight: 700,
+            borderRadius: '12px',
+            cursor: themeSaving ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          🔴 Mặc định (Đỏ)
+        </button>
+        <button
+          onClick={() => handleSaveTheme('worldcup2026')}
+          disabled={themeSaving}
+          style={{
+            ...btnBase,
+            padding: '10px 20px',
+            background: siteTheme === 'worldcup2026'
+              ? 'linear-gradient(135deg, #00695C, #26A69A)'
+              : 'var(--bg-secondary)',
+            color: siteTheme === 'worldcup2026' ? 'white' : 'var(--text-primary)',
+            border: siteTheme === 'worldcup2026'
+              ? '2px solid #00897B'
+              : '2px solid var(--border-subtle)',
+            fontWeight: 700,
+            borderRadius: '12px',
+            cursor: themeSaving ? 'not-allowed' : 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          ⚽ World Cup 2026
+        </button>
+      </div>
+      <p style={{ fontSize: '12px', color: '#8a8aaa', marginTop: '8px' }}>
+        Thay đổi sẽ áp dụng cho tất cả người dùng trên trang chủ.
+      </p>
+    </div>
+
     <div className="admin-card" style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <h2 className="admin-section-title" style={sectionTitleStyle}>1. Thông tin sân bóng</h2>
@@ -591,6 +678,7 @@ export default function VenuePage() {
       )}
 
     </div>
+    </>
   );
 }
 

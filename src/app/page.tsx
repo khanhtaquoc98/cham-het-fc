@@ -7,6 +7,7 @@ import { PlayerConfig } from '@/types/player';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { Trophy, Handshake, XCircle, RefreshCw, Megaphone, Timer, CupSoda, Coins, Dices, CircleDot, ClipboardList, CalendarDays, Clock, MapPin, Ghost, Users, CreditCard, Armchair, Hand, Bell, CheckCircle, Flame } from 'lucide-react';
+import { PlayerCardCarousel, PlayerHoverCard, PlayerCardData } from '@/components/PlayerCard';
 
 interface PlayerStatsSummary {
   playerName: string;
@@ -116,9 +117,29 @@ const JERSEY_COLORS_DARK = {
   extra: { fill: '#e65100', stroke: '#ff9800', text: '#ffffff', collar: '#ef6c00' },
 };
 
+// World Cup 2026 jersey colors
+const JERSEY_COLORS_WC26_LIGHT = {
+  home:  { fill: '#E0F2F1', stroke: '#00897B', text: '#00695C', collar: '#00897B' },
+  away:  { fill: '#1a1a2e', stroke: '#E91E63', text: '#F06292', collar: '#E91E63' },
+  extra: { fill: '#FFF8E1', stroke: '#FFB300', text: '#E65100', collar: '#FFB300' },
+};
+
+const JERSEY_COLORS_WC26_DARK = {
+  home:  { fill: '#0c3028', stroke: '#4DB6AC', text: '#80CBC4', collar: '#4DB6AC' },
+  away:  { fill: '#2a0020', stroke: '#F06292', text: '#F48FB1', collar: '#F06292' },
+  extra: { fill: '#3e2723', stroke: '#FFB300', text: '#FFD54F', collar: '#FFB300' },
+};
+
+function getJerseyColors(isDark: boolean, siteTheme: string) {
+  if (siteTheme === 'worldcup2026') {
+    return isDark ? JERSEY_COLORS_WC26_DARK : JERSEY_COLORS_WC26_LIGHT;
+  }
+  return isDark ? JERSEY_COLORS_DARK : JERSEY_COLORS_LIGHT;
+}
+
 /** Small jersey icon for team headers (no text) */
-function SmallJerseyIcon({ team, isDark }: { team: 'home' | 'away' | 'extra'; isDark: boolean }) {
-  const c = (isDark ? JERSEY_COLORS_DARK : JERSEY_COLORS_LIGHT)[team];
+function SmallJerseyIcon({ team, isDark, siteTheme = 'default' }: { team: 'home' | 'away' | 'extra'; isDark: boolean; siteTheme?: string }) {
+  const c = getJerseyColors(isDark, siteTheme)[team];
   return (
     <svg viewBox="0 0 48 48" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M14 12L8 16V22L10 23V40C10 41.1 10.9 42 12 42H36C37.1 42 38 41.1 38 40V23L40 22V16L34 12H14Z"
@@ -134,8 +155,8 @@ function SmallJerseyIcon({ team, isDark }: { team: 'home' | 'away' | 'extra'; is
 }
 
 /** Player jersey icon with label (number or initials) */
-function JerseyIcon({ label, team, isDark }: { label: string; team: 'home' | 'away' | 'extra'; isDark: boolean }) {
-  const c = (isDark ? JERSEY_COLORS_DARK : JERSEY_COLORS_LIGHT)[team];
+function JerseyIcon({ label, team, isDark, siteTheme = 'default' }: { label: string; team: 'home' | 'away' | 'extra'; isDark: boolean; siteTheme?: string }) {
+  const c = getJerseyColors(isDark, siteTheme)[team];
   return (
     <div className="jersey-container">
       <svg viewBox="0 0 48 48" width="42" height="42" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -159,7 +180,7 @@ function JerseyIcon({ label, team, isDark }: { label: string; team: 'home' | 'aw
    TEAM CARD
    ============================================= */
 
-function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoading }: { team: Team; index: number; playerConfigs: PlayerConfig[]; isDark: boolean; playerStats: PlayerStatsSummary[]; statsLoading: boolean }) {
+function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoading, siteTheme = 'default' }: { team: Team; index: number; playerConfigs: PlayerConfig[]; isDark: boolean; playerStats: PlayerStatsSummary[]; statsLoading: boolean; siteTheme?: string }) {
   const color = getTeamColor(team.name);
   const borderClass = getTeamBorderClass(team.name);
   const tooltip = getTeamTooltip(team.name);
@@ -168,7 +189,7 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
     <div className={`glass-card ${borderClass}`} style={{ animationDelay: `${index * 0.08}s` }}>
       <div className="team-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <SmallJerseyIcon team={color} isDark={isDark} />
+          <SmallJerseyIcon team={color} isDark={isDark} siteTheme={siteTheme} />
           <h2 className={`team-name ${color}-name`}>{team.name}</h2>
           <span style={{
             fontSize: '11px',
@@ -206,75 +227,89 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
           // Find stats for this player
           const stat = findPlayerStat(player.name, player.telegramHandle, player.playerId, playerConfigs, playerStats);
 
+          const cardData: PlayerCardData = {
+            playerName: player.name,
+            playerId: player.playerId || matched?.id || null,
+            wins: stat?.wins || 0,
+            draws: stat?.draws || 0,
+            losses: stat?.losses || 0,
+            totalMatches: stat?.totalMatches || 0,
+            winRate: stat?.winRate || 0,
+            jerseyNumber: matched?.jerseyNumber || null,
+            telegramHandle: player.telegramHandle || matched?.telegramHandle || null,
+          };
+
           return (
-            <div key={i} className="player-item" style={{ animationDelay: `${(index * 0.08) + (i * 0.04)}s` }}>
-              <div className="player-number">{i + 1}</div>
-              <JerseyIcon label={jerseyLabel} team={color} isDark={isDark} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  color: 'var(--text-primary)',
-                }}>
-                  {player.name}
-                </div>
-                {player.telegramHandle && (
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
-                    {player.telegramHandle}
-                  </div>
-                )}
-              </div>
-              {statsLoading ? (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  flexShrink: 0,
-                }}>
-                  <span className="stat-skeleton" style={{
-                    width: '36px',
-                    height: '18px',
-                    borderRadius: '6px',
-                  }} />
-                  <span className="stat-skeleton" style={{
-                    width: '62px',
-                    height: '14px',
-                    borderRadius: '4px',
-                  }} />
-                </div>
-              ) : stat && stat.totalMatches > 0 ? (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  flexShrink: 0,
-                }}>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: stat.winRate >= 50 ? '#2e7d32' : stat.winRate >= 30 ? '#e65100' : '#c62828',
-                    background: stat.winRate >= 50 ? 'rgba(46,125,50,0.08)' : stat.winRate >= 30 ? 'rgba(230,81,0,0.08)' : 'rgba(198,40,40,0.08)',
-                    padding: '2px 8px',
-                    borderRadius: '6px',
-                  }}>
-                    {stat.winRate}%
-                  </span>
-                  <span style={{
-                    fontSize: '10px',
+            <PlayerHoverCard key={i} player={cardData} style={{ display: 'block', width: '100%' }}>
+              <div className="player-item" style={{ animationDelay: `${(index * 0.08) + (i * 0.04)}s` }}>
+                <div className="player-number">{i + 1}</div>
+                <JerseyIcon label={jerseyLabel} team={color} isDark={isDark} siteTheme={siteTheme} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: '14px',
                     fontWeight: 600,
-                    color: 'var(--text-muted)',
                     whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    color: 'var(--text-primary)',
                   }}>
-                    <span style={{ color: '#2e7d32' }}>{stat.wins}W</span>/
-                    <span style={{ color: '#616161' }}>{stat.draws}D</span>/
-                    <span style={{ color: '#c62828' }}>{stat.losses}L</span>
-                  </span>
+                    {player.name}
+                  </div>
+                  {player.telegramHandle && (
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                      {player.telegramHandle}
+                    </div>
+                  )}
                 </div>
-              ) : null}
-            </div>
+                {statsLoading ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexShrink: 0,
+                  }}>
+                    <span className="stat-skeleton" style={{
+                      width: '36px',
+                      height: '18px',
+                      borderRadius: '6px',
+                    }} />
+                    <span className="stat-skeleton" style={{
+                      width: '62px',
+                      height: '14px',
+                      borderRadius: '4px',
+                    }} />
+                  </div>
+                ) : stat && stat.totalMatches > 0 ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    flexShrink: 0,
+                  }}>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: stat.winRate >= 50 ? '#2e7d32' : stat.winRate >= 30 ? '#e65100' : '#c62828',
+                      background: stat.winRate >= 50 ? 'rgba(46,125,50,0.08)' : stat.winRate >= 30 ? 'rgba(230,81,0,0.08)' : 'rgba(198,40,40,0.08)',
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                    }}>
+                      {stat.winRate}%
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      color: 'var(--text-muted)',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      <span style={{ color: '#2e7d32' }}>{stat.wins}W</span>/
+                      <span style={{ color: '#616161' }}>{stat.draws}D</span>/
+                      <span style={{ color: '#c62828' }}>{stat.losses}L</span>
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            </PlayerHoverCard>
           );
         })
         )}
@@ -422,7 +457,7 @@ function RulesSection({ teamCount }: { teamCount: number }) {
    EMPTY STATE
    ============================================= */
 
-function EmptyState() {
+function EmptyState({ siteTheme, playerStats, playerConfigs }: { siteTheme: string; playerStats: { playerName: string; playerId?: string | null; wins: number; draws: number; losses: number; totalMatches: number; winRate: number }[]; playerConfigs: PlayerConfig[] }) {
   return (
     <div className="empty-state">
       <span className="empty-icon"><CircleDot size={48} /></span>
@@ -430,6 +465,14 @@ function EmptyState() {
       <p>
         Đăng ký với Captain để được thêm vào trận đấu sắp tới nhé
       </p>
+
+      {/* WC26 Featured Players Carousel */}
+      {siteTheme === 'worldcup2026' && playerStats.length > 0 && (
+        <PlayerCardCarousel
+          playerStats={playerStats}
+          playerConfigs={playerConfigs.map(c => ({ id: c.id, name: c.name, jerseyNumber: c.jerseyNumber }))}
+        />
+      )}
     </div>
   );
 }
@@ -474,6 +517,7 @@ export default function Home() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
+  const [siteTheme, setSiteTheme] = useState('default');
   // PWA Install states
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null);
@@ -615,6 +659,12 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+
+    // Fetch site theme
+    fetch('/api/theme')
+      .then(res => res.json())
+      .then(data => setSiteTheme(data.theme || 'default'))
+      .catch(() => {});
 
     // Phase 2: Fetch stats & payment lazily
     try {
@@ -814,7 +864,7 @@ export default function Home() {
             <h2>{error}</h2>
           </div>
         ) : !matchData || (!matchData.teams?.length && !matchData.bench?.length && !matchData.venue?.date && !matchData.venue?.time && !matchData.venue?.venue) ? (
-          <EmptyState />
+          <EmptyState siteTheme={siteTheme} playerStats={playerStats} playerConfigs={playerConfigs} />
         ) : (
           <>
             <MatchInfoSection matchData={matchData} />
@@ -873,11 +923,28 @@ export default function Home() {
                 
                 {matchData.bench.length > 0 ? (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
-                    {matchData.bench.map((player, idx) => (
-                      <div key={idx} style={{ padding: '8px 16px', background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', borderRadius: '20px', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                        {player.name}
-                      </div>
-                    ))}
+                    {matchData.bench.map((player, idx) => {
+                      const matched = findMatchingPlayer(player.name, player.telegramHandle, player.playerId, playerConfigs);
+                      const stat = findPlayerStat(player.name, player.telegramHandle, player.playerId, playerConfigs, playerStats);
+                      const cardData: PlayerCardData = {
+                        playerName: player.name,
+                        playerId: player.playerId || matched?.id || null,
+                        wins: stat?.wins || 0,
+                        draws: stat?.draws || 0,
+                        losses: stat?.losses || 0,
+                        totalMatches: stat?.totalMatches || 0,
+                        winRate: stat?.winRate || 0,
+                        jerseyNumber: matched?.jerseyNumber || null,
+                        telegramHandle: player.telegramHandle || matched?.telegramHandle || null,
+                      };
+                      return (
+                        <PlayerHoverCard key={idx} player={cardData}>
+                          <div style={{ padding: '8px 16px', background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', borderRadius: '20px', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', cursor: 'help' }}>
+                            {player.name}
+                          </div>
+                        </PlayerHoverCard>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
@@ -929,7 +996,7 @@ export default function Home() {
               {matchData.teams.map((team, i) =>
                 teamCount === 2 ? (
                   <div key={team.name} style={{ display: 'contents' }}>
-                    <TeamCard team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} />
+                    <TeamCard team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} siteTheme={siteTheme} />
                     {i === 0 && (
                       <div className="vs-badge-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', alignSelf: 'center' }}>
                         <div className="vs-badge">VS</div>
@@ -937,7 +1004,7 @@ export default function Home() {
                     )}
                   </div>
                 ) : (
-                  <TeamCard key={team.name} team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} />
+                  <TeamCard key={team.name} team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} siteTheme={siteTheme} />
                 )
               )}
             </div>
@@ -983,7 +1050,7 @@ export default function Home() {
 
 
       <footer className="app-footer">
-        Powered by Chấm Hết FC
+        {siteTheme === 'worldcup2026' ? 'Powered by Chấm Hết FC ⚽ World Cup 2026' : 'Powered by Chấm Hết FC'}
       </footer>
     </div>
   );

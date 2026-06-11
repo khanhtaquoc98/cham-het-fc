@@ -14,6 +14,7 @@ export default function Header() {
   const [statsLoading, setStatsLoading] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const [tickerText, setTickerText] = useState('');
+  const [siteTheme, setSiteTheme] = useState('default');
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -29,6 +30,11 @@ export default function Header() {
     fetch('/api/ticker')
       .then(res => res.json())
       .then(data => setTickerText(data.ticker || ''))
+      .catch(() => {});
+
+    fetch('/api/theme')
+      .then(res => res.json())
+      .then(data => setSiteTheme(data.theme || 'default'))
       .catch(() => {});
   }, []);
 
@@ -56,7 +62,6 @@ export default function Header() {
             position: 'relative',
             zIndex: 20,
             overflow: 'hidden',
-            background: 'linear-gradient(90deg, #e53935 0%, #c62828 50%, #e53935 100%)',
             borderBottom: '1px solid rgba(255,255,255,0.15)',
             animation: 'announcement-enter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
           }}>
@@ -148,6 +153,85 @@ export default function Header() {
         <div className="field-corner-bl" />
         <div className="field-corner-br" />
       </header>
+
+      {/* WC26 Hero Strip (inside header) */}
+      {siteTheme === 'worldcup2026' && pathname === '/' && (
+        <div style={{
+          position: 'relative',
+          zIndex: 5,
+          background: 'linear-gradient(135deg, #0a0e1a 0%, #0f1b2d 30%, #162a3a 60%, #0f1b2d 100%)',
+          borderTop: '1px solid rgba(77,182,172,0.15)',
+          borderBottom: '2px solid rgba(255,213,79,0.25)',
+          padding: '10px 20px',
+          overflow: 'hidden',
+        }}>
+          {/* Animated shimmer overlay */}
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(105deg, transparent 40%, rgba(255,213,79,0.04) 45%, rgba(255,213,79,0.08) 50%, rgba(255,213,79,0.04) 55%, transparent 60%)',
+            backgroundSize: '200% 100%',
+            animation: 'wc26-shimmer 4s ease-in-out infinite',
+            pointerEvents: 'none',
+          }} />
+          {/* Corner accents */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, width: '60px', height: '100%',
+            background: 'linear-gradient(90deg, rgba(0,137,123,0.12), transparent)',
+            pointerEvents: 'none',
+          }} />
+          <div style={{
+            position: 'absolute', top: 0, right: 0, width: '60px', height: '100%',
+            background: 'linear-gradient(270deg, rgba(233,30,99,0.1), transparent)',
+            pointerEvents: 'none',
+          }} />
+
+          <div style={{
+            position: 'relative', zIndex: 2,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: '16px', flexWrap: 'wrap',
+          }}>
+            {/* Trophy + FIFA badge */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '3px 12px 3px 8px',
+              background: 'linear-gradient(135deg, rgba(255,213,79,0.15), rgba(255,179,0,0.08))',
+              border: '1px solid rgba(255,213,79,0.25)',
+              borderRadius: '20px',
+              flexShrink: 0,
+            }}>
+              <span style={{ fontSize: '14px' }}>🏆</span>
+              <span style={{
+                fontSize: '10px', fontWeight: 800,
+                color: '#FFD54F',
+                letterSpacing: '1.5px',
+                textTransform: 'uppercase' as const,
+              }}>FIFA World Cup 26</span>
+            </div>
+
+
+            {/* Host countries */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              fontSize: '11px', color: 'rgba(255,255,255,0.6)',
+              fontWeight: 600, letterSpacing: '0.5px',
+            }}>
+              <span>🇺🇸 USA</span>
+              <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+              <span>🇲🇽 México</span>
+              <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+              <span>🇨🇦 Canada</span>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes wc26-shimmer {
+              0% { background-position: 200% 0; }
+              100% { background-position: -200% 0; }
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* Foreground content layer */}
       <div style={{ 
