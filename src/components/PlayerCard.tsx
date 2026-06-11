@@ -20,12 +20,17 @@ export interface PlayerCardData {
    WC26 PLAYER CARD (Panini WC26 Sticker Style)
    ============================================= */
 
-export function PlayerCard({ player, style, className }: {
+export function PlayerCard({ player, style, className, externalRotate }: {
   player: PlayerCardData;
   style?: React.CSSProperties;
   className?: string;
+  externalRotate?: { x: number; y: number } | null;
 }) {
   const [imgError, setImgError] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [rotate, setRotate] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+
   const filename = player?.jerseyNumber || player?.playerId || 'unknown';
   const imgSrc = `/player/${filename}.webp`;
   const hasImage = !imgError;
@@ -47,8 +52,57 @@ export function PlayerCard({ player, style, className }: {
   const nameHash = player.playerName.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
   const tintColor = WC26_TINTS[nameHash % WC26_TINTS.length];
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (externalRotate !== undefined) return;
+    if (!cardRef.current) return;
+    const card = cardRef.current;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const px = (x / rect.width) - 0.5;
+    const py = (y / rect.height) - 0.5;
+
+    // Maximum tilt angles (20 degrees)
+    const maxRotate = 20;
+    const rotateY = px * maxRotate; 
+    const rotateX = -py * maxRotate; 
+
+    setRotate({ x: rotateX, y: rotateY });
+  };
+
+  const handleMouseEnter = () => {
+    if (externalRotate !== undefined) return;
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (externalRotate !== undefined) return;
+    setIsHovered(false);
+    setRotate({ x: 0, y: 0 });
+  };
+
+  const activeRotate = externalRotate !== undefined
+    ? (externalRotate || { x: 0, y: 0 })
+    : rotate;
+
+  const activeHovered = externalRotate !== undefined
+    ? !!externalRotate
+    : isHovered;
+
+  const currentTransform = activeHovered
+    ? `perspective(1000px) translateY(0) scale(1.05) rotateX(${activeRotate.x}deg) rotateY(${activeRotate.y}deg)`
+    : `perspective(1000px) translateY(0) scale(1) rotateX(0deg) rotateY(0deg)`;
+
   return (
-    <div className={`panini-card ${className || ''}`} style={style}>
+    <div 
+      ref={cardRef}
+      className={`panini-card ${className || ''}`} 
+      style={{ ...style, transform: currentTransform }}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       {/* === CARD BODY (background.webp + color tint) === */}
       <div className="panini-card-body" style={{
         backgroundImage: `linear-gradient(${tintColor}, ${tintColor}), url(/player/background.png)`,
@@ -195,6 +249,7 @@ export function PlayerHoverCard({ player, children, style }: {
     left: number;
     placement: 'right' | 'left' | 'top' | 'bottom';
   } | null>(null);
+  const [rotate, setRotate] = useState<{ x: number; y: number } | null>(null);
   
   const triggerRef = useRef<HTMLDivElement>(null);
 
@@ -256,8 +311,26 @@ export function PlayerHoverCard({ player, children, style }: {
     setShow(true);
   };
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const px = (x / rect.width) - 0.5;
+    const py = (y / rect.height) - 0.5;
+
+    // Maximum tilt angles (20 degrees)
+    const maxRotate = 20;
+    const rotateY = px * maxRotate; 
+    const rotateX = -py * maxRotate; 
+
+    setRotate({ x: rotateX, y: rotateY });
+  };
+
   const handleMouseLeave = () => {
     setShow(false);
+    setRotate(null);
   };
 
   // Hide on scroll/resize to keep UI clean
@@ -290,7 +363,7 @@ export function PlayerHoverCard({ player, children, style }: {
           pointerEvents: 'none',
         }}
       >
-        <PlayerCard player={player} className="wc26-hover-card" />
+        <PlayerCard player={player} className="wc26-hover-card" externalRotate={rotate} />
       </div>,
       document.body
     )
@@ -302,6 +375,7 @@ export function PlayerHoverCard({ player, children, style }: {
       className="wc26-hover-wrapper"
       style={style}
       onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
       {children}
