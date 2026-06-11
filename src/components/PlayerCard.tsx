@@ -26,7 +26,7 @@ export function PlayerCard({ player, style, className }: {
   className?: string;
 }) {
   const [imgError, setImgError] = useState(false);
-  const filename = player?.jerseyNumber || 'unknown';
+  const filename = player?.jerseyNumber || player?.playerId || 'unknown';
   const imgSrc = `/player/${filename}.webp`;
   const hasImage = !imgError;
 
@@ -98,9 +98,9 @@ export function PlayerCard({ player, style, className }: {
         </div>
 
         {/* Telegram handle */}
-        {player.telegramHandle && (
+        {/* {player.telegramHandle && (
           <div className="panini-telegram">{player.telegramHandle}</div>
-        )}
+        )} */}
 
         {/* Stats row */}
         <div className="panini-stats">
