@@ -470,7 +470,7 @@ function EmptyState({ siteTheme, playerStats, playerConfigs }: { siteTheme: stri
       {siteTheme === 'worldcup2026' && playerStats.length > 0 && (
         <PlayerCardCarousel
           playerStats={playerStats}
-          playerConfigs={playerConfigs.map(c => ({ id: c.id, name: c.name, jerseyNumber: c.jerseyNumber }))}
+          playerConfigs={playerConfigs.map(c => ({ id: c.id, name: c.name, jerseyNumber: c.jerseyNumber, telegramHandle: c.telegramHandle }))}
         />
       )}
     </div>

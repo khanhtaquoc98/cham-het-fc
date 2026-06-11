@@ -16,22 +16,6 @@ export interface PlayerCardData {
   telegramHandle?: string | null;
 }
 
-/**
- * Convert Vietnamese name to filename: lowercase, no diacritics, spaces kept
- * Example: "Nguyễn Văn Khanh" → "nguyen van khanh.webp"
- */
-function nameToFilename(name: string): string {
-  return name
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    + '.webp';
-}
-
 /* =============================================
    WC26 PLAYER CARD (Panini WC26 Sticker Style)
    ============================================= */
@@ -42,8 +26,8 @@ export function PlayerCard({ player, style, className }: {
   className?: string;
 }) {
   const [imgError, setImgError] = useState(false);
-  const filename = nameToFilename(player.playerName);
-  const imgSrc = `/player/${filename}`;
+  const filename = player?.jerseyNumber || 'unknown';
+  const imgSrc = `/player/${filename}.webp`;
   const hasImage = !imgError;
 
   const winRateColor = player.winRate >= 50 ? '#4CAF50' : player.winRate >= 30 ? '#FF9800' : '#F44336';
@@ -119,19 +103,17 @@ export function PlayerCard({ player, style, className }: {
         )}
 
         {/* Stats row */}
-        {player.totalMatches > 0 && (
-          <div className="panini-stats">
-            <span className="panini-winrate" style={{ color: winRateColor, background: winRateBg }}>
-              {player.winRate}%
-            </span>
-            <span className="panini-matches">{player.totalMatches} trận</span>
-            <span className="panini-wdl">
-              <span style={{ color: '#66BB6A' }}>{player.wins}W</span>{' '}
-              <span style={{ color: '#90A4AE' }}>{player.draws}D</span>{' '}
-              <span style={{ color: '#EF5350' }}>{player.losses}L</span>
-            </span>
-          </div>
-        )}
+        <div className="panini-stats">
+          <span className="panini-winrate" style={{ color: winRateColor, background: winRateBg }}>
+            {player.winRate}%
+          </span>
+          <span className="panini-matches">{player.totalMatches} trận</span>
+          <span className="panini-wdl">
+            <span style={{ color: '#66BB6A' }}>{player.wins}W</span>{' '}
+            <span style={{ color: '#90A4AE' }}>{player.draws}D</span>{' '}
+            <span style={{ color: '#EF5350' }}>{player.losses}L</span>
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -143,20 +125,38 @@ export function PlayerCard({ player, style, className }: {
 
 export function PlayerCardCarousel({ playerStats, playerConfigs }: {
   playerStats: PlayerCardData[];
-  playerConfigs: { id: string; name: string; jerseyNumber: number | null }[];
+  playerConfigs: { id: string; name: string; jerseyNumber: number | null; telegramHandle?: string | null }[];
 }) {
-  const allPlayers = playerStats
-    // .filter(p => p.totalMatches > 0)
-    .sort((a, b) => b.winRate - a.winRate);
+  const allPlayers = playerConfigs.map(config => {
+    const stat = playerStats.find(s =>
+      s.playerId === config.id ||
+      s.playerName.trim().toLowerCase() === config.name.trim().toLowerCase()
+    );
+
+    return {
+      playerName: config.name,
+      playerId: config.id,
+      wins: stat?.wins || 0,
+      draws: stat?.draws || 0,
+      losses: stat?.losses || 0,
+      totalMatches: stat?.totalMatches || 0,
+      winRate: stat?.winRate || 0,
+      jerseyNumber: config.jerseyNumber || null,
+      telegramHandle: config.telegramHandle || stat?.telegramHandle || null,
+    };
+  });
 
   if (allPlayers.length === 0) return null;
 
-  const withJersey = allPlayers.map(p => {
-    const config = playerConfigs.find(c =>
-      c.id === p.playerId ||
-      c.name.trim().toLowerCase() === p.playerName.trim().toLowerCase()
-    );
-    return { ...p, jerseyNumber: config?.jerseyNumber || null };
+  // Sort by total matches desc, then win rate desc, then name
+  allPlayers.sort((a, b) => {
+    if (a.winRate !== b.winRate) {
+      return b.winRate - a.winRate;
+    }
+    if (a.totalMatches !== b.totalMatches) {
+      return b.totalMatches - a.totalMatches;
+    }
+    return a.playerName.localeCompare(b.playerName);
   });
 
   return (
@@ -165,7 +165,7 @@ export function PlayerCardCarousel({ playerStats, playerConfigs }: {
         <span className="wc26-carousel-badge mt-4">⭐ Cầu thủ nổi bật</span>
       </div>
       <div className="wc26-players-grid">
-        {withJersey.map((p, i) => (
+        {allPlayers.map((p, i) => (
           <PlayerCard
             key={p.playerName}
             player={p}
