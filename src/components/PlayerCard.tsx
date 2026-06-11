@@ -146,7 +146,7 @@ export function PlayerCardCarousel({ playerStats, playerConfigs }: {
   playerConfigs: { id: string; name: string; jerseyNumber: number | null }[];
 }) {
   const allPlayers = playerStats
-    .filter(p => p.totalMatches > 0)
+    // .filter(p => p.totalMatches > 0)
     .sort((a, b) => b.winRate - a.winRate);
 
   if (allPlayers.length === 0) return null;
