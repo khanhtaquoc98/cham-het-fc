@@ -721,8 +721,7 @@
 /* WC26 HOVER POPUP (Portal-based, body-level tooltips) */
 /* ===================================== */
 .wc26-hover-wrapper {
-  display: block;
-  width: 100%;
+  display: inline-block;
 }
 
 .wc26-hover-portal-popup {
