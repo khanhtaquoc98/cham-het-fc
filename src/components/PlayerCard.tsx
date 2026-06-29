@@ -32,7 +32,10 @@ export function PlayerCard({ player, style, className, externalRotate }: {
   const [isHovered, setIsHovered] = useState(false);
 
   const filename = player?.jerseyNumber || player?.playerId || 'unknown';
-  const imgSrc = `/player/${filename}.webp`;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const imgSrc = supabaseUrl
+    ? `${supabaseUrl}/storage/v1/object/public/players/${filename}.webp`
+    : `/player/${filename}.webp`;
   const hasImage = !imgError;
 
   const winRateColor = player.winRate >= 50 ? '#4CAF50' : player.winRate >= 30 ? '#FF9800' : '#F44336';
