@@ -88,6 +88,10 @@ export function PlayerCard({ player, style, className, externalRotate }: {
     setRotate({ x: 0, y: 0 });
   };
 
+  const backgroundSrc = supabaseUrl
+    ? `${supabaseUrl}/storage/v1/object/public/players/background.png`
+    : `/player/background.png`;
+
   const activeRotate = externalRotate !== undefined
     ? (externalRotate || { x: 0, y: 0 })
     : rotate;
@@ -111,7 +115,7 @@ export function PlayerCard({ player, style, className, externalRotate }: {
     >
       {/* === CARD BODY (background.webp + color tint) === */}
       <div className="panini-card-body" style={{
-        backgroundImage: `linear-gradient(${tintColor}, ${tintColor}), url(/player/background.png)`,
+        backgroundImage: `linear-gradient(${tintColor}, ${tintColor}), url(${backgroundSrc})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}>
