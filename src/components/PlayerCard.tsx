@@ -36,6 +36,9 @@ export function PlayerCard({ player, style, className, externalRotate }: {
   const imgSrc = supabaseUrl
     ? `${supabaseUrl}/storage/v1/object/public/players/${filename}.webp`
     : `/player/${filename}.webp`;
+  const fallbackSrc = supabaseUrl
+    ? `${supabaseUrl}/storage/v1/object/public/players/unknown.webp`
+    : `/player/unknown.webp`;
   const hasImage = !imgError;
 
   const winRateColor = player.winRate >= 50 ? '#4CAF50' : player.winRate >= 30 ? '#FF9800' : '#F44336';
@@ -129,7 +132,7 @@ export function PlayerCard({ player, style, className, externalRotate }: {
           ) : (
           <div className="panini-placeholder">
             <Image
-              src="/player/unknown.webp"
+              src={fallbackSrc}
               alt="Unknown player"
               width={200}
               height={220}
