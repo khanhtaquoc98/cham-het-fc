@@ -57,26 +57,53 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
     }
 
-    // Tạo payment link qua PayOS
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://chamhetfc.vercel.app';
+    // Xác định baseUrl động từ header request để hỗ trợ test localhost
+    const host = request.headers.get('host') || 'localhost:3000';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const baseUrl = `${protocol}://${host}`;
 
-    const paymentLink = await payos.paymentRequests.create({
-      orderCode,
-      amount: totalAmount,
-      description,
-      items,
-      returnUrl: `${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}`,
-      cancelUrl: `${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}&status=cancelled`,
-    });
+    let checkoutUrl = '';
+    const paymentType = process.env.PAYMENT_TYPE || 'PAYOS';
+
+    if (paymentType === 'KOS') {
+      const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:8000';
+      // Dùng MB Bank Webhook Gateway
+      const uniqueContent = `CHF${orderCode}`;
+      checkoutUrl = `${gatewayUrl}/checkout` +
+        `?amount=${totalAmount}` +
+        `&content=${encodeURIComponent(uniqueContent)}` +
+        `&orderId=${orderData.id}` +
+        `&orderCode=${orderCode}` +
+        `&callback=${encodeURIComponent(`${baseUrl}/payment/result`)}` +
+        `&cancel_url=${encodeURIComponent(`${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}&status=cancelled`)}` +
+        `&webhook_url=${encodeURIComponent(`${baseUrl}/api/payment/webhook`)}`;
+
+      // Cập nhật mô tả trong database thành uniqueContent cho khớp đối soát
+      await supabase
+        .from('payment_orders')
+        .update({ description: uniqueContent })
+        .eq('id', orderData.id);
+    } else {
+      // Tạo payment link qua PayOS
+      const paymentLink = await payos.paymentRequests.create({
+        orderCode,
+        amount: totalAmount,
+        description,
+        items,
+        returnUrl: `${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}`,
+        cancelUrl: `${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}&status=cancelled`,
+      });
+      checkoutUrl = paymentLink.checkoutUrl;
+    }
 
     // Cập nhật checkout URL vào order
     await supabase
       .from('payment_orders')
-      .update({ checkout_url: paymentLink.checkoutUrl })
+      .update({ checkout_url: checkoutUrl })
       .eq('id', orderData.id);
 
     return NextResponse.json({
-      checkoutUrl: paymentLink.checkoutUrl,
+      checkoutUrl,
       orderCode,
       orderId: orderData.id,
     });

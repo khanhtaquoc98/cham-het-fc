@@ -17,36 +17,58 @@ export async function POST(request: Request) {
 
     const orderCode = Number(String(Date.now()).slice(-6) + Math.floor(Math.random() * 1000));
     
+    const paymentType = process.env.PAYMENT_TYPE || 'PAYOS';
+
     // Create pending transaction
-    const { error } = await supabase
+    const { data: txData, error } = await supabase
       .from("transactions")
       .insert({
         account_id: session.id,
         amount: amount, // Quy ra bóng
         type: "deposit",
         status: "pending",
-        payment_source: "payos",
+        payment_source: paymentType === 'KOS' ? "gateway" : "payos",
         note: JSON.stringify({ orderCode, vnd: amount })
-      });
+      })
+      .select()
+      .single();
 
-    if (error) {
-      console.error(error);
+    if (error || !txData) {
+      console.error("Failed to insert transaction:", error);
       return NextResponse.json({ error: "Database error" }, { status: 500 });
     }
 
-    const domain = process.env.NEXT_PUBLIC_BASE_URL || request.headers.get("origin") || "http://localhost:3000";
+    const host = request.headers.get("host") || "localhost:3000";
+    const protocol = host.includes("localhost") ? "http" : "https";
+    const domain = `${protocol}://${host}`;
 
-    const body = {
-      orderCode,
-      amount,
-      description: `Quy ChamHet`,
-      returnUrl: `${domain}/dashboard?status=success`,
-      cancelUrl: `${domain}/dashboard?status=cancel`
-    };
+    let checkoutUrl = '';
 
-    const paymentLinkRes = await payos.paymentRequests.create(body);
+    if (paymentType === 'KOS') {
+      const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:8000';
+      const uniqueContent = `CHF${orderCode}`;
+      checkoutUrl = `${gatewayUrl}/checkout` +
+        `?amount=${amount}` +
+        `&content=${encodeURIComponent(uniqueContent)}` +
+        `&orderId=${txData.id}` +
+        `&orderCode=${orderCode}` +
+        `&callback=${encodeURIComponent(`${domain}/dashboard?status=success`)}` +
+        `&cancel_url=${encodeURIComponent(`${domain}/dashboard?status=cancel`)}` +
+        `&webhook_url=${encodeURIComponent(`${domain}/api/payment/webhook`)}`;
+    } else {
+      const body = {
+        orderCode,
+        amount,
+        description: `Quy ChamHet`,
+        returnUrl: `${domain}/dashboard?status=success`,
+        cancelUrl: `${domain}/dashboard?status=cancel`
+      };
 
-    return NextResponse.json({ checkoutUrl: paymentLinkRes.checkoutUrl });
+      const paymentLinkRes = await payos.paymentRequests.create(body);
+      checkoutUrl = paymentLinkRes.checkoutUrl;
+    }
+
+    return NextResponse.json({ checkoutUrl });
   } catch (error: any) {
     console.error("Deposit create error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
