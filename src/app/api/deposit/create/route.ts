@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 
     if (paymentType === 'KOS') {
       const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:8000';
-      const uniqueContent = `CHF${orderCode}`;
+      const uniqueContent = `CHAMHETFC ${orderCode}`;
       checkoutUrl = `${gatewayUrl}/checkout` +
         `?amount=${amount}` +
         `&content=${encodeURIComponent(uniqueContent)}` +

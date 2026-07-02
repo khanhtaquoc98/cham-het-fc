@@ -53,12 +53,10 @@ export async function POST(request: Request) {
                 .select('player_name');
 
               const playerNames = updatedPlayers?.map(p => p.player_name).join(', ') || '';
-              const senderName = 'Cổng MB Bank';
               const formattedAmount = new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
 
               if (playerNames) {
                 try {
-                  const safeSenderName = senderName.replace(/([_*\[\]`])/g, '\\$1');
                   const safePlayerNames = playerNames.replace(/([_*\[\]`])/g, '\\$1');
 
                   await fetch('https://summary-bot-sepia.vercel.app/api/notify-payment', {
@@ -66,7 +64,7 @@ export async function POST(request: Request) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       title: 'Thanh toán thành công',
-                      body: `${safeSenderName} đã thanh toán ${formattedAmount} cho ${safePlayerNames}`
+                      body: `Đã nhận thanh toán của ${safePlayerNames} với số tiền ${formattedAmount}`
                     })
                   });
                 } catch (err) {
