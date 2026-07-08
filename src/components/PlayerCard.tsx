@@ -27,6 +27,7 @@ export function PlayerCard({ player, style, className, externalRotate }: {
   externalRotate?: { x: number; y: number } | null;
 }) {
   const [imgError, setImgError] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const [rotate, setRotate] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
@@ -40,6 +41,11 @@ export function PlayerCard({ player, style, className, externalRotate }: {
     ? `${supabaseUrl}/storage/v1/object/public/players/unknown.webp`
     : `/player/unknown.webp`;
   const hasImage = !imgError;
+
+  useEffect(() => {
+    setIsLoaded(false);
+    setImgError(false);
+  }, [imgSrc]);
 
   const winRateColor = player.winRate >= 50 ? '#4CAF50' : player.winRate >= 30 ? '#FF9800' : '#F44336';
   const winRateBg = player.winRate >= 50 ? 'rgba(76,175,80,0.15)' : player.winRate >= 30 ? 'rgba(255,152,0,0.15)' : 'rgba(244,67,54,0.15)';
@@ -129,8 +135,14 @@ export function PlayerCard({ player, style, className, externalRotate }: {
               width={200}
               height={220}
               onError={() => setImgError(true)}
-              style={{ objectFit: 'cover', objectPosition: 'top center' }}
-              unoptimized
+              onLoad={() => setIsLoaded(true)}
+              loading="lazy"
+              style={{
+                objectFit: 'cover',
+                objectPosition: 'top center',
+                opacity: isLoaded ? 1 : 0,
+                transition: 'opacity 0.25s ease-in-out',
+              }}
               draggable={false}
             />
           ) : (
@@ -140,8 +152,14 @@ export function PlayerCard({ player, style, className, externalRotate }: {
               alt="Unknown player"
               width={200}
               height={220}
-              style={{ objectFit: 'cover', objectPosition: 'top center' }}
-              unoptimized
+              onLoad={() => setIsLoaded(true)}
+              loading="lazy"
+              style={{
+                objectFit: 'cover',
+                objectPosition: 'top center',
+                opacity: isLoaded ? 1 : 0,
+                transition: 'opacity 0.25s ease-in-out',
+              }}
               draggable={false}
             />
           </div>
