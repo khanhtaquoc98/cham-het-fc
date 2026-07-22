@@ -152,7 +152,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
           </div>
         </div>
 
-        {!user?.telegram_id && <TelegramLinkSection />}
+        <TelegramLinkSection currentTelegramId={user?.telegram_id || null} />
         
         {/* History */}
         <div className="glass-card" style={{ padding: '24px' }}>
