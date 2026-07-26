@@ -26,3 +26,14 @@ export interface MatchData {
   updatedAt: string;
   rawMessage?: string;
 }
+
+export interface TeleVoteConfig {
+  chat_id: string;
+  is_anonymous: boolean;
+  message_id: number;
+  options: string[];
+  poll_id: string;
+  thread_id: string;
+  title: string;
+}
+

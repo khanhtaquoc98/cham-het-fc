@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useEffect, useState, DragEvent, useRef } from 'react';
-import { Player, Team, MatchData } from '@/types/match';
+import { Player, Team, MatchData, TeleVoteConfig } from '@/types/match';
 import { toast } from 'react-hot-toast';
-import { Wand2, Dices, ClipboardCopy, Armchair, Trash2, GripVertical, Palette } from 'lucide-react';
+import { Wand2, Dices, ClipboardCopy, Armchair, Trash2, GripVertical, Palette, Vote } from 'lucide-react';
 
 interface VenueInfo {
   date: string;
@@ -22,6 +22,19 @@ export default function VenuePage() {
   const [status, setStatus] = useState<string | null>(null);
   const [siteTheme, setSiteTheme] = useState('default');
   const [themeSaving, setThemeSaving] = useState(false);
+
+  // Tele vote config state
+  const [voteConfig, setVoteConfig] = useState<TeleVoteConfig>({
+    chat_id: "-1001505319885",
+    is_anonymous: false,
+    message_id: 218583,
+    options: ["0", "+1", "+2", "+3", "+4"],
+    poll_id: "542318491024",
+    thread_id: "61897",
+    title: "16/7 - 19h30 - Deadline 12h 14/7"
+  });
+  const [voteConfigSaving, setVoteConfigSaving] = useState(false);
+  const [voteCreating, setVoteCreating] = useState(false);
   
   // Players from DB for Modal
   const [allPlayers, setAllPlayers] = useState<{id: string; name: string; telegramHandle?: string}[]>([]);
@@ -59,6 +72,14 @@ export default function VenuePage() {
       .then(r => r.json())
       .then(data => setSiteTheme(data.theme || 'default'))
       .catch(() => {});
+
+    // Fetch tele vote config
+    fetch('/api/tele-vote-config')
+      .then(r => r.json())
+      .then(res => {
+        if (res.data) setVoteConfig(res.data);
+      })
+      .catch(err => console.error('Error fetching tele vote config:', err));
   }, []);
 
   const handleSaveVenue = async () => {
@@ -77,6 +98,58 @@ export default function VenuePage() {
       console.error(err);
       toast.error('Lỗi khi lưu thông tin sân');
     } finally { setSaving(false); }
+  };
+
+  const handleSaveVoteConfig = async () => {
+    setVoteConfigSaving(true);
+    try {
+      const res = await fetch('/api/tele-vote-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: voteConfig }),
+      });
+      const result = await res.json();
+      if (result.ok) {
+        toast.success('Đã lưu config vote tele!');
+        if (result.data) setVoteConfig(result.data);
+      } else {
+        toast.error('Lỗi khi lưu config vote tele');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi lưu config vote tele');
+    } finally {
+      setVoteConfigSaving(false);
+    }
+  };
+
+  const handleCreateVote = async () => {
+    setVoteCreating(true);
+    try {
+      const res = await fetch('/api/tele-vote-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', config: voteConfig }),
+      });
+      const result = await res.json();
+      if (result.ok) {
+        if (result.data) setVoteConfig(result.data);
+        if (result.telegramSent) {
+          toast.success('Tạo vote Telegram thành công!');
+        } else if (result.telegramError) {
+          toast.success('Đã lưu config vote tele (lỗi Telegram: ' + result.telegramError + ')');
+        } else {
+          toast.success('Đã tạo & lưu config vote tele!');
+        }
+      } else {
+        toast.error('Lỗi khi tạo vote');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi kết nối khi tạo vote');
+    } finally {
+      setVoteCreating(false);
+    }
   };
 
   const handleCreateTeams = async () => {
@@ -475,6 +548,113 @@ export default function VenuePage() {
           <div className="admin-save-row">
             <button style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }} onClick={handleSaveVenue} disabled={saving}>
               {saving ? 'Đang lưu...' : 'Lưu thông tin sân'}
+            </button>
+          </div>
+          
+          <hr style={{ margin: '32px 0', borderTop: '1px solid var(--border-subtle)' }} />
+
+          {/* CONFIG VOTE TELE SECTION */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <h2 className="admin-section-title" style={sectionTitleStyle}>
+              Config Vote Tele
+            </h2>
+            {voteConfigSaving && <span style={statusStyle}>Đang lưu...</span>}
+          </div>
+
+          <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
+            <div>
+              <label style={labelStyle}>Tiêu đề (Title)</label>
+              <input 
+                style={inputStyle} 
+                placeholder="16/7 - 19h30 - Deadline 12h 14/7" 
+                value={voteConfig.title || ''}
+                onChange={e => setVoteConfig(c => ({ ...c, title: e.target.value }))} 
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Chat ID</label>
+              <input 
+                style={inputStyle} 
+                placeholder="-1001505319885" 
+                value={voteConfig.chat_id || ''}
+                onChange={e => setVoteConfig(c => ({ ...c, chat_id: e.target.value }))} 
+              />
+            </div>
+          </div>
+
+          <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
+            <div>
+              <label style={labelStyle}>Thread ID (Topic ID)</label>
+              <input 
+                style={inputStyle} 
+                placeholder="61897" 
+                value={voteConfig.thread_id || ''}
+                onChange={e => setVoteConfig(c => ({ ...c, thread_id: e.target.value }))} 
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Poll ID</label>
+              <input 
+                style={inputStyle} 
+                placeholder="542318491024" 
+                value={voteConfig.poll_id || ''}
+                onChange={e => setVoteConfig(c => ({ ...c, poll_id: e.target.value }))} 
+              />
+            </div>
+          </div>
+
+          <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
+            <div>
+              <label style={labelStyle}>Message ID</label>
+              <input 
+                style={inputStyle} 
+                type="number"
+                placeholder="218583" 
+                value={voteConfig.message_id || ''}
+                onChange={e => setVoteConfig(c => ({ ...c, message_id: parseInt(e.target.value) || 0 }))} 
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Lựa chọn (Options - Phân cách bởi dấu phẩy)</label>
+              <input 
+                style={inputStyle} 
+                placeholder="0, +1, +2, +3, +4" 
+                value={(voteConfig.options || []).join(', ')}
+                onChange={e => {
+                  const opts = e.target.value.split(',').map(s => s.trim());
+                  setVoteConfig(c => ({ ...c, options: opts }));
+                }} 
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', textTransform: 'none' }}>
+              <input 
+                type="checkbox"
+                checked={voteConfig.is_anonymous || false}
+                onChange={e => setVoteConfig(c => ({ ...c, is_anonymous: e.target.checked }))}
+                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+              />
+              <span>Vote ẩn danh (is_anonymous)</span>
+            </label>
+          </div>
+
+          <div className="admin-save-row" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <button 
+              style={{ ...btnPrimary, background: 'linear-gradient(135deg, #0088cc, #00a8ff)', opacity: voteCreating ? 0.6 : 1 }} 
+              onClick={handleCreateVote} 
+              disabled={voteCreating}
+            >
+              <Vote size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
+              {voteCreating ? 'Đang tạo vote...' : 'Tạo vote'}
+            </button>
+            <button 
+              style={{ ...btnBase, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', opacity: voteConfigSaving ? 0.6 : 1 }} 
+              onClick={handleSaveVoteConfig} 
+              disabled={voteConfigSaving}
+            >
+              {voteConfigSaving ? 'Đang lưu...' : 'Lưu config vote tele'}
             </button>
           </div>
           
