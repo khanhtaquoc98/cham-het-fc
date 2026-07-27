@@ -284,12 +284,6 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
           >
             <Sparkles size={14} color="#d97706" />
             <span>Điểm danh</span>
-            {isLoading && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#0088cc', fontWeight: 600, fontSize: '11px', marginLeft: '2px' }}>
-                <Loader2 size={13} className="vote-spin-icon" />
-              </span>
-            )}
-
           </div>
         )}
 
