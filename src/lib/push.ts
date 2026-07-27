@@ -1,11 +1,27 @@
 import webpush from 'web-push';
 import { supabase } from '@/lib/supabase';
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:chamhetfc@gmail.com';
+let vapidInitialized = false;
 
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+function ensureVapidDetails(): boolean {
+  if (vapidInitialized) return true;
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+  const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:chamhetfc@gmail.com';
+
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    return false;
+  }
+
+  try {
+    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+    vapidInitialized = true;
+    return true;
+  } catch (error) {
+    console.error('Failed to set VAPID details:', error);
+    return false;
+  }
+}
 
 export interface PushSubscriptionData {
   endpoint: string;
@@ -76,6 +92,11 @@ export async function getSubscriptionCount(): Promise<number> {
 
 // Send notification to all subscribers
 export async function sendNotificationToAll(title: string, body: string, url?: string): Promise<{ sent: number; failed: number }> {
+  if (!ensureVapidDetails()) {
+    console.warn('VAPID details not configured or invalid. Skipping sendNotificationToAll.');
+    return { sent: 0, failed: 0 };
+  }
+
   const subscriptions = await getAllSubscriptions();
   let sent = 0;
   let failed = 0;

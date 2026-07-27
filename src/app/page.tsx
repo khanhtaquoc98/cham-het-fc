@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { Trophy, Handshake, XCircle, RefreshCw, Megaphone, Timer, CupSoda, Coins, Dices, CircleDot, ClipboardList, CalendarDays, Clock, MapPin, Ghost, Users, CreditCard, Armchair, Hand, Bell, CheckCircle, Flame } from 'lucide-react';
 import { PlayerCardCarousel, PlayerHoverCard, PlayerCardData } from '@/components/PlayerCard';
+import VoteFloatingWidget from '@/components/VoteFloatingWidget';
 
 interface PlayerStatsSummary {
   playerName: string;
@@ -1048,6 +1049,8 @@ export default function Home() {
         </div>
       )}
 
+
+      <VoteFloatingWidget initialMatchData={matchData} />
 
       <footer className="app-footer">
         {siteTheme === 'worldcup2026' ? 'Powered by Chấm Hết FC ⚽ World Cup 2026' : 'Powered by Chấm Hết FC'}
