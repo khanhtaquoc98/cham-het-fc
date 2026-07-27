@@ -1,1 +1,2 @@
-export { POST, dynamic } from '../bench/bulk/route';
+export { POST } from '../bench/bulk/route';
+export const dynamic = 'force-dynamic';
