@@ -1038,6 +1038,8 @@ export default function VenuePage() {
             </div>
           </div>
         </div>
+      )}
+
       {/* SYNC VOTE & MAPPING MODAL */}
       {isSyncModalOpen && (
         <div className="install-modal-overlay" onClick={() => setIsSyncModalOpen(false)}>
