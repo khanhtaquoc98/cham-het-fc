@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TeleVoteConfig, MatchData } from '@/types/match';
-import { Vote, X, MapPin, Calendar, Clock, Users, ExternalLink, Sparkles, Send } from 'lucide-react';
+import { Vote, X, MapPin, Calendar, Clock, Users, ExternalLink, Sparkles, Send, Loader2 } from 'lucide-react';
 
 interface VoteFloatingWidgetProps {
   initialVoteConfig?: TeleVoteConfig | null;
@@ -15,27 +15,57 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
   const [matchData, setMatchData] = useState<MatchData | null>(initialMatchData || null);
   const [hasDismissed, setHasDismissed] = useState(false);
 
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [thirdPartyVoters, setThirdPartyVoters] = useState<string[]>([]);
+
   useEffect(() => {
-    if (!voteConfig) {
-      fetch('/api/tele-vote-config')
-        .then(res => res.json())
-        .then(res => {
-          if (res.data) setVoteConfig(res.data);
-        })
-        .catch(err => console.error('Error fetching tele vote config:', err));
-    }
+    let isMounted = true;
 
-    if (!matchData) {
-      fetch('/api/match')
-        .then(res => res.json())
-        .then(res => {
-          if (res.matchData) setMatchData(res.matchData);
-        })
-        .catch(err => console.error('Error fetching match data:', err));
-    }
-  }, [voteConfig, matchData]);
+    const fetchAllData = async () => {
+      setIsLoading(true);
+      try {
+        const configRes = await fetch(`/api/tele-vote-config?t=${Date.now()}`, { cache: 'no-store' });
+        const configJson = await configRes.json();
+        const cfg: TeleVoteConfig | null = configJson?.data || null;
 
-  // Construct Telegram link to the poll message
+        if (isMounted && cfg) setVoteConfig(cfg);
+
+        const matchRes = await fetch('/api/match', { cache: 'no-store' });
+        const matchJson = await matchRes.json();
+        if (isMounted && matchJson?.matchData) setMatchData(matchJson.matchData);
+
+        const provider = cfg?.provider || voteConfig?.provider;
+        if (provider === 'third_party') {
+          const vRes = await fetch(`/api/tele-vote-config?action=voters&provider=third_party&t=${Date.now()}`, { cache: 'no-store' });
+          const vData = await vRes.json();
+          const votersList = vData.voters || [];
+          const names: string[] = [];
+          votersList.forEach((v: { user_name: string; option_ids: number[] | string }) => {
+            let optionIds: number[] = [];
+            if (Array.isArray(v.option_ids)) optionIds = v.option_ids;
+            else if (typeof v.option_ids === 'string') {
+              try { optionIds = JSON.parse(v.option_ids); } catch (e) {}
+            }
+            const mainOptIndex = optionIds[0] ?? 1;
+            if (mainOptIndex === 0) return;
+            const count = mainOptIndex > 0 ? mainOptIndex : 1;
+            for (let i = 0; i < count; i++) {
+              names.push(i === 0 ? v.user_name : `${v.user_name} ${i}`);
+            }
+          });
+          if (isMounted) setThirdPartyVoters(names);
+        }
+      } catch (err) {
+        console.error('Error fetching vote widget data:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchAllData();
+    return () => { isMounted = false; };
+  }, []);
+
   const getTelegramUrl = () => {
     if (!voteConfig) return 'https://t.me';
     const { chat_id, message_id, thread_id } = voteConfig;
@@ -53,15 +83,20 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
 
   const benchCount = matchData?.bench?.length || 0;
   const pollTitle = voteConfig?.title || 'Điểm danh trận đấu';
-  const venueDate = matchData?.venue?.date || '';
-  const venueTime = matchData?.venue?.time || '';
-  const venueName = matchData?.venue?.venue || '';
 
-  if (hasDismissed) return null;
+  const isThirdParty = voteConfig?.provider === 'third_party';
+  const displayCount = isThirdParty
+    ? (typeof voteConfig?.total_voters === 'number' ? voteConfig.total_voters : thirdPartyVoters.length)
+    : benchCount;
+
+  const displayVotersList = isThirdParty
+    ? thirdPartyVoters.map(name => ({ name }))
+    : (matchData?.bench || []);
+
+  if (hasDismissed || voteConfig?.show_vote === false) return null;
 
   return (
     <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 99999, fontFamily: 'var(--font-main, sans-serif)' }}>
-      {/* Floating Popup Card */}
       {isOpen && (
         <div
           style={{
@@ -70,18 +105,17 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
             right: 0,
             width: '320px',
             maxWidth: 'calc(100vw - 32px)',
-            background: 'linear-gradient(145deg, rgba(20, 24, 33, 0.95), rgba(13, 17, 23, 0.98))',
+            background: 'rgba(255, 255, 255, 0.98)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
             borderRadius: '20px',
-            border: '1px solid rgba(255, 255, 255, 0.12)',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(42, 171, 238, 0.15)',
+            border: '1px solid rgba(0, 136, 204, 0.2)',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(42, 171, 238, 0.15)',
             overflow: 'hidden',
             animation: 'vote-pop-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-            color: '#fff',
+            color: '#0f172a',
           }}
         >
-          {/* Top Gradient Header */}
           <div
             style={{
               background: 'linear-gradient(135deg, #0088cc 0%, #2AABEE 100%)',
@@ -89,6 +123,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              color: '#ffffff',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -109,13 +144,13 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
                 <div style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Vote Điểm Danh Mới
                 </div>
-                <div style={{ fontSize: '11px', opacity: 0.85 }}>Mở bình chọn trên Telegram</div>
+                <div style={{ fontSize: '11px', opacity: 0.9 }}>Mở bình chọn trên Telegram</div>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
               style={{
-                background: 'rgba(0,0,0,0.15)',
+                background: 'rgba(255,255,255,0.2)',
                 border: 'none',
                 color: '#fff',
                 borderRadius: '50%',
@@ -132,64 +167,69 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
             </button>
           </div>
 
-          {/* Card Body */}
           <div style={{ padding: '16px' }}>
-            {/* Poll Title Badge */}
             <div
               style={{
-                background: 'rgba(42, 171, 238, 0.1)',
-                border: '1px solid rgba(42, 171, 238, 0.25)',
+                background: '#f0f9ff',
+                border: '1px solid #bae6fd',
                 borderRadius: '12px',
                 padding: '10px 12px',
                 marginBottom: '14px',
               }}
             >
-              <div style={{ fontSize: '11px', color: '#2AABEE', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
+              <div style={{ fontSize: '11px', color: '#0284c7', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
                 📌 Tiêu đề Vote
               </div>
-              <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#fff', lineHeight: 1.4 }}>
-                {pollTitle}
+              <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a', lineHeight: 1.4 }}>
+                {isLoading ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: 0.7 }}>
+                    <Loader2 size={14} className="vote-spin-icon" /> Đang cập nhật dữ liệu...
+                  </span>
+                ) : (
+                  pollTitle
+                )}
               </div>
             </div>
 
-            {/* Match Venue / Info */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', fontSize: '12.5px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(255,255,255,0.85)' }}>
-                <Users size={14} color="#2AABEE" style={{ flexShrink: 0 }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155' }}>
+                <Users size={14} color="#0088cc" style={{ flexShrink: 0 }} />
                 <span>
-                  <strong>Đã đăng ký:</strong> <span style={{ color: '#4CAF50', fontWeight: 700 }}>{benchCount} người</span>
+                  <strong>Đã đăng ký:</strong>{' '}
+                  {isLoading ? (
+                    <span style={{ color: '#0088cc', fontWeight: 600 }}>Đang tải...</span>
+                  ) : (
+                    <span style={{ color: '#16a34a', fontWeight: 700 }}>{displayCount} người</span>
+                  )}
                 </span>
               </div>
             </div>
 
-            {/* Recent Bench Avatars Preview */}
-            {matchData?.bench && matchData.bench.length > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                {matchData.bench.slice(0, 5).map((p, i) => (
+            {isLoading ? (
+              <div style={{ padding: '12px 0', fontSize: '12px', opacity: 0.6, fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Loader2 size={14} className="vote-spin-icon" color="#0088cc" /> Đang tải danh sách cầu thủ...
+              </div>
+            ) : displayVotersList.length > 0 ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', flexWrap: 'wrap', maxHeight: '160px', overflowY: 'auto' }}>
+                {displayVotersList.map((p, i) => (
                   <div
                     key={i}
                     style={{
-                      background: 'rgba(255,255,255,0.08)',
-                      border: '1px solid rgba(255,255,255,0.12)',
+                      background: '#e0f2fe',
+                      border: '1px solid #93c5fd',
                       borderRadius: '16px',
                       padding: '3px 8px',
                       fontSize: '11px',
-                      color: 'rgba(255,255,255,0.9)',
+                      color: '#0369a1',
                       fontWeight: 600,
                     }}
                   >
                     ⚽ {p.name}
                   </div>
                 ))}
-                {matchData.bench.length > 5 && (
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>
-                    +{matchData.bench.length - 5} người khác
-                  </div>
-                )}
               </div>
-            )}
+            ) : null}
 
-            {/* Action CTA Button */}
             <a
               href={getTelegramUrl()}
               target="_blank"
@@ -208,7 +248,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
                 fontWeight: 700,
                 fontSize: '13.5px',
                 textDecoration: 'none',
-                boxShadow: '0 4px 14px rgba(42, 171, 238, 0.4)',
+                boxShadow: '0 6px 18px rgba(0, 136, 204, 0.35)',
                 transition: 'all 0.2s ease',
               }}
             >
@@ -219,24 +259,22 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
         </div>
       )}
 
-      {/* Floating Trigger Button */}
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {/* Tooltip / Label if not open */}
         {!isOpen && (
           <div
             onClick={() => setIsOpen(true)}
             style={{
-              background: 'rgba(20, 24, 33, 0.9)',
+              background: 'rgba(255, 255, 255, 0.95)',
               backdropFilter: 'blur(12px)',
               WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(42, 171, 238, 0.3)',
+              border: '1px solid rgba(0, 136, 204, 0.25)',
               borderRadius: '20px',
               padding: '8px 14px',
-              color: '#fff',
+              color: '#0f172a',
               fontSize: '12.5px',
               fontWeight: 700,
               cursor: 'pointer',
-              boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
@@ -244,26 +282,17 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
               whiteSpace: 'nowrap',
             }}
           >
-            <Sparkles size={14} color="#FFD54F" />
-            <span>Vote điểm danh trận mới</span>
-            {benchCount > 0 && (
-              <span
-                style={{
-                  background: '#2AABEE',
-                  color: '#fff',
-                  borderRadius: '10px',
-                  padding: '1px 6px',
-                  fontSize: '11px',
-                  fontWeight: 800,
-                }}
-              >
-                {benchCount}
+            <Sparkles size={14} color="#d97706" />
+            <span>Điểm danh</span>
+            {isLoading && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#0088cc', fontWeight: 600, fontSize: '11px', marginLeft: '2px' }}>
+                <Loader2 size={13} className="vote-spin-icon" />
               </span>
             )}
+
           </div>
         )}
 
-        {/* Main Floating Circle Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
           style={{
@@ -272,10 +301,10 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
             height: '56px',
             borderRadius: '50%',
             background: isOpen
-              ? 'linear-gradient(135deg, #1e293b, #0f172a)'
+              ? 'linear-gradient(135deg, #475569, #1e293b)'
               : 'linear-gradient(135deg, #0088cc 0%, #2AABEE 100%)',
-            border: '2px solid rgba(255, 255, 255, 0.25)',
-            boxShadow: '0 10px 25px rgba(42, 171, 238, 0.5), 0 0 15px rgba(255, 255, 255, 0.2)',
+            border: '2px solid rgba(255, 255, 255, 0.8)',
+            boxShadow: '0 10px 25px rgba(0, 136, 204, 0.4), 0 2px 10px rgba(0, 0, 0, 0.1)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -284,21 +313,24 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
             transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
             transform: isOpen ? 'rotate(90deg)' : 'scale(1)',
           }}
-          title="Vote điểm danh trận mới"
+          title="Điểm danh"
         >
           {isOpen ? (
             <X size={24} />
           ) : (
             <>
-              <Send size={22} style={{ transform: 'translate(-1px, 1px)' }} />
-              {/* Badge count overlay */}
-              {benchCount > 0 && (
+              {isLoading ? (
+                <Loader2 size={24} className="vote-spin-icon" color="#ffffff" />
+              ) : (
+                <Send size={22} style={{ transform: 'translate(-1px, 1px)' }} />
+              )}
+              {!isLoading && displayCount > 0 && (
                 <span
                   style={{
                     position: 'absolute',
                     top: '-4px',
                     right: '-4px',
-                    background: '#FF3D00',
+                    background: '#ef4444',
                     color: '#fff',
                     borderRadius: '50%',
                     width: '22px',
@@ -308,11 +340,11 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: '2px solid #0d1117',
-                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                    border: '2px solid #ffffff',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                   }}
                 >
-                  {benchCount}
+                  {displayCount}
                 </span>
               )}
             </>
@@ -321,6 +353,13 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
       </div>
 
       <style>{`
+        @keyframes vote-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .vote-spin-icon {
+          animation: vote-spin 1s linear infinite;
+        }
         @keyframes vote-pop-in {
           0% {
             opacity: 0;
@@ -333,10 +372,10 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
         }
         @keyframes vote-pulse-subtle {
           0%, 100% {
-            transform: translateY(0);
+            transform: scale(1);
           }
           50% {
-            transform: translateY(-3px);
+            transform: scale(1.03);
           }
         }
       `}</style>

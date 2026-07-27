@@ -11,10 +11,41 @@ export const DEFAULT_VOTE_CONFIG: TeleVoteConfig = {
   options: ["0", "+1", "+2", "+3", "+4"],
   poll_id: "542318491024",
   thread_id: "61897",
-  title: "16/7 - 19h30 - Deadline 12h 14/7"
+  title: "16/7 - 19h30 - Deadline 12h 14/7",
+  show_vote: true,
+  provider: 'internal'
 };
 
 const VOTE_CONFIG_KEY = 'config_vote_tele';
+const THIRD_PARTY_API_URL = 'https://chiateam-admin.vercel.app/api/proxy/api/bot-storage';
+const THIRD_PARTY_COOKIE = 'chiateam_admin_session=eyJyb2xlIjoidmlld2VyIiwiZXhwaXJlc0F0IjoxNzg1MTc3NTA5NDYxfQ.5p1ryeW3bqpIF0OHDBCs9is7JC3AbleRVxcmTFf_eus';
+
+async function fetchThirdPartyActiveVote() {
+  try {
+    const res = await fetch(THIRD_PARTY_API_URL, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json, text/plain, */*',
+        'accept-language': 'en-US,en;q=0.9',
+        'cache-control': 'max-age=0',
+        'cookie': THIRD_PARTY_COOKIE,
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36'
+      },
+      cache: 'no-store'
+    });
+
+    if (!res.ok) {
+      console.error('Third-party vote API error status:', res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    return data?.activeVote || null;
+  } catch (err) {
+    console.error('Error fetching third-party vote API:', err);
+    return null;
+  }
+}
 
 export async function GET(request: Request) {
   try {
@@ -22,8 +53,41 @@ export async function GET(request: Request) {
     const action = searchParams.get('action');
     const pollId = searchParams.get('poll_id');
 
-    // Handle fetching voters from poll_answers
+    // 1. Get saved config from app_settings first to read provider & show_vote
+    let savedConfig: TeleVoteConfig = { ...DEFAULT_VOTE_CONFIG };
+    const { data: dbData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', VOTE_CONFIG_KEY)
+      .single();
+
+    if (dbData?.value) {
+      try {
+        const parsed = JSON.parse(dbData.value);
+        savedConfig = { ...DEFAULT_VOTE_CONFIG, ...parsed };
+      } catch (e) {
+        console.error('Error parsing config_vote_tele:', e);
+      }
+    }
+
+    const requestedProvider = searchParams.get('provider');
+    const isThirdParty = requestedProvider ? (requestedProvider === 'third_party') : (savedConfig.provider === 'third_party');
+
+    // Handle fetching voters
     if (action === 'voters') {
+
+      if (isThirdParty) {
+        const activeVote = await fetchThirdPartyActiveVote();
+        if (activeVote && activeVote.votes) {
+          const voters = Object.values(activeVote.votes).map((v: any) => ({
+            user_name: v.name || 'Unknown',
+            option_ids: Array.isArray(v.options) ? v.options : []
+          }));
+          return NextResponse.json({ voters });
+        }
+        return NextResponse.json({ voters: [] });
+      }
+
       let query = supabase.from('poll_answers').select('*');
       if (pollId) {
         query = query.eq('poll_id', pollId);
@@ -37,7 +101,40 @@ export async function GET(request: Request) {
       return NextResponse.json({ voters: voters || [] });
     }
 
-    // 1. Try reading the latest poll from the new `polls` table first
+    // Handle fetching vote config
+    if (isThirdParty) {
+      const activeVote = await fetchThirdPartyActiveVote();
+      if (activeVote) {
+        let totalSum = 0;
+        if (activeVote.votes && typeof activeVote.votes === 'object') {
+          Object.values(activeVote.votes).forEach((v: any) => {
+            const opts = Array.isArray(v.options) ? v.options : [];
+            opts.forEach((num: any) => {
+              const val = Number(num) || 0;
+              if (val > 0) totalSum += val;
+            });
+          });
+        }
+
+        const configFromThirdParty: TeleVoteConfig = {
+          chat_id: String(activeVote.chatId ?? savedConfig.chat_id ?? DEFAULT_VOTE_CONFIG.chat_id),
+          is_anonymous: false,
+          message_id: Number(activeVote.messageId ?? savedConfig.message_id ?? DEFAULT_VOTE_CONFIG.message_id),
+          options: Array.isArray(activeVote.options) ? activeVote.options : savedConfig.options,
+          poll_id: String(activeVote.id ?? savedConfig.poll_id ?? ''),
+          thread_id: String(savedConfig.thread_id || DEFAULT_VOTE_CONFIG.thread_id),
+          title: activeVote.question || savedConfig.title || DEFAULT_VOTE_CONFIG.title,
+          show_vote: savedConfig.show_vote ?? true,
+          provider: 'third_party',
+          total_voters: totalSum
+        };
+        return NextResponse.json({ data: configFromThirdParty });
+      }
+      return NextResponse.json({ data: savedConfig });
+    }
+
+
+    // Option 1: Internal logic - read latest poll from `polls` table
     const { data: latestPoll } = await supabase
       .from('polls')
       .select('*')
@@ -47,48 +144,24 @@ export async function GET(request: Request) {
 
     if (latestPoll) {
       const configFromPolls: TeleVoteConfig = {
-        chat_id: String(latestPoll.chat_id || DEFAULT_VOTE_CONFIG.chat_id),
+        chat_id: String(latestPoll.chat_id || savedConfig.chat_id || DEFAULT_VOTE_CONFIG.chat_id),
         is_anonymous: Boolean(latestPoll.is_anonymous),
-        message_id: Number(latestPoll.message_id || DEFAULT_VOTE_CONFIG.message_id),
+        message_id: Number(latestPoll.message_id || savedConfig.message_id || DEFAULT_VOTE_CONFIG.message_id),
         options: Array.isArray(latestPoll.options)
           ? latestPoll.options
           : typeof latestPoll.options === 'string'
             ? JSON.parse(latestPoll.options)
-            : DEFAULT_VOTE_CONFIG.options,
-        poll_id: String(latestPoll.poll_id || ''),
-        thread_id: String(latestPoll.thread_id || DEFAULT_VOTE_CONFIG.thread_id),
-        title: latestPoll.title || DEFAULT_VOTE_CONFIG.title,
+            : savedConfig.options,
+        poll_id: String(latestPoll.poll_id || savedConfig.poll_id || ''),
+        thread_id: String(latestPoll.thread_id || savedConfig.thread_id || DEFAULT_VOTE_CONFIG.thread_id),
+        title: latestPoll.title || savedConfig.title || DEFAULT_VOTE_CONFIG.title,
+        show_vote: savedConfig.show_vote ?? true,
+        provider: 'internal'
       };
       return NextResponse.json({ data: configFromPolls });
     }
 
-    // 2. Fallback to app_settings if `polls` table is empty or not populated yet
-    const { data, error } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', VOTE_CONFIG_KEY)
-      .single();
-
-    if (!error && data && data.value) {
-      try {
-        const parsed = JSON.parse(data.value);
-        return NextResponse.json({ data: parsed });
-      } catch (parseErr) {
-        console.error('Error parsing config_vote_tele JSON:', parseErr);
-      }
-    }
-
-    // If no data exists in DB, save and return default configuration
-    await supabase.from('app_settings').upsert(
-      {
-        key: VOTE_CONFIG_KEY,
-        value: JSON.stringify(DEFAULT_VOTE_CONFIG),
-        updated_at: new Date().toISOString()
-      },
-      { onConflict: 'key' }
-    );
-
-    return NextResponse.json({ data: DEFAULT_VOTE_CONFIG });
+    return NextResponse.json({ data: savedConfig });
   } catch (err) {
     console.error('Error in GET tele-vote-config:', err);
     return NextResponse.json({ data: DEFAULT_VOTE_CONFIG });
@@ -139,8 +212,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // 1. Upsert into new `polls` table if poll_id is present
-    if (config.poll_id) {
+    // 1. Upsert into new `polls` table if poll_id is present AND provider is internal (not third_party)
+    if (config.poll_id && config.provider !== 'third_party') {
       await supabase.from('polls').upsert(
         {
           poll_id: String(config.poll_id),
@@ -155,6 +228,7 @@ export async function POST(request: Request) {
         { onConflict: 'poll_id' }
       );
     }
+
 
     // 2. Also save to app_settings for backwards compatibility
     const { error } = await supabase.from('app_settings').upsert(
@@ -180,3 +254,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }
+

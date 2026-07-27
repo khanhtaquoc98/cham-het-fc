@@ -35,5 +35,10 @@ export interface TeleVoteConfig {
   poll_id: string;
   thread_id: string;
   title: string;
+  show_vote?: boolean;
+  provider?: 'internal' | 'third_party';
+  total_voters?: number;
 }
+
+
 

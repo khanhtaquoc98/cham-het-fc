@@ -31,10 +31,51 @@ export default function VenuePage() {
     options: ["0", "+1", "+2", "+3", "+4"],
     poll_id: "542318491024",
     thread_id: "61897",
-    title: "16/7 - 19h30 - Deadline 12h 14/7"
+    title: "16/7 - 19h30 - Deadline 12h 14/7",
+    show_vote: true,
+    provider: 'internal'
   });
+
   const [voteConfigSaving, setVoteConfigSaving] = useState(false);
   const [voteCreating, setVoteCreating] = useState(false);
+  const [liveVotersNames, setLiveVotersNames] = useState<string[]>([]);
+  const [loadingVotersList, setLoadingVotersList] = useState(false);
+  const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
+  const [editingTagValue, setEditingTagValue] = useState<string>('');
+
+
+  const loadLiveVoters = async (overrideProvider?: string) => {
+    setLoadingVotersList(true);
+    try {
+      const p = overrideProvider || voteConfig.provider || 'internal';
+      const res = await fetch(`/api/tele-vote-config?action=voters&provider=${p}&t=${Date.now()}`, {
+        cache: 'no-store',
+      });
+      const data = await res.json();
+      const votersList = data.voters || [];
+      const names: string[] = [];
+      votersList.forEach((v: { user_name: string; option_ids: number[] | string }) => {
+        let optionIds: number[] = [];
+        if (Array.isArray(v.option_ids)) optionIds = v.option_ids;
+        else if (typeof v.option_ids === 'string') {
+          try { optionIds = JSON.parse(v.option_ids); } catch (e) {}
+        }
+        const mainOptIndex = optionIds[0] ?? 1;
+        if (mainOptIndex === 0) return;
+        const count = mainOptIndex > 0 ? mainOptIndex : 1;
+        for (let i = 0; i < count; i++) {
+          names.push(i === 0 ? v.user_name : `${v.user_name} ${i}`);
+        }
+      });
+      setLiveVotersNames(names);
+    } catch (err) {
+      console.error('Error loading live voters list:', err);
+    } finally {
+      setLoadingVotersList(false);
+    }
+  };
+
+
   
   // Players from DB for Modal
   const [allPlayers, setAllPlayers] = useState<{id: string; name: string; subNames?: string[]; telegramHandle?: string}[]>([]);
@@ -88,12 +129,16 @@ export default function VenuePage() {
       .catch(() => {});
 
     // Fetch tele vote config
-    fetch('/api/tele-vote-config')
+    fetch('/api/tele-vote-config?t=' + Date.now(), { cache: 'no-store' })
       .then(r => r.json())
       .then(res => {
-        if (res.data) setVoteConfig(res.data);
+        if (res.data) {
+          setVoteConfig(res.data);
+          loadLiveVoters(res.data.provider);
+        }
       })
       .catch(err => console.error('Error fetching tele vote config:', err));
+
   }, []);
 
   const handleSaveVenue = async () => {
@@ -114,13 +159,16 @@ export default function VenuePage() {
     } finally { setSaving(false); }
   };
 
-  const handleSaveVoteConfig = async () => {
+  const handleSaveVoteConfig = async (overrideConfig?: unknown) => {
+    const isOverride = overrideConfig && typeof overrideConfig === 'object' && 'chat_id' in (overrideConfig as Record<string, unknown>);
+    const targetConfig = isOverride ? (overrideConfig as TeleVoteConfig) : voteConfig;
+    if (isOverride) setVoteConfig(overrideConfig as TeleVoteConfig);
     setVoteConfigSaving(true);
     try {
       const res = await fetch('/api/tele-vote-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config: voteConfig }),
+        body: JSON.stringify({ config: targetConfig }),
       });
       const result = await res.json();
       if (result.ok) {
@@ -136,6 +184,37 @@ export default function VenuePage() {
       setVoteConfigSaving(false);
     }
   };
+
+  const handleSelectProvider = async (provider: 'internal' | 'third_party') => {
+    const updated = { ...voteConfig, provider };
+    setVoteConfig(updated);
+    setVoteConfigSaving(true);
+    try {
+      const res = await fetch('/api/tele-vote-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config: updated }),
+      });
+      if (res.ok) {
+        toast.success(provider === 'third_party' ? 'Đã chuyển sang Thư viện bên thứ 3!' : 'Đã chuyển sang Internal!');
+        const freshRes = await fetch('/api/tele-vote-config?t=' + Date.now(), { cache: 'no-store' });
+        if (freshRes.ok) {
+          const freshData = await freshRes.json();
+          if (freshData.data) setVoteConfig(freshData.data);
+          loadLiveVoters(provider);
+        }
+
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi đổi nguồn vote');
+    } finally {
+      setVoteConfigSaving(false);
+    }
+  };
+
+
+
 
   const handleCreateVote = async () => {
     setVoteCreating(true);
@@ -736,7 +815,267 @@ export default function VenuePage() {
             {voteConfigSaving && <span style={statusStyle}>Đang lưu...</span>}
           </div>
 
+          {/* VOTE DISPLAY SETTINGS & PROVIDER CONTROL */}
+          <div style={{
+            background: 'var(--bg-card, rgba(255, 255, 255, 0.05))',
+            border: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px'
+          }}>
+            {/* Toggle Show/Hide Vote */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '2px' }}>
+                  Hiển thị Nút Vote (Show Vote Widget)
+                </div>
+                <div style={{ fontSize: '12px', opacity: 0.7 }}>
+                  Bật/tắt widget bình chọn điểm danh hiển thị ở trang chủ
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextShow = !(voteConfig.show_vote ?? true);
+                  handleSaveVoteConfig({ ...voteConfig, show_vote: nextShow });
+                }}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '20px',
+                  border: 'none',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  background: (voteConfig.show_vote ?? true) ? '#2e7d32' : '#c62828',
+                  color: '#ffffff',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+                }}
+              >
+                {(voteConfig.show_vote ?? true) ? '🟢 ON (Đang Hiện Vote)' : '🔴 OFF (Đang Ẩn Vote)'}
+              </button>
+            </div>
+
+            <hr style={{ border: 0, borderTop: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))', margin: 0 }} />
+
+            {/* Select Vote Source Option */}
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '8px' }}>
+                Nguồn Dữ Liệu Vote (Vote Provider)
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                {/* Option 1: Internal */}
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: voteConfig.provider === 'third_party' ? '1px solid var(--border-subtle)' : '2px solid #0088cc',
+                    background: voteConfig.provider === 'third_party' ? 'transparent' : 'rgba(0, 136, 204, 0.1)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="vote_provider"
+                    value="internal"
+                    checked={voteConfig.provider !== 'third_party'}
+                    onChange={() => handleSelectProvider('internal')}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '13px' }}>Option 1: Internal</div>
+                    <div style={{ fontSize: '11px', opacity: 0.7 }}>Dùng cách hiện tại (Database nội bộ)</div>
+                  </div>
+                </label>
+
+                {/* Option 2: Third Party Library */}
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    border: voteConfig.provider === 'third_party' ? '2px solid #9c27b0' : '1px solid var(--border-subtle)',
+                    background: voteConfig.provider === 'third_party' ? 'rgba(156, 39, 176, 0.1)' : 'transparent',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="vote_provider"
+                    value="third_party"
+                    checked={voteConfig.provider === 'third_party'}
+                    onChange={() => handleSelectProvider('third_party')}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '13px' }}>Option 2: Thư viện bên thứ 3</div>
+                    <div style={{ fontSize: '11px', opacity: 0.7 }}>Dùng API bot-storage (chiateam)</div>
+                  </div>
+                </label>
+
+              </div>
+            </div>
+
+          </div>
+
+          {/* LIVE VOTERS LIST DISPLAY WITH INLINE EDIT & ADD/DELETE */}
+          <div style={{
+            background: 'var(--bg-card, #ffffff)',
+            border: '1px solid var(--border-subtle, #e2e8f0)',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '20px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary, #1e293b)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>⚽ Danh sách cầu thủ đi đá ({liveVotersNames.length} suất)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLiveVotersNames(names => [...names, `Cầu thủ ${names.length + 1}`]);
+                    setEditingTagIndex(liveVotersNames.length);
+                    setEditingTagValue(`Cầu thủ ${liveVotersNames.length + 1}`);
+                  }}
+                  style={{ background: 'rgba(0, 136, 204, 0.08)', border: '1px solid rgba(0, 136, 204, 0.25)', color: '#0088cc', fontSize: '12px', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  ➕ Thêm người
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadLiveVoters()}
+                  style={{ background: 'transparent', border: 'none', color: '#0088cc', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
+                >
+
+                  {loadingVotersList ? '⏳ Đang tải...' : '🔄 Tải lại từ API'}
+                </button>
+              </div>
+            </div>
+            
+            {liveVotersNames.length === 0 ? (
+              <div style={{ fontSize: '12px', opacity: 0.6, fontStyle: 'italic', padding: '8px 0' }}>Chưa có cầu thủ đăng ký hoặc không tìm thấy vote.</div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                {liveVotersNames.map((name, i) => {
+                  const isEditing = editingTagIndex === i;
+                  return (
+                    <span
+                      key={i}
+                      style={{
+                        background: '#e8f5e9',
+                        border: '1px solid #a5d6a7',
+                        borderRadius: '20px',
+                        padding: '4px 10px',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        color: '#1b5e20',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span style={{ color: '#2e7d32', fontSize: '10px' }}>●</span>
+                      
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          type="text"
+                          value={editingTagValue}
+                          onChange={(e) => setEditingTagValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const updated = [...liveVotersNames];
+                              if (editingTagValue.trim()) {
+                                updated[i] = editingTagValue.trim();
+                              }
+                              setLiveVotersNames(updated);
+                              setEditingTagIndex(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingTagIndex(null);
+                            }
+                          }}
+                          onBlur={() => {
+                            const updated = [...liveVotersNames];
+                            if (editingTagValue.trim()) {
+                              updated[i] = editingTagValue.trim();
+                            }
+                            setLiveVotersNames(updated);
+                            setEditingTagIndex(null);
+                          }}
+                          style={{
+                            border: '1px solid #2e7d32',
+                            borderRadius: '12px',
+                            padding: '1px 6px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: '#1b5e20',
+                            background: '#ffffff',
+                            outline: 'none',
+                            width: '90px'
+                          }}
+                        />
+                      ) : (
+                        <span
+                          onClick={() => {
+                            setEditingTagIndex(i);
+                            setEditingTagValue(name);
+                          }}
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          title="Bấm để sửa tên"
+                        >
+                          {name}
+                        </span>
+                      )}
+
+                      {!isEditing && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingTagIndex(i);
+                            setEditingTagValue(name);
+                          }}
+                          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center' }}
+                          title="Sửa tên"
+                        >
+                          ✏️
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLiveVotersNames(names => names.filter((_, idx) => idx !== i));
+                          if (editingTagIndex === i) setEditingTagIndex(null);
+                        }}
+                        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#c62828', fontSize: '13px', fontWeight: 800, marginLeft: '2px', display: 'flex', alignItems: 'center' }}
+                        title="Xóa suất này"
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+
           <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
+
             <div>
               <label style={labelStyle}>Tiêu đề (Title)</label>
               <input 
@@ -826,9 +1165,10 @@ export default function VenuePage() {
             </button>
             <button 
               style={{ ...btnBase, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', opacity: voteConfigSaving ? 0.6 : 1 }} 
-              onClick={handleSaveVoteConfig} 
+              onClick={() => handleSaveVoteConfig()} 
               disabled={voteConfigSaving}
             >
+
               {voteConfigSaving ? 'Đang lưu...' : 'Lưu config vote tele'}
             </button>
             <button 
@@ -837,7 +1177,7 @@ export default function VenuePage() {
               disabled={syncingVoters}
             >
               <RefreshCw size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} className={syncingVoters ? 'spin' : ''} />
-              {syncingVoters ? 'Đang tải vote...' : '🔄 Sync Vote lên Bench'}
+              {syncingVoters ? 'Đang tải vote...' : 'Sync Vote lên Bench'}
             </button>
           </div>
           
