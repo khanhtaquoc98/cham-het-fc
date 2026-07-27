@@ -18,6 +18,32 @@ const VOTE_CONFIG_KEY = 'config_vote_tele';
 
 export async function GET() {
   try {
+    // 1. Try reading the latest poll from the new `polls` table first
+    const { data: latestPoll } = await supabase
+      .from('polls')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latestPoll) {
+      const configFromPolls: TeleVoteConfig = {
+        chat_id: String(latestPoll.chat_id || DEFAULT_VOTE_CONFIG.chat_id),
+        is_anonymous: Boolean(latestPoll.is_anonymous),
+        message_id: Number(latestPoll.message_id || DEFAULT_VOTE_CONFIG.message_id),
+        options: Array.isArray(latestPoll.options)
+          ? latestPoll.options
+          : typeof latestPoll.options === 'string'
+            ? JSON.parse(latestPoll.options)
+            : DEFAULT_VOTE_CONFIG.options,
+        poll_id: String(latestPoll.poll_id || ''),
+        thread_id: String(latestPoll.thread_id || DEFAULT_VOTE_CONFIG.thread_id),
+        title: latestPoll.title || DEFAULT_VOTE_CONFIG.title,
+      };
+      return NextResponse.json({ data: configFromPolls });
+    }
+
+    // 2. Fallback to app_settings if `polls` table is empty or not populated yet
     const { data, error } = await supabase
       .from('app_settings')
       .select('value')
@@ -94,7 +120,24 @@ export async function POST(request: Request) {
       }
     }
 
-    // Save config to DB
+    // 1. Upsert into new `polls` table if poll_id is present
+    if (config.poll_id) {
+      await supabase.from('polls').upsert(
+        {
+          poll_id: String(config.poll_id),
+          message_id: config.message_id ? Number(config.message_id) : null,
+          chat_id: config.chat_id ? Number(config.chat_id) : null,
+          thread_id: config.thread_id ? Number(config.thread_id) : null,
+          title: config.title || '',
+          options: config.options || ["0", "+1", "+2", "+3", "+4"],
+          is_anonymous: config.is_anonymous ?? false,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'poll_id' }
+      );
+    }
+
+    // 2. Also save to app_settings for backwards compatibility
     const { error } = await supabase.from('app_settings').upsert(
       {
         key: VOTE_CONFIG_KEY,
@@ -106,17 +149,6 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: String(error) }, { status: 500 });
-    }
-
-    // Sync to summary-bot remote service (best effort)
-    try {
-      await fetch('https://summary-bot-sepia.vercel.app/api/save-poll-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      });
-    } catch (syncErr) {
-      console.error('Failed to sync to summary-bot:', syncErr);
     }
 
     return NextResponse.json({

@@ -19,21 +19,21 @@ export async function POST(request: Request) {
       title: payload.title || "",
     };
 
-    // 1. Forward request to summary-bot API (similar to /api/notify)
-    let remoteData: Record<string, unknown> = {};
-    let remoteSuccess = false;
-
-    try {
-      const res = await fetch('https://summary-bot-sepia.vercel.app/api/save-poll-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(pollConfig),
-      });
-
-      remoteData = await res.json().catch(() => ({}));
-      remoteSuccess = res.ok;
-    } catch (err) {
-      console.error('Failed to forward to summary-bot save-poll-config:', err);
+    // 1. Save to `polls` table if poll_id is provided
+    if (pollConfig.poll_id) {
+      await supabase.from('polls').upsert(
+        {
+          poll_id: String(pollConfig.poll_id),
+          message_id: pollConfig.message_id ? Number(pollConfig.message_id) : null,
+          chat_id: pollConfig.chat_id ? Number(pollConfig.chat_id) : null,
+          thread_id: pollConfig.thread_id ? Number(pollConfig.thread_id) : null,
+          title: pollConfig.title || '',
+          options: pollConfig.options || ["0", "+1", "+2", "+3", "+4"],
+          is_anonymous: pollConfig.is_anonymous ?? false,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'poll_id' }
+      );
     }
 
     // 2. Also save to local Supabase app_settings
@@ -48,8 +48,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      remoteSuccess,
-      ...remoteData,
       config: pollConfig,
     });
   } catch (error) {
