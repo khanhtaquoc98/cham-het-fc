@@ -16,8 +16,27 @@ export const DEFAULT_VOTE_CONFIG: TeleVoteConfig = {
 
 const VOTE_CONFIG_KEY = 'config_vote_tele';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get('action');
+    const pollId = searchParams.get('poll_id');
+
+    // Handle fetching voters from poll_answers
+    if (action === 'voters') {
+      let query = supabase.from('poll_answers').select('*');
+      if (pollId) {
+        query = query.eq('poll_id', pollId);
+      }
+      const { data: voters, error } = await query.order('updated_at', { ascending: false });
+
+      if (error) {
+        return NextResponse.json({ voters: [] });
+      }
+
+      return NextResponse.json({ voters: voters || [] });
+    }
+
     // 1. Try reading the latest poll from the new `polls` table first
     const { data: latestPoll } = await supabase
       .from('polls')

@@ -37,9 +37,23 @@ export default function VenuePage() {
   const [voteCreating, setVoteCreating] = useState(false);
   
   // Players from DB for Modal
-  const [allPlayers, setAllPlayers] = useState<{id: string; name: string; telegramHandle?: string}[]>([]);
+  const [allPlayers, setAllPlayers] = useState<{id: string; name: string; subNames?: string[]; telegramHandle?: string}[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedPlayerIds, setSelectedPlayerIds] = useState<Set<string>>(new Set());
+
+  // Sync Vote to Bench Modal state
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncingVoters, setSyncingVoters] = useState(false);
+  const [votedCandidates, setVotedCandidates] = useState<{
+    id: string;
+    originalVotedName: string;
+    optionText: string;
+    mappedPlayerId: string;
+    customName: string;
+  }[]>([]);
+  const [rememberSubNames, setRememberSubNames] = useState(true);
+  const [rawVoteTextInput, setRawVoteTextInput] = useState('');
+  const [showRawTextInput, setShowRawTextInput] = useState(false);
 
   // Drag and drop state
   const [draggedPlayer, setDraggedPlayer] = useState<{player: Player, sourceId: string, index: number} | null>(null);
@@ -149,6 +163,167 @@ export default function VenuePage() {
       toast.error('Lỗi kết nối khi tạo vote');
     } finally {
       setVoteCreating(false);
+    }
+  };
+
+  const parseRawTextToCandidates = (text: string) => {
+    const lines = text.split('\n');
+    const items: typeof votedCandidates = [];
+    let idCounter = 1;
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+
+      const matchPlus = trimmed.match(/^[\d\.\-\s]*([^(\+]+)\s*(?:\(\+?(\d+)\)|\+?(\d+))?/i);
+      if (matchPlus) {
+        const name = matchPlus[1].trim();
+        const count = parseInt(matchPlus[2] || matchPlus[3] || '1') || 1;
+
+        for (let i = 0; i < count; i++) {
+          const cName = i === 0 ? name : `${name} ${i}`;
+          const matched = allPlayers.find(p => {
+            const normV = cName.trim().toLowerCase().replace(/^@/, '');
+            const normP = p.name.trim().toLowerCase();
+            const normSub = (p.subNames || []).map(s => s.trim().toLowerCase());
+            const normH = (p.telegramHandle || '').trim().toLowerCase().replace(/^@/, '');
+            return normV === normP || normSub.includes(normV) || (normH && normH === normV);
+          });
+
+          items.push({
+            id: `cand-${idCounter++}`,
+            originalVotedName: cName,
+            optionText: `+${count}`,
+            mappedPlayerId: matched ? matched.id : '',
+            customName: matched ? matched.name : cName,
+          });
+        }
+      }
+    });
+
+    return items;
+  };
+
+  const handleOpenSyncModal = async () => {
+    setSyncingVoters(true);
+    try {
+      const playersRes = await fetch('/api/players');
+      let currentAllPlayers = allPlayers;
+      if (playersRes.ok) {
+        const pData = await playersRes.json();
+        if (Array.isArray(pData)) {
+          setAllPlayers(pData);
+          currentAllPlayers = pData;
+        }
+      }
+
+      const pollId = voteConfig.poll_id || '';
+      const res = await fetch(`/api/tele-vote-config?action=voters&poll_id=${pollId}`);
+      const data = await res.json();
+      const votersList = data.voters || [];
+
+      const candidates: typeof votedCandidates = [];
+      let idCounter = 1;
+
+      if (votersList.length > 0) {
+        votersList.forEach((v: { user_name: string; option_ids: number[] | string }) => {
+          let optionIds: number[] = [];
+          if (Array.isArray(v.option_ids)) optionIds = v.option_ids;
+          else if (typeof v.option_ids === 'string') {
+            try { optionIds = JSON.parse(v.option_ids); } catch (e) {}
+          }
+
+          const mainOptIndex = optionIds[0] ?? 1;
+          if (mainOptIndex === 0) return;
+
+          const count = mainOptIndex > 0 ? mainOptIndex : 1;
+          const optionLabel = `+${count}`;
+
+          for (let i = 0; i < count; i++) {
+            const vName = i === 0 ? v.user_name : `${v.user_name} ${i}`;
+
+            const matched = currentAllPlayers.find(p => {
+              const normV = vName.trim().toLowerCase().replace(/^@/, '');
+              const normP = p.name.trim().toLowerCase();
+              const normSub = (p.subNames || []).map(s => s.trim().toLowerCase());
+              const normH = (p.telegramHandle || '').trim().toLowerCase().replace(/^@/, '');
+              return normV === normP || normSub.includes(normV) || (normH && normH === normV);
+            });
+
+            candidates.push({
+              id: `cand-${idCounter++}`,
+              originalVotedName: vName,
+              optionText: optionLabel,
+              mappedPlayerId: matched ? matched.id : '',
+              customName: matched ? matched.name : vName,
+            });
+          }
+        });
+      }
+
+      setVotedCandidates(candidates);
+      setShowRawTextInput(candidates.length === 0);
+      setIsSyncModalOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi tải danh sách vote');
+    } finally {
+      setSyncingVoters(false);
+    }
+  };
+
+  const handleConfirmSyncToBench = async () => {
+    if (votedCandidates.length === 0) {
+      toast.error('Danh sách vote trống!');
+      return;
+    }
+
+    try {
+      const newBenchPlayers: Player[] = votedCandidates.map(c => {
+        const officialPlayer = allPlayers.find(p => p.id === c.mappedPlayerId);
+        return {
+          name: officialPlayer ? officialPlayer.name : c.customName || c.originalVotedName,
+          playerId: officialPlayer ? officialPlayer.id : undefined,
+          telegramHandle: officialPlayer?.telegramHandle || undefined,
+        };
+      });
+
+      setBench(newBenchPlayers);
+      await fetch('/api/match/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bench: newBenchPlayers }),
+      });
+
+      if (rememberSubNames) {
+        for (const c of votedCandidates) {
+          if (c.mappedPlayerId) {
+            const player = allPlayers.find(p => p.id === c.mappedPlayerId);
+            if (player) {
+              const normV = c.originalVotedName.trim();
+              const currentSubs = player.subNames || [];
+              if (
+                normV.toLowerCase() !== player.name.toLowerCase() &&
+                !currentSubs.map(s => s.toLowerCase()).includes(normV.toLowerCase())
+              ) {
+                const updatedSubs = [...currentSubs, normV];
+                await fetch('/api/players', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: player.id, subNames: updatedSubs }),
+                });
+                player.subNames = updatedSubs;
+              }
+            }
+          }
+        }
+      }
+
+      toast.success(`🎉 Đã đồng bộ ${newBenchPlayers.length} cầu thủ lên Bench!`);
+      setIsSyncModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi đồng bộ lên Bench');
     }
   };
 
@@ -656,6 +831,14 @@ export default function VenuePage() {
             >
               {voteConfigSaving ? 'Đang lưu...' : 'Lưu config vote tele'}
             </button>
+            <button 
+              style={{ ...btnBase, background: '#4CAF50', color: 'white', opacity: syncingVoters ? 0.6 : 1 }} 
+              onClick={handleOpenSyncModal} 
+              disabled={syncingVoters}
+            >
+              <RefreshCw size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} className={syncingVoters ? 'spin' : ''} />
+              {syncingVoters ? 'Đang tải vote...' : '🔄 Sync Vote lên Bench'}
+            </button>
           </div>
           
           <hr style={{ margin: '32px 0', borderTop: '1px solid var(--border-subtle)' }} />
@@ -851,6 +1034,199 @@ export default function VenuePage() {
                 style={{ flex: 1, padding: '12px', background: 'var(--accent)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', color: 'white', opacity: selectedPlayerIds.size === 0 ? 0.5 : 1 }}
               >
                 Thêm ({selectedPlayerIds.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      {/* SYNC VOTE & MAPPING MODAL */}
+      {isSyncModalOpen && (
+        <div className="install-modal-overlay" onClick={() => setIsSyncModalOpen(false)}>
+          <div
+            className="install-modal"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '640px', width: '92%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '24px' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px', marginBottom: '16px' }}>
+              <h3 className="install-modal-title" style={{ margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🔄 Đồng bộ Vote lên Ghế dự bị (Bench)
+              </h3>
+              <button onClick={() => setIsSyncModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: 'var(--text-muted)' }}>
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px', lineHeight: 1.5 }}>
+              Khớp tên vote trên Telegram với danh sách Cầu thủ chính thức. Ví dụ: <strong style={{ color: 'var(--accent)' }}>Kane 1</strong> chọn thành <strong style={{ color: 'var(--accent)' }}>Đạt</strong>.
+            </p>
+
+            {/* Manual Raw Text List Input Toggle */}
+            {showRawTextInput ? (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                  📝 Dán hoặc nhập danh sách vote (Ví dụ: 1. Kane (+2), 2. Son (+1), 3. Đạt):
+                </label>
+                <textarea
+                  rows={5}
+                  style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-subtle)', fontFamily: 'inherit', fontSize: '13px' }}
+                  placeholder={"Kane (+2)\nSon (+1)\nĐạt"}
+                  value={rawVoteTextInput}
+                  onChange={e => setRawVoteTextInput(e.target.value)}
+                />
+                <button
+                  onClick={() => {
+                    const parsed = parseRawTextToCandidates(rawVoteTextInput);
+                    if (parsed.length === 0) {
+                      toast.error('Không tìm thấy cầu thủ hợp lệ trong danh sách dán!');
+                      return;
+                    }
+                    setVotedCandidates(parsed);
+                    setShowRawTextInput(false);
+                  }}
+                  style={{ marginTop: '8px', padding: '8px 16px', background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  🔍 Phân tích danh sách ({parseRawTextToCandidates(rawVoteTextInput).length} người)
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--accent)' }}>
+                  Danh sách vote ({votedCandidates.length} suất)
+                </span>
+                <button
+                  onClick={() => setShowRawTextInput(true)}
+                  style={{ background: 'none', border: 'none', color: '#0088cc', fontSize: '12px', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  ✏️ Dán / Nhập danh sách bằng tay
+                </button>
+              </div>
+            )}
+
+            {/* Candidate Mapping List */}
+            <div style={{ flex: 1, overflowY: 'auto', maxHeight: '420px', paddingRight: '4px', marginBottom: '16px' }}>
+              {votedCandidates.length === 0 ? (
+                <div style={{ padding: '28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', border: '1px dashed var(--border-subtle)', borderRadius: '12px' }}>
+                  Chưa có dữ liệu vote từ Telegram. Bạn có thể bấm vào <strong style={{ color: '#0088cc', cursor: 'pointer' }} onClick={() => setShowRawTextInput(true)}>"✏️ Dán / Nhập danh sách bằng tay"</strong> ở góc phải để phân tích nhanh!
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {votedCandidates.map((cand, idx) => (
+                    <div
+                      key={cand.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        padding: '10px 12px',
+                        background: 'var(--bg-secondary, #f8f9fa)',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-subtle, #eee)',
+                      }}
+                    >
+                      <div style={{ width: '28px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                        #{idx + 1}
+                      </div>
+
+                      {/* Original Voted Name */}
+                      <div style={{ flex: '1 1 120px', minWidth: '110px' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          {cand.originalVotedName}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          Suất: {cand.optionText}
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>➡️</div>
+
+                      {/* Official Player Select Dropdown */}
+                      <div style={{ flex: '2 1 220px' }}>
+                        <select
+                          value={cand.mappedPlayerId}
+                          onChange={e => {
+                            const selId = e.target.value;
+                            const official = allPlayers.find(p => p.id === selId);
+                            setVotedCandidates(prev =>
+                              prev.map(c =>
+                                c.id === cand.id
+                                  ? {
+                                      ...c,
+                                      mappedPlayerId: selId,
+                                      customName: official ? official.name : c.originalVotedName,
+                                    }
+                                  : c
+                              )
+                            );
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '8px 10px',
+                            borderRadius: '8px',
+                            border: '1px solid var(--border-subtle)',
+                            fontSize: '13px',
+                            fontWeight: cand.mappedPlayerId ? 700 : 400,
+                            color: cand.mappedPlayerId ? 'var(--accent)' : 'var(--text-primary)',
+                            background: 'white',
+                          }}
+                        >
+                          <option value="">-- Tên tự do ({cand.originalVotedName}) --</option>
+                          {allPlayers.map(p => (
+                            <option key={p.id} value={p.id}>
+                              👤 {p.name} {p.subNames && p.subNames.length > 0 ? `(${p.subNames.join(', ')})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Remove button */}
+                      <button
+                        onClick={() => {
+                          setVotedCandidates(prev => prev.filter(c => c.id !== cand.id));
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#e53935',
+                          cursor: 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                        }}
+                        title="Xóa khỏi danh sách"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Subnames checkbox option */}
+            <div style={{ marginBottom: '16px', padding: '10px 14px', background: 'rgba(0,136,204,0.06)', borderRadius: '10px', border: '1px solid rgba(0,136,204,0.15)' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={rememberSubNames}
+                  onChange={e => setRememberSubNames(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <span>Tự động nhớ biệt danh (Lưu tên vote vào subNames để tự động nhận diện lần sau)</span>
+              </label>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setIsSyncModalOpen(false)}
+                style={{ padding: '10px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmSyncToBench}
+                disabled={votedCandidates.length === 0}
+                style={{ padding: '10px 20px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', opacity: votedCandidates.length === 0 ? 0.5 : 1 }}
+              >
+                ✅ Đưa {votedCandidates.length} cầu thủ lên Bench
               </button>
             </div>
           </div>
