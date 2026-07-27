@@ -3,7 +3,7 @@
 import React, { useEffect, useState, DragEvent, useRef } from 'react';
 import { Player, Team, MatchData, TeleVoteConfig } from '@/types/match';
 import { toast } from 'react-hot-toast';
-import { Wand2, Dices, ClipboardCopy, Armchair, Trash2, GripVertical, Palette, Vote } from 'lucide-react';
+import { Wand2, Dices, ClipboardCopy, Armchair, Trash2, GripVertical, Palette, Vote, RefreshCw } from 'lucide-react';
 
 interface VenueInfo {
   date: string;
