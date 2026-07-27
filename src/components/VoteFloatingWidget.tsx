@@ -154,26 +154,10 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
 
             {/* Match Venue / Info */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', fontSize: '12.5px' }}>
-              {(venueDate || venueTime) && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(255,255,255,0.85)' }}>
-                  <Calendar size={14} color="#2AABEE" style={{ flexShrink: 0 }} />
-                  <span>
-                    <strong>Thời gian:</strong> {venueTime} {venueDate ? `(${venueDate})` : ''}
-                  </span>
-                </div>
-              )}
-              {venueName && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(255,255,255,0.85)' }}>
-                  <MapPin size={14} color="#2AABEE" style={{ flexShrink: 0 }} />
-                  <span>
-                    <strong>Sân đấu:</strong> {venueName}
-                  </span>
-                </div>
-              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'rgba(255,255,255,0.85)' }}>
                 <Users size={14} color="#2AABEE" style={{ flexShrink: 0 }} />
                 <span>
-                  <strong>Đã đăng ký (Bench):</strong> <span style={{ color: '#4CAF50', fontWeight: 700 }}>{benchCount} người</span>
+                  <strong>Đã đăng ký:</strong> <span style={{ color: '#4CAF50', fontWeight: 700 }}>{benchCount} người</span>
                 </span>
               </div>
             </div>
