@@ -20,7 +20,7 @@ export default function TrafficCameraWidget({
   const [imgError, setImgError] = useState<boolean>(false);
   const [countdown, setCountdown] = useState<number>(autoRefreshIntervalSeconds);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(true);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
