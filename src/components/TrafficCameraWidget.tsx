@@ -220,7 +220,7 @@ export default function TrafficCameraWidget({
             </div>
           </div>
 
-          {/* Action buttons */}
+          {/* Action buttons (Refresh & Collapse only) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               onClick={(e) => {
@@ -232,72 +232,24 @@ export default function TrafficCameraWidget({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
+                justifyContent: 'center',
+                width: '34px',
+                height: '34px',
                 borderRadius: '10px',
                 border: '1px solid var(--border-subtle, rgba(0,0,0,0.1))',
                 background: 'var(--bg-primary, #ffffff)',
                 color: 'var(--text-primary, #1a1a2e)',
-                fontSize: '12.5px',
-                fontWeight: 600,
                 cursor: isRefreshing ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s ease',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
               }}
             >
               <RefreshCw
-                size={14}
+                size={15}
                 style={{
                   animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
                 }}
               />
-              <span>{isRefreshing ? 'Đang tải...' : 'Làm mới'}</span>
             </button>
-
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(true);
-              }}
-              title="Xem mở rộng"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '34px',
-                height: '34px',
-                borderRadius: '10px',
-                border: '1px solid var(--border-subtle, rgba(0,0,0,0.1))',
-                background: 'var(--bg-primary, #ffffff)',
-                color: 'var(--text-primary, #1a1a2e)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <Maximize2 size={15} />
-            </button>
-
-            <a
-              href={cameraUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              title="Mở link gốc"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '34px',
-                height: '34px',
-                borderRadius: '10px',
-                border: '1px solid var(--border-subtle, rgba(0,0,0,0.1))',
-                background: 'var(--bg-primary, #ffffff)',
-                color: 'var(--text-primary, #1a1a2e)',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <ExternalLink size={15} />
-            </a>
 
             <button
               onClick={(e) => {
