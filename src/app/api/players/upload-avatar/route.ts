@@ -16,7 +16,10 @@ export async function POST(request: Request) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // 1. Ensure bucket 'players' exists
+    const targetPath = filename.endsWith('.webp') ? filename : `${filename}.webp`;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    // 1. Attempt upload to Supabase Storage 'players' bucket
     try {
       const { data: buckets } = await supabase.storage.listBuckets();
       const hasPlayersBucket = buckets?.some((b) => b.name === 'players' || b.id === 'players');
@@ -27,8 +30,6 @@ export async function POST(request: Request) {
       console.warn('Bucket check warning:', bErr);
     }
 
-    // 2. Upload file to Supabase storage 'players' bucket
-    const targetPath = filename.endsWith('.webp') ? filename : `${filename}.webp`;
     const { data, error } = await supabase.storage
       .from('players')
       .upload(targetPath, buffer, {
@@ -37,12 +38,19 @@ export async function POST(request: Request) {
         contentType: file.type || 'image/webp',
       });
 
-    if (error) {
-      console.error('Supabase storage server upload error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!error && supabaseUrl) {
+      const avatarUrl = `${supabaseUrl}/storage/v1/object/public/players/${targetPath}?v=${Date.now()}`;
+      return NextResponse.json({ success: true, avatarUrl, targetPath, data });
     }
 
-    return NextResponse.json({ success: true, targetPath, data });
+    console.warn('Supabase storage upload failed, using Data URL fallback:', error?.message);
+
+    // Fallback: If storage upload fails (e.g. RLS policy blocking storage), convert to Data URL
+    const mimeType = file.type || 'image/jpeg';
+    const base64Str = buffer.toString('base64');
+    const avatarUrl = `data:${mimeType};base64,${base64Str}`;
+
+    return NextResponse.json({ success: true, avatarUrl, isBase64: true });
   } catch (err: any) {
     console.error('Upload route exception:', err);
     return NextResponse.json({ error: err?.message || 'Internal Server Error' }, { status: 500 });

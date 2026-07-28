@@ -5,22 +5,36 @@ import { supabase } from '@/lib/supabase';
 export async function getPlayers(): Promise<PlayerConfig[]> {
   const { data, error } = await supabase
     .from('players')
-    .select('*')
-    .order('created_at', { ascending: true });
+    .select('*');
 
-  if (error || !data || data.length === 0) {
-    return [...DEFAULT_PLAYERS];
+  if (error) {
+    console.error('Error fetching players from Supabase:', error);
   }
 
-  return data.map((row) => ({
+  const dbPlayers: PlayerConfig[] = (data || []).map((row) => ({
     id: row.id,
     name: row.name,
-    subNames: row.sub_names || [],
+    subNames: Array.isArray(row.sub_names)
+      ? row.sub_names
+      : typeof row.sub_names === 'string'
+      ? (() => { try { return JSON.parse(row.sub_names); } catch (e) { return []; } })()
+      : [],
     telegramHandle: row.telegram_handle || '',
     jerseyNumber: row.jersey_number,
     updatedAt: row.created_at || null,
     avatarVersion: row.avatar_version || null,
   }));
+
+  // Create sets for fast lookup
+  const dbPlayerIds = new Set(dbPlayers.map((p) => p.id));
+  const dbPlayerNames = new Set(dbPlayers.map((p) => p.name.trim().toLowerCase()));
+
+  // Include DEFAULT_PLAYERS that have not been overridden/created in DB yet
+  const missingDefaultPlayers = DEFAULT_PLAYERS.filter(
+    (def) => !dbPlayerIds.has(def.id) && !dbPlayerNames.has(def.name.trim().toLowerCase())
+  );
+
+  return [...dbPlayers, ...missingDefaultPlayers];
 }
 
 export async function savePlayers(players: PlayerConfig[]): Promise<void> {
@@ -45,13 +59,15 @@ export async function savePlayers(players: PlayerConfig[]): Promise<void> {
 export async function addPlayer(player: Omit<PlayerConfig, 'id'>): Promise<PlayerConfig> {
   const id = Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
 
-  const { error } = await supabase.from('players').insert({
+  const rowData: Record<string, unknown> = {
     id,
     name: player.name,
     sub_names: player.subNames || [],
     telegram_handle: player.telegramHandle || '',
-    jersey_number: player.jerseyNumber,
-  });
+    jersey_number: player.jerseyNumber ?? null,
+  };
+
+  const { error } = await supabase.from('players').insert(rowData);
 
   if (error) {
     console.error('Failed to add player:', error);
@@ -70,12 +86,25 @@ export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 
   if (data.avatarVersion !== undefined) updateObj.avatar_version = data.avatarVersion;
 
   // Try standard update first
-  const { data: updated, error } = await supabase
+  let { data: updated, error } = await supabase
     .from('players')
     .update(updateObj)
     .eq('id', id)
     .select()
     .single();
+
+  // Retry without avatar_version if column does not exist in DB
+  if (error && error.message?.includes('avatar_version')) {
+    delete updateObj.avatar_version;
+    const retryRes = await supabase
+      .from('players')
+      .update(updateObj)
+      .eq('id', id)
+      .select()
+      .single();
+    updated = retryRes.data;
+    error = retryRes.error;
+  }
 
   if (!error && updated) {
     return {
@@ -96,7 +125,7 @@ export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 
   const newJersey = data.jerseyNumber !== undefined ? data.jerseyNumber : (defaultPlayer?.jerseyNumber ?? null);
   const newAvatarVer = data.avatarVersion !== undefined ? data.avatarVersion : null;
 
-  const upsertRow = {
+  const upsertRow: Record<string, unknown> = {
     id,
     name: newName,
     sub_names: newSubNames,
@@ -105,11 +134,22 @@ export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 
     avatar_version: newAvatarVer,
   };
 
-  const { data: upserted, error: upsertError } = await supabase
+  let { data: upserted, error: upsertError } = await supabase
     .from('players')
     .upsert(upsertRow, { onConflict: 'id' })
     .select()
     .single();
+
+  if (upsertError && upsertError.message?.includes('avatar_version')) {
+    delete upsertRow.avatar_version;
+    const retryRes = await supabase
+      .from('players')
+      .upsert(upsertRow, { onConflict: 'id' })
+      .select()
+      .single();
+    upserted = retryRes.data;
+    upsertError = retryRes.error;
+  }
 
   if (upsertError || !upserted) {
     console.error('Failed to update/upsert player:', error || upsertError);

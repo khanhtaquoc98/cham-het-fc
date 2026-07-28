@@ -128,7 +128,7 @@ export default function PlayersPage() {
   };
 
   // Helper to upload image to Supabase Storage via API route
-  const uploadAvatarToSupabase = async (jerseyNum: number | null, playerId: string, file: File): Promise<boolean> => {
+  const uploadAvatarToSupabase = async (jerseyNum: number | null, playerId: string, file: File): Promise<{ success: boolean; avatarUrl?: string }> => {
     try {
       const filename = jerseyNum != null ? `${jerseyNum}` : playerId;
       const formData = new FormData();
@@ -144,13 +144,13 @@ export default function PlayersPage() {
       if (!res.ok || json.error) {
         console.error('Upload avatar API error:', json.error);
         toast.error('Lỗi upload ảnh: ' + (json.error || 'Thất bại'));
-        return false;
+        return { success: false };
       }
-      return true;
+      return { success: true, avatarUrl: json.avatarUrl };
     } catch (err: any) {
       console.error('Upload exception:', err);
       toast.error('Lỗi khi tải ảnh lên server');
-      return false;
+      return { success: false };
     }
   };
 
@@ -189,15 +189,16 @@ export default function PlayersPage() {
 
         // 2. Upload image if selected
         if (selectedFile && createdPlayer) {
-          const uploaded = await uploadAvatarToSupabase(jerseyNum, createdPlayer.id, selectedFile);
-          if (uploaded) {
-            // Touch avatarVersion in DB
+          const uploadRes = await uploadAvatarToSupabase(jerseyNum, createdPlayer.id, selectedFile);
+          if (uploadRes.success) {
+            // Touch avatarVersion and avatarUrl in DB
             await fetch('/api/players', {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 id: createdPlayer.id,
                 avatarVersion: Date.now(),
+                avatarUrl: uploadRes.avatarUrl,
               }),
             });
           }
@@ -208,12 +209,14 @@ export default function PlayersPage() {
         // Edit Mode
         const id = modalData.id;
         let avatarVer: number | undefined = undefined;
+        let uploadedAvatarUrl: string | undefined = undefined;
 
         // Upload new image if selected
         if (selectedFile) {
-          const uploaded = await uploadAvatarToSupabase(jerseyNum, id, selectedFile);
-          if (uploaded) {
+          const uploadRes = await uploadAvatarToSupabase(jerseyNum, id, selectedFile);
+          if (uploadRes.success) {
             avatarVer = Date.now();
+            uploadedAvatarUrl = uploadRes.avatarUrl;
           }
         }
 
@@ -227,6 +230,9 @@ export default function PlayersPage() {
 
         if (avatarVer) {
           updatePayload.avatarVersion = avatarVer;
+        }
+        if (uploadedAvatarUrl) {
+          updatePayload.avatarUrl = uploadedAvatarUrl;
         }
 
         const res = await fetch('/api/players', {
@@ -732,7 +738,7 @@ export default function PlayersPage() {
 // Vertical Player Avatar Helper Component (Handles Fallbacks Smoothly)
 function PlayerVerticalAvatar({ player, size = 84 }: { player: PlayerConfig; size?: number }) {
   const [imgError, setImgError] = useState(false);
-  const filename = player?.jerseyNumber || player?.id || 'unknown';
+  const filename = player?.jerseyNumber != null ? player.jerseyNumber : (player?.id || 'unknown');
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   const versionParam = player?.updatedAt
@@ -741,13 +747,19 @@ function PlayerVerticalAvatar({ player, size = 84 }: { player: PlayerConfig; siz
     ? `?v=${player.avatarVersion}`
     : '';
 
-  const imgSrc = supabaseUrl
-    ? `${supabaseUrl}/storage/v1/object/public/players/${filename}.webp${versionParam}`
-    : `/player/${filename}.webp${versionParam}`;
+  const rawImgSrc = player?.avatarUrl
+    ? player.avatarUrl
+    : supabaseUrl
+    ? `${supabaseUrl}/storage/v1/object/public/players/${filename}.webp`
+    : `/player/${filename}.webp`;
+
+  const imgSrc = rawImgSrc.includes('?') || rawImgSrc.startsWith('data:')
+    ? rawImgSrc
+    : `${rawImgSrc}${versionParam}`;
 
   useEffect(() => {
     setImgError(false);
-  }, [player?.avatarVersion, player?.updatedAt, player?.jerseyNumber]);
+  }, [player?.avatarVersion, player?.avatarUrl, player?.updatedAt, player?.jerseyNumber]);
 
   return (
     <div style={{ position: 'relative', width: `${size}px`, height: `${size}px`, margin: '0 auto', flexShrink: 0 }}>

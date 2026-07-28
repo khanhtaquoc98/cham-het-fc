@@ -6,4 +6,5 @@ export interface PlayerConfig {
   jerseyNumber: number | null;   // Số áo, e.g. 10 (có thể để trống)
   updatedAt?: string | number | Date | null;
   avatarVersion?: string | number | null;
+  avatarUrl?: string | null;
 }
