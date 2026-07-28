@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getMatchHistory } from '@/lib/history';
+import { getMatchHistory, updateMatchHistoryScore } from '@/lib/history';
 
 export const dynamic = 'force-dynamic';
 
