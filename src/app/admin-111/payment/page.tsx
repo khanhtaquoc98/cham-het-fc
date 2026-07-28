@@ -28,6 +28,7 @@ export default function PaymentPage() {
   const [showDrinkModal, setShowDrinkModal] = useState(false);
   const [excludedDrinkPlayers, setExcludedDrinkPlayers] = useState<string[]>([]);
   const [showOneTeamModal, setShowOneTeamModal] = useState(false);
+  const [showFinalCheckoutModal, setShowFinalCheckoutModal] = useState(false);
   const [excludedOneTeamPlayers, setExcludedOneTeamPlayers] = useState<string[]>([]);
   const fetchData = useCallback(async () => {
     try {
@@ -536,7 +537,7 @@ export default function PaymentPage() {
                 </button>
               )}
               <button
-                onClick={handleSendNotification}
+                onClick={() => setShowFinalCheckoutModal(true)}
                 disabled={saving || sendingNoti}
                 style={{
                   ...btnPrimary,
@@ -1000,6 +1001,143 @@ export default function PaymentPage() {
                 style={{ flex: 2, padding: '12px', background: 'linear-gradient(135deg, #1976d2, #2196f3)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', color: 'white' }}
               >
                 Đồng ý & Tính toán
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIRM CHỐT THANH TOÁN */}
+      {showFinalCheckoutModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999,
+          padding: '16px',
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '20px',
+            padding: '24px',
+            maxWidth: '460px',
+            width: '100%',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+            border: '1px solid rgba(198,40,40,0.15)',
+          }}>
+            <h3 style={{ margin: '0 0 10px 0', fontSize: '18px', fontWeight: 800, color: '#1a1a2e', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>📣</span> Xác nhận Chốt Thanh Toán
+            </h3>
+
+            <p style={{ fontSize: '13px', color: '#555', marginBottom: '16px', lineHeight: 1.5 }}>
+              Vui lòng kiểm tra và cập nhật <b>Tỉ số trận đấu</b> bên dưới trước khi chốt thanh toán & gửi thông báo cho các cầu thủ.
+            </p>
+
+            {/* SCORE INPUTS INSIDE MODAL */}
+            <div style={{
+              background: '#fffafa',
+              borderRadius: '14px',
+              padding: '14px 16px',
+              marginBottom: '16px',
+              border: '1px solid rgba(198,40,40,0.15)',
+            }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#c62828', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                ⚽ Tỉ số trận đấu (Cập nhật trực tiếp)
+              </div>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+                {Object.keys(scores).map((teamName) => (
+                  <div key={teamName} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#333' }}>{teamName}:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={scores[teamName] ?? 0}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        const nextScores = { ...scores, [teamName]: val };
+                        setScores(nextScores);
+                        setLosingTeams(computeLosingTeams(nextScores));
+                      }}
+                      style={{
+                        width: '55px',
+                        padding: '6px',
+                        textAlign: 'center',
+                        borderRadius: '8px',
+                        border: '1.5px solid #c62828',
+                        fontSize: '16px',
+                        fontWeight: 800,
+                        background: 'white',
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* PAYMENT SUMMARY INFO */}
+            {summary && (
+              <div style={{
+                background: '#f8f9fa',
+                borderRadius: '12px',
+                padding: '12px 14px',
+                marginBottom: '20px',
+                fontSize: '12.5px',
+                color: '#444',
+                lineHeight: 1.7,
+                border: '1px solid #eee',
+              }}>
+                <div><b>Tiền sân:</b> {formatVND(summary.fieldCost)} | <b>Tiền nước:</b> {formatVND(summary.drinkCost)}</div>
+                <div><b>Đã thanh toán:</b> {summary.paidCount}/{summary.playerPayments?.length || 0} người ({formatVND(summary.paidAmount)})</div>
+                {summary.unpaidCount > 0 && (
+                  <div style={{ color: '#c62828', fontWeight: 700 }}>
+                    <b>Chưa thanh toán:</b> {summary.unpaidCount} người ({formatVND(summary.unpaidAmount)})
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* MODAL ACTIONS */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setShowFinalCheckoutModal(false)}
+                disabled={sendingNoti}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  border: '1px solid #ccc',
+                  background: '#f5f5f5',
+                  color: '#555',
+                  fontSize: '13.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                ✕ Hủy
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowFinalCheckoutModal(false);
+                  await handleSendNotification();
+                }}
+                disabled={sendingNoti}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #6a1b9a, #8e24aa)',
+                  color: 'white',
+                  fontSize: '13.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(106,27,154,0.3)',
+                }}
+              >
+                {sendingNoti ? '⏳ Đang gửi...' : '📣 Xác nhận & Chốt'}
               </button>
             </div>
           </div>
