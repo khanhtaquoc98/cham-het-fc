@@ -127,29 +127,29 @@ export default function PlayersPage() {
     }
   };
 
-  // Helper to upload image to Supabase Storage
+  // Helper to upload image to Supabase Storage via API route
   const uploadAvatarToSupabase = async (jerseyNum: number | null, playerId: string, file: File): Promise<boolean> => {
     try {
       const filename = jerseyNum != null ? `${jerseyNum}` : playerId;
-      const targetPath = `${filename}.webp`;
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('filename', filename);
 
-      const { error } = await supabase.storage
-        .from('players')
-        .upload(targetPath, file, {
-          cacheControl: '0',
-          upsert: true,
-          contentType: file.type || 'image/webp',
-        });
+      const res = await fetch('/api/players/upload-avatar', {
+        method: 'POST',
+        body: formData,
+      });
 
-      if (error) {
-        console.error('Supabase storage upload error:', error);
-        toast.error('Lỗi upload ảnh lên Supabase: ' + error.message);
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        console.error('Upload avatar API error:', json.error);
+        toast.error('Lỗi upload ảnh: ' + (json.error || 'Thất bại'));
         return false;
       }
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Upload exception:', err);
-      toast.error('Lỗi khi tải ảnh lên Supabase');
+      toast.error('Lỗi khi tải ảnh lên server');
       return false;
     }
   };
