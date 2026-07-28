@@ -475,8 +475,8 @@ function EmptyState({ siteTheme, playerStats, playerConfigs }: { siteTheme: stri
         Đăng ký với Captain để được thêm vào trận đấu sắp tới nhé
       </p>
 
-      {/* WC26 Featured Players Carousel */}
-      {siteTheme === 'worldcup2026' && playerStats.length > 0 && (
+      {/* Featured Players Carousel */}
+      {playerStats.length > 0 && (
         <PlayerCardCarousel
           playerStats={playerStats}
           playerConfigs={playerConfigs.map(c => ({ id: c.id, name: c.name, jerseyNumber: c.jerseyNumber, telegramHandle: c.telegramHandle }))}
@@ -1132,64 +1132,103 @@ export default function Home() {
               </div>
             )}
 
-            {/* Stats */}
-            <div className="stat-bar content-appear stagger-2" style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '24px' }}>
-              <div className="stat-box">
-                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--accent)' }}>{totalPlayers}</div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
-                  Tổng cầu thủ
+            {/* Stats & Rules (Only show when there are teams, teamCount > 0) */}
+            {teamCount > 0 && (
+              <>
+                <div className="stat-bar content-appear stagger-2" style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '24px' }}>
+                  <div className="stat-box">
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--accent)' }}>{totalPlayers}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
+                      Tổng cầu thủ
+                    </div>
+                  </div>
+                  <div className="stat-box">
+                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--accent-dark)' }}>{teamCount}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
+                      Số đội
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="stat-box">
-                <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--accent-dark)' }}>{teamCount}</div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
-                  Số đội
-                </div>
-              </div>
-            </div>
 
-            {/* Thanh toán Button (nếu đủ thông tin) */}
-            {paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0 && (
-              <div className="content-appear stagger-3" style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px', marginTop: '24px' }}>
-                <Link href="/payment" style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  background: 'linear-gradient(135deg, #e53935, #ef5350)',
-                  color: 'white', padding: '12px 24px', borderRadius: '12px',
-                  textDecoration: 'none', fontWeight: 700, fontSize: '15px',
-                  boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
-                  transition: 'transform 0.2s ease'
+                {/* Thanh toán Button (nếu đủ thông tin) */}
+                {paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0 && (
+                  <div className="content-appear stagger-3" style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px', marginTop: '24px' }}>
+                    <Link href="/payment" style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      background: 'linear-gradient(135deg, #e53935, #ef5350)',
+                      color: 'white', padding: '12px 24px', borderRadius: '12px',
+                      textDecoration: 'none', fontWeight: 700, fontSize: '15px',
+                      boxShadow: '0 4px 12px rgba(229,57,53,0.3)',
+                      transition: 'transform 0.2s ease'
+                    }}>
+                      <CreditCard size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thanh toán trận này
+                    </Link>
+                  </div>
+                )}
+
+                {/* Teams Grid */}
+                <div className="teams-grid content-appear stagger-3" style={{
+                  display: 'grid',
+                  gridTemplateColumns: teamCount === 2 ? '1fr auto 1fr' : `repeat(${teamCount}, 1fr)`,
+                  gap: teamCount === 2 ? '0' : '16px',
+                  alignItems: 'start',
                 }}>
-                  <CreditCard size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> Thanh toán trận này
-                </Link>
-              </div>
+                  {matchData.teams.map((team, i) =>
+                    teamCount === 2 ? (
+                      <div key={team.name} style={{ display: 'contents' }}>
+                        <TeamCard team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} siteTheme={siteTheme} />
+                        {i === 0 && (
+                          <div className="vs-badge-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', alignSelf: 'center' }}>
+                            <div className="vs-badge">VS</div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <TeamCard key={team.name} team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} siteTheme={siteTheme} />
+                    )
+                  )}
+                </div>
+
+                <RulesSection teamCount={teamCount} />
+              </>
             )}
 
-            {/* Teams Grid */}
-            <div className="teams-grid content-appear stagger-3" style={{
-              display: 'grid',
-              gridTemplateColumns: teamCount === 2 ? '1fr auto 1fr' : `repeat(${teamCount}, 1fr)`,
-              gap: teamCount === 2 ? '0' : '16px',
-              alignItems: 'start',
-            }}>
-              {matchData.teams.map((team, i) =>
-                teamCount === 2 ? (
-                  <div key={team.name} style={{ display: 'contents' }}>
-                    <TeamCard team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} siteTheme={siteTheme} />
-                    {i === 0 && (
-                      <div className="vs-badge-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', alignSelf: 'center' }}>
-                        <div className="vs-badge">VS</div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <TeamCard key={team.name} team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} siteTheme={siteTheme} />
-                )
-              )}
-            </div>
-
-          
-
-            <RulesSection teamCount={teamCount} />
+            {/* If NO teams divided yet (teamCount === 0), render Featured Player Cards Carousel */}
+            {teamCount === 0 && playerConfigs.length > 0 && (
+              <div className="content-appear stagger-2" style={{ marginTop: '32px', marginBottom: '32px' }}>
+                <h3 style={{
+                  textAlign: 'center',
+                  fontSize: '16px',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  marginBottom: '16px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}>
+                  ⭐ DANH SÁCH CẦU THỦ ⭐
+                </h3>
+                <PlayerCardCarousel
+                  playerStats={playerStats.map(s => ({
+                    playerName: s.playerName,
+                    playerId: s.playerId,
+                    wins: s.wins,
+                    draws: s.draws,
+                    losses: s.losses,
+                    totalMatches: s.totalMatches,
+                    winRate: s.winRate,
+                  }))}
+                  playerConfigs={playerConfigs.map(c => ({
+                    id: c.id,
+                    name: c.name,
+                    jerseyNumber: c.jerseyNumber,
+                    telegramHandle: c.telegramHandle,
+                    updatedAt: c.updatedAt,
+                    avatarVersion: c.avatarVersion,
+                    avatarUrl: c.avatarUrl,
+                  }))}
+                />
+              </div>
+            )}
           </>
         )}
       </main>

@@ -42,7 +42,21 @@ export async function saveMatchData(matchData: MatchData): Promise<void> {
   }
 }
 
-export async function deleteMatchData(): Promise<void> {
+export async function deleteMatchData(keepBench: boolean = true): Promise<void> {
+  if (keepBench) {
+    const current = await getMatchData();
+    if (current) {
+      const resetData: MatchData = {
+        ...current,
+        teams: [],
+        rawMessage: undefined,
+        updatedAt: new Date().toISOString(),
+      };
+      await saveMatchData(resetData);
+      return;
+    }
+  }
+
   const { error } = await supabase
     .from('match_data')
     .delete()

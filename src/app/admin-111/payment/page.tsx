@@ -1089,11 +1089,11 @@ export default function PaymentPage() {
                 lineHeight: 1.7,
                 border: '1px solid #eee',
               }}>
-                <div><b>Tiền sân:</b> {formatVND(summary.fieldCost)} | <b>Tiền nước:</b> {formatVND(summary.drinkCost)}</div>
-                <div><b>Đã thanh toán:</b> {summary.paidCount}/{summary.playerPayments?.length || 0} người ({formatVND(summary.paidAmount)})</div>
-                {summary.unpaidCount > 0 && (
+                <div><b>Tiền sân:</b> {formatVND(Number(fieldCost) || 0)} | <b>Tiền nước:</b> {formatVND(Number(drinkCost) || 0)}</div>
+                <div><b>Đã thanh toán:</b> {paidCount}/{playerPayments.length} người ({formatVND(paidAmount)})</div>
+                {playerPayments.length - paidCount > 0 && (
                   <div style={{ color: '#c62828', fontWeight: 700 }}>
-                    <b>Chưa thanh toán:</b> {summary.unpaidCount} người ({formatVND(summary.unpaidAmount)})
+                    <b>Chưa thanh toán:</b> {playerPayments.length - paidCount} người ({formatVND(totalAmount - paidAmount)})
                   </div>
                 )}
               </div>
