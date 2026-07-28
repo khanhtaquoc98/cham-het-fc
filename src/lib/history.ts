@@ -200,8 +200,12 @@ function findMatchingPlayerConfig(
     }
   }
 
-  // Priority 2: match by subNames
+  // Priority 2: Exact MAIN NAME match
   const normalized = playerName.trim().toLowerCase();
+  const exactNameMatch = playerConfigs.find(c => c.name.trim().toLowerCase() === normalized);
+  if (exactNameMatch) return { id: exactNameMatch.id };
+
+  // Priority 3: match by subNames
   for (const config of playerConfigs) {
     for (const sub of config.subNames) {
       if (sub.trim().toLowerCase() === normalized) return { id: config.id };

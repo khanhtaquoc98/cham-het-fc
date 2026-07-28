@@ -82,8 +82,12 @@ function findMatchingPlayer(playerName: string, telegramHandle: string | undefin
     }
   }
 
-  // Priority 2: match by subNames
+  // Priority 2: Exact MAIN NAME match
   const normalized = playerName.trim().toLowerCase();
+  const exactNameMatch = playerConfigs.find(c => c.name.trim().toLowerCase() === normalized);
+  if (exactNameMatch) return exactNameMatch;
+
+  // Priority 3: match by subNames
   for (const config of playerConfigs) {
     for (const sub of config.subNames) {
       if (sub.trim().toLowerCase() === normalized) return config;
@@ -237,10 +241,11 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
             losses: stat?.losses || 0,
             totalMatches: stat?.totalMatches || 0,
             winRate: stat?.winRate || 0,
-            jerseyNumber: matched?.jerseyNumber || null,
+            jerseyNumber: matched?.jerseyNumber ?? null,
             telegramHandle: player.telegramHandle || matched?.telegramHandle || null,
             updatedAt: matched?.updatedAt || null,
             avatarVersion: matched?.avatarVersion || null,
+            avatarUrl: matched?.avatarUrl || null,
           };
 
           return (
@@ -1080,8 +1085,11 @@ export default function Home() {
                         losses: stat?.losses || 0,
                         totalMatches: stat?.totalMatches || 0,
                         winRate: stat?.winRate || 0,
-                        jerseyNumber: matched?.jerseyNumber || null,
+                        jerseyNumber: matched?.jerseyNumber ?? null,
                         telegramHandle: player.telegramHandle || matched?.telegramHandle || null,
+                        updatedAt: matched?.updatedAt || null,
+                        avatarVersion: matched?.avatarVersion || null,
+                        avatarUrl: matched?.avatarUrl || null,
                       };
                       return (
                         <PlayerHoverCard key={idx} player={cardData}>

@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   images: {
-    minimumCacheTTL: 31536000, // Cache optimized images for 1 year
+    minimumCacheTTL: 300, // Cache optimized images for 5 minutes (300s)
     remotePatterns: [
       {
         protocol: "https",

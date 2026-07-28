@@ -293,15 +293,17 @@ export default function PlayersPage() {
     }
   };
 
-  const filteredPlayers = players.filter((p) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.trim().toLowerCase();
-    const nameMatch = p.name.toLowerCase().includes(q);
-    const subMatch = (p.subNames || []).some((s) => s.toLowerCase().includes(q));
-    const teleMatch = (p.telegramHandle || '').toLowerCase().includes(q);
-    const jerseyMatch = p.jerseyNumber != null && String(p.jerseyNumber).includes(q);
-    return nameMatch || subMatch || teleMatch || jerseyMatch;
-  });
+  const filteredPlayers = players
+    .filter((p) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.trim().toLowerCase();
+      const nameMatch = p.name.toLowerCase().includes(q);
+      const subMatch = (p.subNames || []).some((s) => s.toLowerCase().includes(q));
+      const teleMatch = (p.telegramHandle || '').toLowerCase().includes(q);
+      const jerseyMatch = p.jerseyNumber != null && String(p.jerseyNumber).includes(q);
+      return nameMatch || subMatch || teleMatch || jerseyMatch;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'vi', { sensitivity: 'base' }));
 
   return (
     <>
@@ -738,14 +740,20 @@ export default function PlayersPage() {
 // Vertical Player Avatar Helper Component (Handles Fallbacks Smoothly)
 function PlayerVerticalAvatar({ player, size = 84 }: { player: PlayerConfig; size?: number }) {
   const [imgError, setImgError] = useState(false);
+  const [cacheBuster, setCacheBuster] = useState(() => Date.now());
   const filename = player?.jerseyNumber != null ? player.jerseyNumber : (player?.id || 'unknown');
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  useEffect(() => {
+    setImgError(false);
+    setCacheBuster(Date.now());
+  }, [player?.avatarVersion, player?.avatarUrl, player?.updatedAt, player?.jerseyNumber, player?.id]);
 
   const versionParam = player?.updatedAt
     ? `?v=${new Date(player.updatedAt).getTime()}`
     : player?.avatarVersion
     ? `?v=${player.avatarVersion}`
-    : '';
+    : `?v=${cacheBuster}`;
 
   const rawImgSrc = player?.avatarUrl
     ? player.avatarUrl
@@ -753,17 +761,15 @@ function PlayerVerticalAvatar({ player, size = 84 }: { player: PlayerConfig; siz
     ? `${supabaseUrl}/storage/v1/object/public/players/${filename}.webp`
     : `/player/${filename}.webp`;
 
-  const imgSrc = rawImgSrc.includes('?') || rawImgSrc.startsWith('data:')
+  const imgSrc = rawImgSrc.startsWith('data:')
     ? rawImgSrc
+    : rawImgSrc.includes('?')
+    ? `${rawImgSrc}&t=${cacheBuster}`
     : `${rawImgSrc}${versionParam}`;
-
-  useEffect(() => {
-    setImgError(false);
-  }, [player?.avatarVersion, player?.avatarUrl, player?.updatedAt, player?.jerseyNumber]);
 
   return (
     <div style={{ position: 'relative', width: `${size}px`, height: `${size}px`, margin: '0 auto', flexShrink: 0 }}>
-      {imgError || !supabaseUrl ? (
+      {imgError ? (
         <div style={{
           width: `${size}px`,
           height: `${size}px`,
@@ -777,13 +783,12 @@ function PlayerVerticalAvatar({ player, size = 84 }: { player: PlayerConfig; siz
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 6px 16px rgba(229,57,53,0.25)',
-          border: '3px solid white',
         }}>
           {player.jerseyNumber != null ? `#${player.jerseyNumber}` : player.name.charAt(0).toUpperCase()}
         </div>
       ) : (
         <img
+          key={imgSrc}
           src={imgSrc}
           alt={player.name}
           onError={() => setImgError(true)}

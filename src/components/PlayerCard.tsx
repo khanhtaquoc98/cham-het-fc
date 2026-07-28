@@ -35,14 +35,15 @@ export function PlayerCard({ player, style, className, externalRotate }: {
   const [rotate, setRotate] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
 
-  const filename = player?.jerseyNumber || player?.playerId || 'unknown';
+  const [cacheBuster, setCacheBuster] = useState(() => Date.now());
+  const filename = player?.jerseyNumber != null ? player.jerseyNumber : (player?.playerId || 'unknown');
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   const versionParam = player?.updatedAt
     ? `?v=${new Date(player.updatedAt).getTime()}`
     : player?.avatarVersion
     ? `?v=${player.avatarVersion}`
-    : '';
+    : `?v=${cacheBuster}`;
 
   const rawImgSrc = player?.avatarUrl
     ? player.avatarUrl
@@ -50,7 +51,11 @@ export function PlayerCard({ player, style, className, externalRotate }: {
     ? `${supabaseUrl}/storage/v1/object/public/players/${filename}.webp`
     : `/player/${filename}.webp`;
 
-  const imgSrc = rawImgSrc.includes('?') ? rawImgSrc : `${rawImgSrc}${versionParam}`;
+  const imgSrc = rawImgSrc.startsWith('data:')
+    ? rawImgSrc
+    : rawImgSrc.includes('?')
+    ? `${rawImgSrc}&t=${cacheBuster}`
+    : `${rawImgSrc}${versionParam}`;
 
   const fallbackSrc = supabaseUrl
     ? `${supabaseUrl}/storage/v1/object/public/players/unknown.webp`
@@ -60,7 +65,8 @@ export function PlayerCard({ player, style, className, externalRotate }: {
   useEffect(() => {
     setIsLoaded(false);
     setImgError(false);
-  }, [imgSrc]);
+    setCacheBuster(Date.now());
+  }, [player?.avatarVersion, player?.avatarUrl, player?.updatedAt, player?.jerseyNumber, player?.playerId]);
 
   const winRateColor = player.winRate >= 50 ? '#4CAF50' : player.winRate >= 30 ? '#FF9800' : '#F44336';
   const winRateBg = player.winRate >= 50 ? 'rgba(76,175,80,0.15)' : player.winRate >= 30 ? 'rgba(255,152,0,0.15)' : 'rgba(244,67,54,0.15)';
@@ -222,7 +228,7 @@ export function PlayerCard({ player, style, className, externalRotate }: {
 
 export function PlayerCardCarousel({ playerStats, playerConfigs }: {
   playerStats: PlayerCardData[];
-  playerConfigs: { id: string; name: string; jerseyNumber: number | null; telegramHandle?: string | null }[];
+  playerConfigs: { id: string; name: string; jerseyNumber: number | null; telegramHandle?: string | null; updatedAt?: string | number | Date | null; avatarVersion?: string | number | null; avatarUrl?: string | null }[];
 }) {
   const allPlayers = playerConfigs.map(config => {
     const stat = playerStats.find(s =>
@@ -238,8 +244,11 @@ export function PlayerCardCarousel({ playerStats, playerConfigs }: {
       losses: stat?.losses || 0,
       totalMatches: stat?.totalMatches || 0,
       winRate: stat?.winRate || 0,
-      jerseyNumber: config.jerseyNumber || null,
+      jerseyNumber: config.jerseyNumber ?? null,
       telegramHandle: config.telegramHandle || stat?.telegramHandle || null,
+      updatedAt: config.updatedAt || null,
+      avatarVersion: config.avatarVersion || null,
+      avatarUrl: config.avatarUrl || null,
     };
   });
 
