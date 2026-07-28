@@ -1195,18 +1195,7 @@ export default function Home() {
 
             {/* If NO teams divided yet (teamCount === 0), render Featured Player Cards Carousel */}
             {teamCount === 0 && playerConfigs.length > 0 && (
-              <div className="content-appear stagger-2" style={{ marginTop: '32px', marginBottom: '32px' }}>
-                <h3 style={{
-                  textAlign: 'center',
-                  fontSize: '16px',
-                  fontWeight: 800,
-                  color: 'var(--text-primary)',
-                  marginBottom: '16px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px',
-                }}>
-                  ⭐ DANH SÁCH CẦU THỦ ⭐
-                </h3>
+              <div className="content-appear stagger-2" style={{ marginTop: '24px', marginBottom: '24px' }}>
                 <PlayerCardCarousel
                   playerStats={playerStats.map(s => ({
                     playerName: s.playerName,

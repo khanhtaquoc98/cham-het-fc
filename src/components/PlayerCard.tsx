@@ -151,6 +151,7 @@ export function PlayerCard({ player, style, className, externalRotate }: {
         <div className="panini-player-img">
           {hasImage ? (
             <Image
+              unoptimized
               src={imgSrc}
               alt={player.playerName}
               width={200}
@@ -169,6 +170,7 @@ export function PlayerCard({ player, style, className, externalRotate }: {
           ) : (
           <div className="panini-placeholder">
             <Image
+              unoptimized
               src={fallbackSrc}
               alt="Unknown player"
               width={200}
