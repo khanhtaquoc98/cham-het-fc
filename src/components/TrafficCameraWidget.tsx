@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Camera, RefreshCw, Maximize2, X, ExternalLink, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Camera, RefreshCw, Maximize2, X, ExternalLink, AlertTriangle, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface TrafficCameraWidgetProps {
   initialUrl?: string;
@@ -16,10 +16,11 @@ export default function TrafficCameraWidget({
   const [loadingConfig, setLoadingConfig] = useState<boolean>(!initialUrl);
   const [timestamp, setTimestamp] = useState<number>(Date.now());
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [useProxy, setUseProxy] = useState<boolean>(false);
+  const [useProxy, setUseProxy] = useState<boolean>(true);
   const [imgError, setImgError] = useState<boolean>(false);
   const [countdown, setCountdown] = useState<number>(autoRefreshIntervalSeconds);
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<Date>(new Date());
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -285,124 +286,146 @@ export default function TrafficCameraWidget({
             >
               <ExternalLink size={15} />
             </a>
+
+            <button
+              onClick={() => setIsCollapsed((prev) => !prev)}
+              title={isCollapsed ? 'Mở rộng khung camera' : 'Thu gọn khung camera'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '34px',
+                height: '34px',
+                borderRadius: '10px',
+                border: '1px solid var(--border-subtle, rgba(0,0,0,0.1))',
+                background: 'var(--bg-primary, #ffffff)',
+                color: 'var(--text-primary, #1a1a2e)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+            </button>
           </div>
         </div>
 
-        {/* Camera Image Display Container */}
-        <div
-          style={{
-            position: 'relative',
-            width: '100%',
-            aspectRatio: '16/9',
-            maxHeight: '520px',
-            background: '#090a0f',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            overflow: 'hidden',
-          }}
-        >
-          {imgError ? (
-            <div
-              style={{
-                padding: '30px',
-                textAlign: 'center',
-                color: '#ff8a80',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '12px',
-              }}
-            >
-              <AlertTriangle size={36} style={{ color: '#ef5350' }} />
-              <div style={{ fontSize: '14px', fontWeight: 600 }}>
-                Không thể tải hình ảnh từ camera
-              </div>
-              <div style={{ fontSize: '12px', color: '#b0bec5', maxWidth: '380px' }}>
-                Đường dẫn camera có thể đang tạm gián đoạn hoặc chặn truy cập.
-              </div>
-              <button
-                onClick={refreshImage}
-                style={{
-                  marginTop: '8px',
-                  padding: '8px 18px',
-                  borderRadius: '8px',
-                  background: 'linear-gradient(135deg, #e53935, #c62828)',
-                  color: 'white',
-                  border: 'none',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                Thử lại
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                key={timestamp}
-                src={getImgSrc()}
-                alt="Traffic Camera Live Stream"
-                onLoad={handleImageLoad}
-                onError={handleImageError}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain',
-                  display: 'block',
-                  opacity: isRefreshing ? 0.7 : 1,
-                  transition: 'opacity 0.2s ease',
-                }}
-              />
-
-              {/* Top Watermark Overlay */}
+        {/* Camera Image Display Container (Collapsible) */}
+        {!isCollapsed && (
+          <div
+            style={{
+              position: 'relative',
+              width: '100%',
+              aspectRatio: '16/9',
+              maxHeight: '520px',
+              background: '#090a0f',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+            }}
+          >
+            {imgError ? (
               <div
                 style={{
-                  position: 'absolute',
-                  top: '12px',
-                  left: '12px',
-                  background: 'rgba(0, 0, 0, 0.65)',
-                  backdropFilter: 'blur(8px)',
-                  padding: '5px 10px',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '11px',
-                  fontWeight: 600,
+                  padding: '30px',
+                  textAlign: 'center',
+                  color: '#ff8a80',
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
-                  gap: '6px',
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  pointerEvents: 'none',
+                  gap: '12px',
                 }}
               >
-                <ShieldCheck size={13} style={{ color: '#4caf50' }} />
-                <span>TP. Hồ Chí Minh • Camera Handler</span>
+                <AlertTriangle size={36} style={{ color: '#ef5350' }} />
+                <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                  Không thể tải hình ảnh từ camera
+                </div>
+                <div style={{ fontSize: '12px', color: '#b0bec5', maxWidth: '380px' }}>
+                  Đường dẫn camera có thể đang tạm gián đoạn hoặc chặn truy cập.
+                </div>
+                <button
+                  onClick={refreshImage}
+                  style={{
+                    marginTop: '8px',
+                    padding: '8px 18px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #e53935, #c62828)',
+                    color: 'white',
+                    border: 'none',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Thử lại
+                </button>
               </div>
+            ) : (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  key={timestamp}
+                  src={getImgSrc()}
+                  alt="Traffic Camera Live Stream"
+                  onLoad={handleImageLoad}
+                  onError={handleImageError}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    display: 'block',
+                    opacity: isRefreshing ? 0.7 : 1,
+                    transition: 'opacity 0.2s ease',
+                  }}
+                />
 
-              {/* Bottom Live Bar Overlay */}
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: '12px',
-                  right: '12px',
-                  background: 'rgba(0, 0, 0, 0.65)',
-                  backdropFilter: 'blur(8px)',
-                  padding: '5px 10px',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  border: '1px solid rgba(255, 255, 255, 0.15)',
-                  pointerEvents: 'none',
-                }}
-              >
-                Refetch: 1 phút/lần ({countdown}s)
-              </div>
-            </>
-          )}
-        </div>
+                {/* Top Watermark Overlay */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '12px',
+                    left: '12px',
+                    background: 'rgba(0, 0, 0, 0.65)',
+                    backdropFilter: 'blur(8px)',
+                    padding: '5px 10px',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <ShieldCheck size={13} style={{ color: '#4caf50' }} />
+                  <span>TP. Hồ Chí Minh • Camera Handler</span>
+                </div>
+
+                {/* Bottom Live Bar Overlay */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: '12px',
+                    right: '12px',
+                    background: 'rgba(0, 0, 0, 0.65)',
+                    backdropFilter: 'blur(8px)',
+                    padding: '5px 10px',
+                    borderRadius: '8px',
+                    color: 'white',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  Refetch: 1 phút/lần ({countdown}s)
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Fullscreen Expand Modal */}
