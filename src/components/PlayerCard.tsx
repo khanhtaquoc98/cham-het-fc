@@ -14,6 +14,9 @@ export interface PlayerCardData {
   winRate: number;
   jerseyNumber?: number | null;
   telegramHandle?: string | null;
+  updatedAt?: string | number | Date | null;
+  avatarVersion?: string | number | null;
+  avatarUrl?: string | null;
 }
 
 /* =============================================
@@ -34,9 +37,21 @@ export function PlayerCard({ player, style, className, externalRotate }: {
 
   const filename = player?.jerseyNumber || player?.playerId || 'unknown';
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const imgSrc = supabaseUrl
+
+  const versionParam = player?.updatedAt
+    ? `?v=${new Date(player.updatedAt).getTime()}`
+    : player?.avatarVersion
+    ? `?v=${player.avatarVersion}`
+    : '';
+
+  const rawImgSrc = player?.avatarUrl
+    ? player.avatarUrl
+    : supabaseUrl
     ? `${supabaseUrl}/storage/v1/object/public/players/${filename}.webp`
     : `/player/${filename}.webp`;
+
+  const imgSrc = rawImgSrc.includes('?') ? rawImgSrc : `${rawImgSrc}${versionParam}`;
+
   const fallbackSrc = supabaseUrl
     ? `${supabaseUrl}/storage/v1/object/public/players/unknown.webp`
     : `/player/unknown.webp`;

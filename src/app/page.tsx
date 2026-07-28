@@ -239,6 +239,8 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
             winRate: stat?.winRate || 0,
             jerseyNumber: matched?.jerseyNumber || null,
             telegramHandle: player.telegramHandle || matched?.telegramHandle || null,
+            updatedAt: matched?.updatedAt || null,
+            avatarVersion: matched?.avatarVersion || null,
           };
 
           return (

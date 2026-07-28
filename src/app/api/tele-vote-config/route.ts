@@ -17,8 +17,7 @@ export const DEFAULT_VOTE_CONFIG: TeleVoteConfig = {
 };
 
 const VOTE_CONFIG_KEY = 'config_vote_tele';
-const THIRD_PARTY_API_URL = 'https://chiateam-admin.vercel.app/api/proxy/api/bot-storage';
-const THIRD_PARTY_COOKIE = 'chiateam_admin_session=eyJyb2xlIjoidmlld2VyIiwiZXhwaXJlc0F0IjoxNzg1MTc3NTA5NDYxfQ.5p1ryeW3bqpIF0OHDBCs9is7JC3AbleRVxcmTFf_eus';
+const THIRD_PARTY_API_URL = 'https://api-production-6834.up.railway.app/api/bot-storage';
 
 async function fetchThirdPartyActiveVote() {
   try {
@@ -26,10 +25,6 @@ async function fetchThirdPartyActiveVote() {
       method: 'GET',
       headers: {
         'accept': 'application/json, text/plain, */*',
-        'accept-language': 'en-US,en;q=0.9',
-        'cache-control': 'max-age=0',
-        'cookie': THIRD_PARTY_COOKIE,
-        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36'
       },
       cache: 'no-store'
     });

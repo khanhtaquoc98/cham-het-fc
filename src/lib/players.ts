@@ -18,6 +18,8 @@ export async function getPlayers(): Promise<PlayerConfig[]> {
     subNames: row.sub_names || [],
     telegramHandle: row.telegram_handle || '',
     jerseyNumber: row.jersey_number,
+    updatedAt: row.created_at || null,
+    avatarVersion: row.avatar_version || null,
   }));
 }
 
@@ -31,6 +33,7 @@ export async function savePlayers(players: PlayerConfig[]): Promise<void> {
     sub_names: p.subNames,
     telegram_handle: p.telegramHandle || '',
     jersey_number: p.jerseyNumber,
+    avatar_version: p.avatarVersion || null,
   }));
 
   const { error } = await supabase.from('players').insert(rows);
@@ -64,7 +67,9 @@ export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 
   if (data.subNames !== undefined) updateObj.sub_names = data.subNames;
   if (data.telegramHandle !== undefined) updateObj.telegram_handle = data.telegramHandle;
   if (data.jerseyNumber !== undefined) updateObj.jersey_number = data.jerseyNumber;
+  if (data.avatarVersion !== undefined) updateObj.avatar_version = data.avatarVersion;
 
+  // Try standard update first
   const { data: updated, error } = await supabase
     .from('players')
     .update(updateObj)
@@ -72,16 +77,52 @@ export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 
     .select()
     .single();
 
-  if (error || !updated) {
+  if (!error && updated) {
+    return {
+      id: updated.id,
+      name: updated.name,
+      subNames: updated.sub_names || [],
+      telegramHandle: updated.telegram_handle || '',
+      jerseyNumber: updated.jersey_number,
+      avatarVersion: updated.avatar_version || null,
+    };
+  }
+
+  // Fallback: If row doesn't exist in Supabase DB yet (e.g. came from DEFAULT_PLAYERS), upsert it!
+  const defaultPlayer = DEFAULT_PLAYERS.find(p => p.id === id);
+  const newName = (data.name !== undefined ? data.name : defaultPlayer?.name) || 'Unknown';
+  const newSubNames = data.subNames !== undefined ? data.subNames : (defaultPlayer?.subNames || []);
+  const newTele = data.telegramHandle !== undefined ? data.telegramHandle : (defaultPlayer?.telegramHandle || '');
+  const newJersey = data.jerseyNumber !== undefined ? data.jerseyNumber : (defaultPlayer?.jerseyNumber ?? null);
+  const newAvatarVer = data.avatarVersion !== undefined ? data.avatarVersion : null;
+
+  const upsertRow = {
+    id,
+    name: newName,
+    sub_names: newSubNames,
+    telegram_handle: newTele,
+    jersey_number: newJersey,
+    avatar_version: newAvatarVer,
+  };
+
+  const { data: upserted, error: upsertError } = await supabase
+    .from('players')
+    .upsert(upsertRow, { onConflict: 'id' })
+    .select()
+    .single();
+
+  if (upsertError || !upserted) {
+    console.error('Failed to update/upsert player:', error || upsertError);
     return null;
   }
 
   return {
-    id: updated.id,
-    name: updated.name,
-    subNames: updated.sub_names || [],
-    telegramHandle: updated.telegram_handle || '',
-    jerseyNumber: updated.jersey_number,
+    id: upserted.id,
+    name: upserted.name,
+    subNames: upserted.sub_names || [],
+    telegramHandle: upserted.telegram_handle || '',
+    jerseyNumber: upserted.jersey_number,
+    avatarVersion: upserted.avatar_version || null,
   };
 }
 

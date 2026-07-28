@@ -43,7 +43,9 @@ export async function PUT(request: Request) {
     }
 
     if (data.jerseyNumber !== undefined) {
-      data.jerseyNumber = Number(data.jerseyNumber);
+      data.jerseyNumber = data.jerseyNumber !== null && data.jerseyNumber !== '' && !isNaN(Number(data.jerseyNumber))
+        ? Number(data.jerseyNumber)
+        : null;
     }
 
     const updated = await updatePlayer(id, data);

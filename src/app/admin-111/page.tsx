@@ -1101,8 +1101,16 @@ export default function VenuePage() {
                   onClick={() => loadLiveVoters()}
                   style={{ background: 'transparent', border: 'none', color: '#0088cc', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
                 >
-
                   {loadingVotersList ? '⏳ Đang tải...' : '🔄 Tải lại từ API'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenSyncModal}
+                  disabled={syncingVoters}
+                  style={{ background: '#4CAF50', border: 'none', color: '#ffffff', fontSize: '12px', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px', opacity: syncingVoters ? 0.6 : 1 }}
+                >
+                  <RefreshCw size={13} style={{ display: 'inline', verticalAlign: 'middle' }} className={syncingVoters ? 'spin' : ''} />
+                  {syncingVoters ? 'Đang tải vote...' : 'Sync Vote lên Bench'}
                 </button>
               </div>
             </div>
@@ -1216,113 +1224,114 @@ export default function VenuePage() {
             )}
           </div>
 
+          {voteConfig.provider !== 'third_party' && (
+            <>
+              <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Tiêu đề (Title)</label>
+                  <input 
+                    style={inputStyle} 
+                    placeholder="16/7 - 19h30 - Deadline 12h 14/7" 
+                    value={voteConfig.title || ''}
+                    onChange={e => setVoteConfig(c => ({ ...c, title: e.target.value }))} 
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Chat ID</label>
+                  <input 
+                    style={inputStyle} 
+                    placeholder="-1001505319885" 
+                    value={voteConfig.chat_id || ''}
+                    onChange={e => setVoteConfig(c => ({ ...c, chat_id: e.target.value }))} 
+                  />
+                </div>
+              </div>
 
-          <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
+              <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Thread ID (Topic ID)</label>
+                  <input 
+                    style={inputStyle} 
+                    placeholder="61897" 
+                    value={voteConfig.thread_id || ''}
+                    onChange={e => setVoteConfig(c => ({ ...c, thread_id: e.target.value }))} 
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Poll ID</label>
+                  <input 
+                    style={inputStyle} 
+                    placeholder="542318491024" 
+                    value={voteConfig.poll_id || ''}
+                    onChange={e => setVoteConfig(c => ({ ...c, poll_id: e.target.value }))} 
+                  />
+                </div>
+              </div>
 
-            <div>
-              <label style={labelStyle}>Tiêu đề (Title)</label>
-              <input 
-                style={inputStyle} 
-                placeholder="16/7 - 19h30 - Deadline 12h 14/7" 
-                value={voteConfig.title || ''}
-                onChange={e => setVoteConfig(c => ({ ...c, title: e.target.value }))} 
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Chat ID</label>
-              <input 
-                style={inputStyle} 
-                placeholder="-1001505319885" 
-                value={voteConfig.chat_id || ''}
-                onChange={e => setVoteConfig(c => ({ ...c, chat_id: e.target.value }))} 
-              />
-            </div>
-          </div>
+              <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
+                <div>
+                  <label style={labelStyle}>Message ID</label>
+                  <input 
+                    style={inputStyle} 
+                    type="number"
+                    placeholder="218583" 
+                    value={voteConfig.message_id || ''}
+                    onChange={e => setVoteConfig(c => ({ ...c, message_id: parseInt(e.target.value) || 0 }))} 
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Lựa chọn (Options - Phân cách bởi dấu phẩy)</label>
+                  <input 
+                    style={inputStyle} 
+                    placeholder="0, +1, +2, +3, +4" 
+                    value={(voteConfig.options || []).join(', ')}
+                    onChange={e => {
+                      const opts = e.target.value.split(',').map(s => s.trim());
+                      setVoteConfig(c => ({ ...c, options: opts }));
+                    }} 
+                  />
+                </div>
+              </div>
 
-          <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
-            <div>
-              <label style={labelStyle}>Thread ID (Topic ID)</label>
-              <input 
-                style={inputStyle} 
-                placeholder="61897" 
-                value={voteConfig.thread_id || ''}
-                onChange={e => setVoteConfig(c => ({ ...c, thread_id: e.target.value }))} 
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Poll ID</label>
-              <input 
-                style={inputStyle} 
-                placeholder="542318491024" 
-                value={voteConfig.poll_id || ''}
-                onChange={e => setVoteConfig(c => ({ ...c, poll_id: e.target.value }))} 
-              />
-            </div>
-          </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', textTransform: 'none' }}>
+                  <input 
+                    type="checkbox"
+                    checked={voteConfig.is_anonymous || false}
+                    onChange={e => setVoteConfig(c => ({ ...c, is_anonymous: e.target.checked }))}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <span>Vote ẩn danh (is_anonymous)</span>
+                </label>
+              </div>
 
-          <div className="admin-form-grid-2" style={{ marginBottom: '12px' }}>
-            <div>
-              <label style={labelStyle}>Message ID</label>
-              <input 
-                style={inputStyle} 
-                type="number"
-                placeholder="218583" 
-                value={voteConfig.message_id || ''}
-                onChange={e => setVoteConfig(c => ({ ...c, message_id: parseInt(e.target.value) || 0 }))} 
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Lựa chọn (Options - Phân cách bởi dấu phẩy)</label>
-              <input 
-                style={inputStyle} 
-                placeholder="0, +1, +2, +3, +4" 
-                value={(voteConfig.options || []).join(', ')}
-                onChange={e => {
-                  const opts = e.target.value.split(',').map(s => s.trim());
-                  setVoteConfig(c => ({ ...c, options: opts }));
-                }} 
-              />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', textTransform: 'none' }}>
-              <input 
-                type="checkbox"
-                checked={voteConfig.is_anonymous || false}
-                onChange={e => setVoteConfig(c => ({ ...c, is_anonymous: e.target.checked }))}
-                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-              />
-              <span>Vote ẩn danh (is_anonymous)</span>
-            </label>
-          </div>
-
-          <div className="admin-save-row" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <button 
-              style={{ ...btnPrimary, background: 'linear-gradient(135deg, #0088cc, #00a8ff)', opacity: voteCreating ? 0.6 : 1 }} 
-              onClick={handleCreateVote} 
-              disabled={voteCreating}
-            >
-              <Vote size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
-              {voteCreating ? 'Đang tạo vote...' : 'Tạo vote'}
-            </button>
-            <button 
-              style={{ ...btnBase, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', opacity: voteConfigSaving ? 0.6 : 1 }} 
-              onClick={() => handleSaveVoteConfig()} 
-              disabled={voteConfigSaving}
-            >
-
-              {voteConfigSaving ? 'Đang lưu...' : 'Lưu config vote tele'}
-            </button>
-            <button 
-              style={{ ...btnBase, background: '#4CAF50', color: 'white', opacity: syncingVoters ? 0.6 : 1 }} 
-              onClick={handleOpenSyncModal} 
-              disabled={syncingVoters}
-            >
-              <RefreshCw size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} className={syncingVoters ? 'spin' : ''} />
-              {syncingVoters ? 'Đang tải vote...' : 'Sync Vote lên Bench'}
-            </button>
-          </div>
+              <div className="admin-save-row" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <button 
+                  style={{ ...btnPrimary, background: 'linear-gradient(135deg, #0088cc, #00a8ff)', opacity: voteCreating ? 0.6 : 1 }} 
+                  onClick={handleCreateVote} 
+                  disabled={voteCreating}
+                >
+                  <Vote size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
+                  {voteCreating ? 'Đang tạo vote...' : 'Tạo vote'}
+                </button>
+                <button 
+                  style={{ ...btnBase, background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', opacity: voteConfigSaving ? 0.6 : 1 }} 
+                  onClick={() => handleSaveVoteConfig()} 
+                  disabled={voteConfigSaving}
+                >
+                  {voteConfigSaving ? 'Đang lưu...' : 'Lưu config vote tele'}
+                </button>
+                <button 
+                  style={{ ...btnBase, background: '#4CAF50', color: 'white', opacity: syncingVoters ? 0.6 : 1 }} 
+                  onClick={handleOpenSyncModal} 
+                  disabled={syncingVoters}
+                >
+                  <RefreshCw size={15} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} className={syncingVoters ? 'spin' : ''} />
+                  {syncingVoters ? 'Đang tải vote...' : 'Sync Vote lên Bench'}
+                </button>
+              </div>
+            </>
+          )}
           
           <hr style={{ margin: '32px 0', borderTop: '1px solid var(--border-subtle)' }} />
 

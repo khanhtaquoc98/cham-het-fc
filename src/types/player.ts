@@ -4,4 +4,6 @@ export interface PlayerConfig {
   subNames: string[];     // Các tên viết tắt/biệt danh, e.g. ["Khanh", "Khanh3", "aKai"]
   telegramHandle: string; // Telegram handle, e.g. "@khanhtaquoc" (không bắt buộc)
   jerseyNumber: number | null;   // Số áo, e.g. 10 (có thể để trống)
+  updatedAt?: string | number | Date | null;
+  avatarVersion?: string | number | null;
 }
