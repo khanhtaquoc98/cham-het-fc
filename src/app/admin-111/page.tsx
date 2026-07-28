@@ -23,6 +23,11 @@ export default function VenuePage() {
   const [siteTheme, setSiteTheme] = useState('default');
   const [themeSaving, setThemeSaving] = useState(false);
 
+  // Traffic camera state
+  const [cameraUrl, setCameraUrl] = useState('');
+  const [cameraSaving, setCameraSaving] = useState(false);
+  const [cameraStatus, setCameraStatus] = useState<string | null>(null);
+
   // Tele vote config state
   const [voteConfig, setVoteConfig] = useState<TeleVoteConfig>({
     chat_id: "-1001505319885",
@@ -139,7 +144,61 @@ export default function VenuePage() {
       })
       .catch(err => console.error('Error fetching tele vote config:', err));
 
+    // Fetch traffic camera url
+    fetch('/api/traffic-camera?t=' + Date.now(), { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => setCameraUrl(d.url || ''))
+      .catch(err => console.error('Error fetching traffic camera url:', err));
+
   }, []);
+
+  const handleSaveCamera = async () => {
+    setCameraSaving(true);
+    setCameraStatus(null);
+    try {
+      const res = await fetch('/api/traffic-camera', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: cameraUrl.trim() }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setCameraStatus('✅ Đã lưu URL Camera Giao Thông!');
+        toast.success('Đã lưu cấu hình Camera Giao Thông!');
+      } else {
+        setCameraStatus('❌ Lỗi: ' + (data.error || 'Không rõ'));
+        toast.error('Lỗi khi lưu URL Camera');
+      }
+      setTimeout(() => setCameraStatus(null), 4000);
+    } catch {
+      setCameraStatus('❌ Lỗi kết nối');
+      toast.error('Lỗi kết nối');
+    } finally {
+      setCameraSaving(false);
+    }
+  };
+
+  const handleClearCamera = async () => {
+    setCameraUrl('');
+    setCameraSaving(true);
+    try {
+      const res = await fetch('/api/traffic-camera', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: '' }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setCameraStatus('✅ Đã xóa & ẩn Camera!');
+        toast.success('Đã xóa Camera khỏi Trang Chủ!');
+      }
+      setTimeout(() => setCameraStatus(null), 4000);
+    } catch {
+      setCameraStatus('❌ Lỗi kết nối');
+    } finally {
+      setCameraSaving(false);
+    }
+  };
 
   const handleSaveVenue = async () => {
     setSaving(true);
@@ -750,6 +809,90 @@ export default function VenuePage() {
       <p style={{ fontSize: '12px', color: '#8a8aaa', marginTop: '8px' }}>
         Thay đổi sẽ áp dụng cho tất cả người dùng trên trang chủ.
       </p>
+    </div>
+
+    {/* Traffic Camera Config */}
+    <div className="admin-card" style={{ ...cardStyle, marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+        <h2 className="admin-section-title" style={sectionTitleStyle}>
+          📹 Camera Giao Thông Realtime (Trang Chủ)
+        </h2>
+        {cameraStatus && (
+          <span style={{ fontSize: '12px', color: cameraStatus.startsWith('✅') ? '#2e7d32' : '#e53935', fontWeight: 600 }}>
+            {cameraStatus}
+          </span>
+        )}
+      </div>
+
+      <div style={{ marginBottom: '12px' }}>
+        <label style={labelStyle}>URL Camera (Handler / Stream image)</label>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <input
+            style={{ ...inputStyle, flex: 1, minWidth: '240px' }}
+            placeholder="VD: https://giaothong.hochiminhcity.gov.vn:8007/Render/CameraHandler.ashx?id=6623e7f06f998a001b25244a&bg=black"
+            value={cameraUrl}
+            onChange={(e) => setCameraUrl(e.target.value)}
+          />
+          <button
+            type="button"
+            onClick={() => setCameraUrl('https://giaothong.hochiminhcity.gov.vn:8007/Render/CameraHandler.ashx?id=6623e7f06f998a001b25244a&bg=black')}
+            style={{
+              padding: '8px 14px',
+              borderRadius: '10px',
+              border: '1px solid rgba(198,40,40,0.2)',
+              background: '#fff5f5',
+              fontSize: '12px',
+              fontWeight: 600,
+              color: '#c62828',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            📌 Thử link mẫu TP.HCM
+          </button>
+        </div>
+        <p style={{ fontSize: '11px', color: '#8a8aaa', marginTop: '6px' }}>
+          Nhập đường dẫn camera để hiển thị trực tiếp trên Trang chủ với cơ chế tự động refetch 1 phút/lần. Để trống để ẩn camera.
+        </p>
+      </div>
+
+      {cameraUrl && (
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ fontSize: '11px', color: '#8a8aaa', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase' }}>
+            Xem trước (Live Preview trong Admin):
+          </div>
+          <div style={{ borderRadius: '10px', overflow: 'hidden', border: '1px solid #eee', background: '#000', maxHeight: '200px', display: 'flex', justifyContent: 'center' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/traffic-camera/proxy?url=${encodeURIComponent(cameraUrl)}&_t=${Date.now()}`}
+              alt="Camera Preview"
+              style={{ maxHeight: '200px', objectFit: 'contain' }}
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <button
+          style={{ ...btnPrimary, opacity: cameraSaving ? 0.6 : 1, cursor: cameraSaving ? 'not-allowed' : 'pointer' }}
+          onClick={handleSaveCamera}
+          disabled={cameraSaving}
+        >
+          {cameraSaving ? 'Đang lưu...' : '💾 Lưu URL Camera'}
+        </button>
+        {cameraUrl && (
+          <button
+            style={{ ...btnBase, padding: '10px 24px', borderRadius: '10px', background: '#ffebee', color: '#c62828', fontSize: '14px' }}
+            onClick={handleClearCamera}
+            disabled={cameraSaving}
+          >
+            🗑️ Xóa & Ẩn Camera
+          </button>
+        )}
+      </div>
     </div>
 
     <div className="admin-card" style={cardStyle}>

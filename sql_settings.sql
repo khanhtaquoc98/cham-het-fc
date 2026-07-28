@@ -14,3 +14,7 @@ CREATE POLICY "Allow all app_settings" ON app_settings FOR ALL USING (true) WITH
 -- Insert default ticker row (empty = hidden)
 INSERT INTO app_settings (key, value) VALUES ('announcement_ticker', '')
   ON CONFLICT (key) DO NOTHING;
+
+-- Insert default traffic camera URL row (empty = hidden)
+INSERT INTO app_settings (key, value) VALUES ('traffic_camera_url', '')
+  ON CONFLICT (key) DO NOTHING;

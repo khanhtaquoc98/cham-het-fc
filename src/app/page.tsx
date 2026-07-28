@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import { Trophy, Handshake, XCircle, RefreshCw, Megaphone, Timer, CupSoda, Coins, Dices, CircleDot, ClipboardList, CalendarDays, Clock, MapPin, Ghost, Users, CreditCard, Armchair, Hand, Bell, CheckCircle, Flame } from 'lucide-react';
 import { PlayerCardCarousel, PlayerHoverCard, PlayerCardData } from '@/components/PlayerCard';
 import VoteFloatingWidget from '@/components/VoteFloatingWidget';
+import TrafficCameraWidget from '@/components/TrafficCameraWidget';
 
 interface PlayerStatsSummary {
   playerName: string;
@@ -869,6 +870,9 @@ export default function Home() {
         ) : (
           <>
             <MatchInfoSection matchData={matchData} />
+
+            {/* Traffic Camera Section */}
+            <TrafficCameraWidget />
 
             {/* Bench Section */}
             {matchData.bench !== undefined && !(paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0) && (
