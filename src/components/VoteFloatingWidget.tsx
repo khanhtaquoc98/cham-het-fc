@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { TeleVoteConfig, MatchData } from '@/types/match';
-import { Vote, X, MapPin, Calendar, Clock, Users, ExternalLink, Sparkles, Send, Loader2 } from 'lucide-react';
+import { TeleVoteConfig, MatchData, Player } from '@/types/match';
+import { Vote, X, MapPin, Calendar, Clock, Users, ExternalLink, Sparkles, Send, Loader2, Plus, Trash2, Smartphone, CheckCircle2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface VoteFloatingWidgetProps {
   initialVoteConfig?: TeleVoteConfig | null;
@@ -11,12 +12,15 @@ interface VoteFloatingWidgetProps {
 
 export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData }: VoteFloatingWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'app' | 'telegram'>('all');
   const [voteConfig, setVoteConfig] = useState<TeleVoteConfig | null>(initialVoteConfig || null);
   const [matchData, setMatchData] = useState<MatchData | null>(initialMatchData || null);
   const [hasDismissed, setHasDismissed] = useState(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [thirdPartyVoters, setThirdPartyVoters] = useState<string[]>([]);
+  const [inputName, setInputName] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -66,6 +70,18 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     return () => { isMounted = false; };
   }, []);
 
+  // Listen for match-data-updated events from page.tsx or other components
+  useEffect(() => {
+    const handleDataUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setMatchData((prev) => (prev ? { ...prev, bench: customEvent.detail } : prev));
+      }
+    };
+    window.addEventListener('match-data-updated', handleDataUpdate);
+    return () => window.removeEventListener('match-data-updated', handleDataUpdate);
+  }, []);
+
   const getTelegramUrl = () => {
     if (!voteConfig) return 'https://t.me';
     const { chat_id, message_id, thread_id } = voteConfig;
@@ -81,17 +97,120 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     return `https://t.me/c/${cleanChatId}`;
   };
 
+  const normalizeStr = (str: string) => str.trim().toLowerCase().replace(/^@/, '');
+
+  const checkDuplicateName = (rawName: string): { isDuplicate: boolean; reason?: string } => {
+    const norm = normalizeStr(rawName);
+    if (!norm) return { isDuplicate: false };
+
+    // 1. Check App Bench
+    const benchMatch = (matchData?.bench || []).find(
+      p => normalizeStr(p.name) === norm || (p.telegramHandle && normalizeStr(p.telegramHandle) === norm)
+    );
+    if (benchMatch) {
+      return { isDuplicate: true, reason: `Cầu thủ "${benchMatch.name}" đã có trong điểm danh App!` };
+    }
+
+    // 2. Check Telegram Voters
+    const teleMatch = thirdPartyVoters.find(v => normalizeStr(v) === norm);
+    if (teleMatch) {
+      return { isDuplicate: true, reason: `Cầu thủ "${teleMatch}" đã vote trên Telegram!` };
+    }
+
+    return { isDuplicate: false };
+  };
+
+  const isValidPlayerName = (name: string): boolean => {
+    const nameRegex = /^[a-zA-Z0-9\s+àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴ]+$/;
+    return nameRegex.test(name.trim());
+  };
+
+  const handleAddAppPlayer = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = inputName.trim();
+    if (!trimmed) {
+      toast.error('Vui lòng nhập tên cầu thủ!');
+      return;
+    }
+
+    if (!isValidPlayerName(trimmed)) {
+      toast.error('Tên điểm danh không được chứa ký tự đặc biệt!');
+      return;
+    }
+
+    // Check duplicates across App, Telegram, and Teams
+    const dupCheck = checkDuplicateName(trimmed);
+    if (dupCheck.isDuplicate) {
+      toast.error(dupCheck.reason || 'Tên này đã có trong danh sách!');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const currentBench = matchData?.bench || [];
+      const newPlayer: Player = { name: trimmed, telegramHandle: '' };
+      const newBench = [...currentBench, newPlayer];
+
+      const res = await fetch('/api/match/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bench: newBench }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const updatedBench = json?.matchData?.bench || newBench;
+        setMatchData(prev => prev ? ({ ...prev, bench: updatedBench }) : ({
+          id: '1', bench: updatedBench, teams: [], venue: {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
+        }));
+        setInputName('');
+        toast.success(`Đã điểm danh cho: ${trimmed}`);
+        window.dispatchEvent(new CustomEvent('match-data-updated', { detail: updatedBench }));
+      } else {
+        toast.error('Có lỗi xảy ra khi điểm danh');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi kết nối khi lưu điểm danh');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAppPlayer = async (indexToDelete: number) => {
+    const currentBench = matchData?.bench || [];
+    const playerToDelete = currentBench[indexToDelete];
+    if (!playerToDelete) return;
+
+    setIsSubmitting(true);
+    try {
+      const newBench = currentBench.filter((_, idx) => idx !== indexToDelete);
+      const res = await fetch('/api/match/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bench: newBench }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        const updatedBench = json?.matchData?.bench || newBench;
+        setMatchData(prev => prev ? ({ ...prev, bench: updatedBench }) : null);
+        toast.success(`Đã xoá ${playerToDelete.name} khỏi danh sách`);
+        window.dispatchEvent(new CustomEvent('match-data-updated', { detail: updatedBench }));
+      } else {
+        toast.error('Lỗi khi xoá cầu thủ');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi kết nối');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const benchCount = matchData?.bench?.length || 0;
   const pollTitle = voteConfig?.title || 'Điểm danh trận đấu';
-
-  const isThirdParty = voteConfig?.provider === 'third_party';
-  const displayCount = isThirdParty
-    ? (typeof voteConfig?.total_voters === 'number' ? voteConfig.total_voters : thirdPartyVoters.length)
-    : benchCount;
-
-  const displayVotersList = isThirdParty
-    ? thirdPartyVoters.map(name => ({ name }))
-    : (matchData?.bench || []);
+  const teleCount = typeof voteConfig?.total_voters === 'number' ? voteConfig.total_voters : thirdPartyVoters.length;
 
   if (hasDismissed || voteConfig?.show_vote === false) return null;
 
@@ -103,19 +222,23 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
             position: 'absolute',
             bottom: '70px',
             right: 0,
-            width: '320px',
+            width: '380px',
             maxWidth: 'calc(100vw - 32px)',
+            maxHeight: '80vh',
             background: 'rgba(255, 255, 255, 0.98)',
             backdropFilter: 'blur(16px)',
             WebkitBackdropFilter: 'blur(16px)',
             borderRadius: '20px',
             border: '1px solid rgba(0, 136, 204, 0.2)',
-            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(42, 171, 238, 0.15)',
+            boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(42, 171, 238, 0.2)',
             overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
             animation: 'vote-pop-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             color: '#0f172a',
           }}
         >
+          {/* Header */}
           <div
             style={{
               background: 'linear-gradient(135deg, #0088cc 0%, #2AABEE 100%)',
@@ -124,6 +247,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
               alignItems: 'center',
               justifyContent: 'space-between',
               color: '#ffffff',
+              flexShrink: 0,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -142,9 +266,9 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
               </div>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Vote Điểm Danh Mới
+                  ĐIỂM DANH & BÌNH CHỌN
                 </div>
-                <div style={{ fontSize: '11px', opacity: 0.9 }}>Mở bình chọn trên Telegram</div>
+                <div style={{ fontSize: '11px', opacity: 0.9 }}>Điểm danh trên App hoặc Vote Telegram</div>
               </div>
             </div>
             <button
@@ -167,18 +291,19 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
             </button>
           </div>
 
-          <div style={{ padding: '16px' }}>
+          <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
+            {/* Poll Title Box */}
             <div
               style={{
                 background: '#f0f9ff',
                 border: '1px solid #bae6fd',
                 borderRadius: '12px',
                 padding: '10px 12px',
-                marginBottom: '14px',
+                marginBottom: '12px',
               }}
             >
               <div style={{ fontSize: '11px', color: '#0284c7', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>
-                📌 Tiêu đề Vote
+                📌 Trận đấu
               </div>
               <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a', lineHeight: 1.4 }}>
                 {isLoading ? (
@@ -191,74 +316,263 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', fontSize: '12.5px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155' }}>
-                <Users size={14} color="#0088cc" style={{ flexShrink: 0 }} />
-                <span>
-                  <strong>Đã đăng ký:</strong>{' '}
-                  {isLoading ? (
-                    <span style={{ color: '#0088cc', fontWeight: 600 }}>Đang tải...</span>
-                  ) : (
-                    <span style={{ color: '#16a34a', fontWeight: 700 }}>{displayCount} người</span>
-                  )}
-                </span>
-              </div>
+            {/* Input form to add name on App */}
+            <form onSubmit={handleAddAppPlayer} style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+              <input
+                type="text"
+                placeholder="Nhập tên điểm danh..."
+                value={inputName}
+                onChange={(e) => setInputName(e.target.value)}
+                disabled={isSubmitting}
+                style={{
+                  flex: 1,
+                  padding: '9px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '13px',
+                  outline: 'none',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={isSubmitting || !inputName.trim()}
+                style={{
+                  background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '9px 16px',
+                  borderRadius: '10px',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: isSubmitting || !inputName.trim() ? 'not-allowed' : 'pointer',
+                  opacity: isSubmitting || !inputName.trim() ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Plus size={15} /> Điểm danh
+              </button>
+            </form>
+
+            {/* Filter Tabs: Tất cả, App, Telegram */}
+            <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '12px', marginBottom: '14px' }}>
+              <button
+                onClick={() => setActiveTab('all')}
+                style={{
+                  flex: 1,
+                  padding: '7px 8px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: activeTab === 'all' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'all' ? '#0f172a' : '#64748b',
+                  fontWeight: 700,
+                  fontSize: '11.5px',
+                  cursor: 'pointer',
+                  boxShadow: activeTab === 'all' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                Tất cả ({benchCount + teleCount})
+              </button>
+              <button
+                onClick={() => setActiveTab('app')}
+                style={{
+                  flex: 1,
+                  padding: '7px 8px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: activeTab === 'app' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'app' ? '#0284c7' : '#64748b',
+                  fontWeight: 700,
+                  fontSize: '11.5px',
+                  cursor: 'pointer',
+                  boxShadow: activeTab === 'app' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                📱 App ({benchCount})
+              </button>
+              <button
+                onClick={() => setActiveTab('telegram')}
+                style={{
+                  flex: 1,
+                  padding: '7px 8px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: activeTab === 'telegram' ? '#ffffff' : 'transparent',
+                  color: activeTab === 'telegram' ? '#0088cc' : '#64748b',
+                  fontWeight: 700,
+                  fontSize: '11.5px',
+                  cursor: 'pointer',
+                  boxShadow: activeTab === 'telegram' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                ✈️ Tele ({teleCount})
+              </button>
             </div>
 
-            {isLoading ? (
-              <div style={{ padding: '12px 0', fontSize: '12px', opacity: 0.6, fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Loader2 size={14} className="vote-spin-icon" color="#0088cc" /> Đang tải danh sách cầu thủ...
-              </div>
-            ) : displayVotersList.length > 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '16px', flexWrap: 'wrap', maxHeight: '160px', overflowY: 'auto' }}>
-                {displayVotersList.map((p, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      background: '#e0f2fe',
-                      border: '1px solid #93c5fd',
-                      borderRadius: '16px',
-                      padding: '3px 8px',
-                      fontSize: '11px',
-                      color: '#0369a1',
-                      fontWeight: 600,
-                    }}
-                  >
-                    ⚽ {p.name}
-                  </div>
-                ))}
-              </div>
-            ) : null}
+            {/* List 1: Điểm danh trên App */}
+            {(activeTab === 'all' || activeTab === 'app') && (
+              <div style={{ marginBottom: activeTab === 'all' ? '16px' : '0' }}>
+                <div style={{ fontSize: '12px', color: '#0284c7', fontWeight: 800, marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>📱 ĐIỂM DANH TRÊN APP ({benchCount})</span>
+                  <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>(Ai cũng có quyền thêm/xoá)</span>
+                </div>
 
-            <a
-              href={getTelegramUrl()}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setIsOpen(false)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                width: '100%',
-                padding: '12px',
-                background: 'linear-gradient(135deg, #0088cc 0%, #2AABEE 100%)',
-                color: '#fff',
-                borderRadius: '12px',
-                fontWeight: 700,
-                fontSize: '13.5px',
-                textDecoration: 'none',
-                boxShadow: '0 6px 18px rgba(0, 136, 204, 0.35)',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <span>VOTE NGAY TRÊN TELEGRAM</span>
-              <ExternalLink size={15} />
-            </a>
+                {isLoading ? (
+                  <div style={{ padding: '8px 0', fontSize: '12px', color: '#64748b', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Loader2 size={14} className="vote-spin-icon" color="#0284c7" /> Đang tải danh sách...
+                  </div>
+                ) : (matchData?.bench || []).length > 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', maxHeight: '140px', overflowY: 'auto', padding: '2px' }}>
+                    {(matchData?.bench || []).map((p, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          background: '#e0f2fe',
+                          border: '1px solid #93c5fd',
+                          borderRadius: '16px',
+                          padding: '4px 10px',
+                          fontSize: '11.5px',
+                          color: '#0369a1',
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        <span>⚽ {p.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteAppPlayer(idx)}
+                          disabled={isSubmitting}
+                          title={`Xoá ${p.name}`}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            padding: 0,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            opacity: 0.8,
+                          }}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '8px 0', color: '#94a3b8', fontSize: '12px', fontStyle: 'italic' }}>
+                    Chưa có ai điểm danh trên App
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* List 2: Bình chọn trên Telegram */}
+            {(activeTab === 'all' || activeTab === 'telegram') && (
+              <div>
+                <div style={{ fontSize: '12px', color: '#0088cc', fontWeight: 800, marginBottom: '6px' }}>
+                  ✈️ BÌNH CHỌN TELEGRAM ({teleCount})
+                </div>
+                {isLoading ? (
+                  <div style={{ padding: '8px 0', fontSize: '12px', color: '#64748b', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Loader2 size={14} className="vote-spin-icon" color="#0088cc" /> Đang tải Telegram voters...
+                  </div>
+                ) : thirdPartyVoters.length > 0 ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', maxHeight: '140px', overflowY: 'auto' }}>
+                    {thirdPartyVoters.map((name, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          background: '#f0fdf4',
+                          border: '1px solid #86efac',
+                          borderRadius: '16px',
+                          padding: '4px 10px',
+                          fontSize: '11.5px',
+                          color: '#15803d',
+                          fontWeight: 700,
+                        }}
+                      >
+                        ✈️ {name}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ padding: '8px 0', color: '#94a3b8', fontSize: '12px', fontStyle: 'italic' }}>
+                    Chưa ghi nhận danh sách bình chọn Telegram
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 2 Separate Action Buttons */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('app');
+                  const el = document.querySelector<HTMLInputElement>('input[placeholder="Nhập tên điểm danh..."]');
+                  if (el) el.focus();
+                }}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '10px 8px',
+                  background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  fontWeight: 700,
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Smartphone size={15} />
+                <span>Điểm danh App</span>
+              </button>
+
+              <a
+                href={getTelegramUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setIsOpen(false)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '10px 8px',
+                  background: 'linear-gradient(135deg, #0088cc 0%, #2AABEE 100%)',
+                  color: '#ffffff',
+                  borderRadius: '12px',
+                  fontWeight: 700,
+                  fontSize: '12.5px',
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(0, 136, 204, 0.3)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <span>Telegram Poll</span>
+                <ExternalLink size={14} />
+              </a>
+            </div>
           </div>
         </div>
       )}
 
+      {/* Floating Pill Button (Collapsed state) */}
       <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '10px' }}>
         {!isOpen && (
           <div
@@ -318,7 +632,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
               ) : (
                 <Send size={22} style={{ transform: 'translate(-1px, 1px)' }} />
               )}
-              {!isLoading && displayCount > 0 && (
+              {!isLoading && (benchCount + teleCount) > 0 && (
                 <span
                   style={{
                     position: 'absolute',
@@ -338,7 +652,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
                     boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                   }}
                 >
-                  {displayCount}
+                  {benchCount + teleCount}
                 </span>
               )}
             </>
@@ -376,3 +690,4 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     </div>
   );
 }
+

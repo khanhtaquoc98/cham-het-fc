@@ -6,7 +6,7 @@ import { MatchData, Team } from '@/types/match';
 import { PlayerConfig } from '@/types/player';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import { Trophy, Handshake, XCircle, RefreshCw, Megaphone, Timer, CupSoda, Coins, Dices, CircleDot, ClipboardList, CalendarDays, Clock, MapPin, Ghost, Users, CreditCard, Armchair, Hand, Bell, CheckCircle, Flame } from 'lucide-react';
+import { Trophy, Handshake, XCircle, RefreshCw, Megaphone, Timer, CupSoda, Coins, Dices, CircleDot, ClipboardList, CalendarDays, Clock, MapPin, Ghost, Users, CreditCard, Armchair, Hand, Bell, CheckCircle, Flame, Plus, Trash2, X } from 'lucide-react';
 import { PlayerCardCarousel, PlayerHoverCard, PlayerCardData } from '@/components/PlayerCard';
 import VoteFloatingWidget from '@/components/VoteFloatingWidget';
 import TrafficCameraWidget from '@/components/TrafficCameraWidget';
@@ -697,6 +697,106 @@ export default function Home() {
   }, [fetchData]);
 
   const [benchSaving, setBenchSaving] = useState(false);
+  const [customBenchName, setCustomBenchName] = useState('');
+
+  // Listen for match-data-updated event from VoteFloatingWidget or other components
+  useEffect(() => {
+    const handleDataUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setMatchData(prev => prev ? ({ ...prev, bench: customEvent.detail }) : prev);
+      }
+    };
+    window.addEventListener('match-data-updated', handleDataUpdate);
+    return () => window.removeEventListener('match-data-updated', handleDataUpdate);
+  }, []);
+
+  const isValidPlayerName = (name: string): boolean => {
+    const nameRegex = /^[a-zA-Z0-9\s+àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴ]+$/;
+    return nameRegex.test(name.trim());
+  };
+
+  const handleAddPlayerToBench = async (nameToAdd: string) => {
+    const trimmed = nameToAdd.trim();
+    if (!trimmed) {
+      toast.error('Vui lòng nhập tên điểm danh!');
+      return;
+    }
+
+    if (!isValidPlayerName(trimmed)) {
+      toast.error('Tên điểm danh không được chứa ký tự đặc biệt!');
+      return;
+    }
+    if (!matchData) return;
+
+    const norm = trimmed.toLowerCase();
+    const currentBench = matchData.bench || [];
+    const isDuplicateBench = currentBench.some(p => p.name.trim().toLowerCase() === norm);
+    if (isDuplicateBench) {
+      toast.error(`Cầu thủ "${trimmed}" đã có trong điểm danh App!`);
+      return;
+    }
+
+    setBenchSaving(true);
+    try {
+      const newPlayer = {
+        name: trimmed,
+        telegramHandle: '',
+        playerId: (currentUser && (currentUser.name === trimmed || currentUser.username === trimmed)) ? currentUser.player_id : undefined,
+      };
+      const newBench = [...currentBench, newPlayer];
+      const res = await fetch('/api/match/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bench: newBench }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const updatedBench = json?.matchData?.bench || newBench;
+        setMatchData({ ...matchData, bench: updatedBench });
+        setCustomBenchName('');
+        toast.success(`Đã điểm danh cho: ${trimmed}`);
+        window.dispatchEvent(new CustomEvent('match-data-updated', { detail: updatedBench }));
+      } else {
+        toast.error('Có lỗi xảy ra khi điểm danh');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Có lỗi xảy ra');
+    } finally {
+      setBenchSaving(false);
+    }
+  };
+
+  const handleDeletePlayerFromBenchIndex = async (indexToDelete: number) => {
+    if (!matchData || !matchData.bench) return;
+    const playerToDelete = matchData.bench[indexToDelete];
+    if (!playerToDelete) return;
+
+    setBenchSaving(true);
+    try {
+      const newBench = matchData.bench.filter((_, idx) => idx !== indexToDelete);
+      const res = await fetch('/api/match/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bench: newBench }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const updatedBench = json?.matchData?.bench || newBench;
+        setMatchData({ ...matchData, bench: updatedBench });
+        toast.success(`Đã xoá ${playerToDelete.name} khỏi Bench!`);
+        window.dispatchEvent(new CustomEvent('match-data-updated', { detail: updatedBench }));
+      } else {
+        toast.error('Có lỗi xảy ra');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Có lỗi xảy ra');
+    } finally {
+      setBenchSaving(false);
+    }
+  };
 
   // Helper: check if a player entry (from bench/team) matches the current user
   const isCurrentUserPlayer = (p: { name: string; telegramHandle?: string; playerId?: string }) => {
@@ -743,16 +843,11 @@ export default function Home() {
        }
     }
     
-    // Check if player is already in ANY team or bench (using all identifiers)
+    // Check if player is already in bench
     const isAlreadyInBench = matchData.bench.some(p => isCurrentUserPlayer(p));
-    const isAlreadyInTeam = matchData.teams?.some(t => t.players.some(p => isCurrentUserPlayer(p)));
     
     if (isAlreadyInBench) {
       toast.error('Bạn đã ở trong danh sách Bench rồi!');
-      return;
-    }
-    if (isAlreadyInTeam) {
-      toast.error('Bạn đã được xếp vào đội rồi, không cần điểm danh lại!');
       return;
     }
 
@@ -879,55 +974,99 @@ export default function Home() {
             {/* Bench Section */}
             {matchData.bench !== undefined && !(paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0) && (
               <div className="content-appear stagger-1" style={{ marginTop: '24px', marginBottom: '24px', padding: '24px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-subtle)', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
-                {currentUser ? (
-                  <div style={{ textAlign: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px dashed var(--border-subtle)', marginBottom: '24px' }}>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>
-                      Xin chào {currentUser.name || currentUser.username}!
-                    </p>
-                    {isInTeam ? (
-                      <span style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>
-                        <CheckCircle size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Bạn đã được xếp vào đội
-                      </span>
-                    ) : isInBench ? (
-                      <button 
-                        onClick={handleLeaveBench}
-                        disabled={benchSaving}
-                        style={{ 
-                          background: 'linear-gradient(135deg, #757575, #9e9e9e)', 
-                          color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', 
-                          fontWeight: 800, fontSize: '14px', cursor: benchSaving ? 'not-allowed' : 'pointer',
-                          opacity: benchSaving ? 0.7 : 1, transition: 'all 0.2s ease', 
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)' 
-                        }}>
-                        {benchSaving ? 'Đang xử lý...' : <><Hand size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Rời khỏi Bench</>}
-                      </button>
-                    ) : (
-                      <button 
+                
+                <h3 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  <Armchair size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
+                  ĐIỂM DANH DỰ BỊ / EXTRA TRÊN APP ({matchData.bench.length})
+                </h3>
+
+                {/* Input box open to EVERYONE to add player name */}
+                <div style={{ maxWidth: '480px', margin: '0 auto 20px' }}>
+                  <form onSubmit={(e) => { e.preventDefault(); handleAddPlayerToBench(customBenchName); }} style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      type="text"
+                      placeholder="Nhập tên điểm danh vào App..."
+                      value={customBenchName}
+                      onChange={(e) => setCustomBenchName(e.target.value)}
+                      disabled={benchSaving}
+                      style={{
+                        flex: 1,
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-subtle)',
+                        background: 'var(--bg-primary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '14px',
+                        outline: 'none',
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      disabled={benchSaving || !customBenchName.trim()}
+                      style={{
+                        background: 'linear-gradient(135deg, var(--accent), var(--accent-dark))',
+                        color: 'white',
+                        border: 'none',
+                        padding: '10px 18px',
+                        borderRadius: '10px',
+                        fontWeight: 800,
+                        fontSize: '14px',
+                        cursor: benchSaving || !customBenchName.trim() ? 'not-allowed' : 'pointer',
+                        opacity: benchSaving || !customBenchName.trim() ? 0.6 : 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      <Plus size={16} /> Điểm danh
+                    </button>
+                  </form>
+
+                  {/* Quick self check-in button for logged in user */}
+                  {currentUser && !isInTeam && !isInBench && (
+                    <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                      <button
                         onClick={handleJoinBench}
                         disabled={benchSaving}
-                        style={{ 
-                          background: 'linear-gradient(135deg, var(--accent), var(--accent-dark))', 
-                          color: 'white', border: 'none', padding: '10px 24px', borderRadius: '8px', 
-                          fontWeight: 800, fontSize: '14px', cursor: benchSaving ? 'not-allowed' : 'pointer',
-                          opacity: benchSaving ? 0.7 : 1, transition: 'all 0.2s ease', 
-                          boxShadow: '0 4px 12px rgba(229,57,53,0.2)' 
-                        }}>
-                        {benchSaving ? 'Đang điểm danh...' : <><Hand size={16} style={{ display: 'inline', verticalAlign: 'middle' }} /> Điểm danh vào Bench</>}
+                        style={{
+                          background: 'transparent',
+                          color: 'var(--accent)',
+                          border: '1px dashed var(--accent)',
+                          padding: '6px 16px',
+                          borderRadius: '20px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: benchSaving ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        ⚡ Quick Điểm danh cho tôi ({currentUser.name || currentUser.username})
                       </button>
-                    )}
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px dashed var(--border-subtle)', marginBottom: '24px' }}>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: 1.6, marginBottom: '0' }}>
-                      <Link href="/login" style={{ color: 'var(--accent)', fontWeight: 800, textDecoration: 'none' }}>Đăng nhập ngay</Link> hoặc liên hệ Cap để điểm danh vào Bench chia team!
-                    </p>
-                  </div>
-                )}
+                    </div>
+                  )}
 
-                <h3 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  <Armchair size={18} style={{ display: 'inline', verticalAlign: 'middle' }} /> BENCH DỰ BỊ ({matchData.bench.length})
-                </h3>
-                
+                  {currentUser && isInBench && (
+                    <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                      <button
+                        onClick={handleLeaveBench}
+                        disabled={benchSaving}
+                        style={{
+                          background: 'transparent',
+                          color: 'var(--text-muted)',
+                          border: '1px dashed var(--border-subtle)',
+                          padding: '6px 16px',
+                          borderRadius: '20px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: benchSaving ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        Rời khỏi Bench (Tài khoản tôi)
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 {matchData.bench.length > 0 ? (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
                     {matchData.bench.map((player, idx) => {
@@ -946,8 +1085,32 @@ export default function Home() {
                       };
                       return (
                         <PlayerHoverCard key={idx} player={cardData}>
-                          <div style={{ padding: '8px 16px', background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', borderRadius: '20px', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', cursor: 'help' }}>
-                            {player.name}
+                          <div style={{ padding: '8px 14px', background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', borderRadius: '20px', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                            <span>{player.name}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePlayerFromBenchIndex(idx);
+                              }}
+                              disabled={benchSaving}
+                              title={`Xoá ${player.name}`}
+                              style={{
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                color: '#ef4444',
+                                border: 'none',
+                                borderRadius: '50%',
+                                width: '22px',
+                                height: '22px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                padding: 0,
+                                transition: 'all 0.2s ease',
+                              }}
+                            >
+                              <X size={12} />
+                            </button>
                           </div>
                         </PlayerHoverCard>
                       );
@@ -955,7 +1118,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
-                    Bench đang trống
+                    Chưa có ai điểm danh vào App
                   </div>
                 )}
               </div>
