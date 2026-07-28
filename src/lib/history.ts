@@ -127,6 +127,84 @@ export async function saveMatchHistory(
   return matchHistory;
 }
 
+export async function updateMatchHistoryScore(
+  id: string,
+  homeScore: number,
+  awayScore: number,
+  extraScore: number | null = null,
+): Promise<MatchHistory | null> {
+  // Fetch existing match
+  const { data: existing, error: fetchErr } = await supabase
+    .from('match_history')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (fetchErr || !existing) {
+    console.error('Match not found for update:', fetchErr);
+    return null;
+  }
+
+  // Determine result
+  let result: MatchResult;
+  if (extraScore !== null && extraScore !== undefined) {
+    const scores = [
+      { team: 'home_win' as MatchResult, score: homeScore },
+      { team: 'away_win' as MatchResult, score: awayScore },
+      { team: 'extra_win' as MatchResult, score: extraScore },
+    ];
+    scores.sort((a, b) => b.score - a.score);
+    if (scores[0].score > scores[1].score) {
+      result = scores[0].team;
+    } else {
+      result = 'draw';
+    }
+  } else if (homeScore > awayScore) {
+    result = 'home_win';
+  } else if (awayScore > homeScore) {
+    result = 'away_win';
+  } else {
+    result = 'draw';
+  }
+
+  // Update match_history table
+  const { data: updated, error: updateErr } = await supabase
+    .from('match_history')
+    .update({
+      home_score: homeScore,
+      away_score: awayScore,
+      extra_score: extraScore,
+      result,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (updateErr || !updated) {
+    console.error('Failed to update match score:', updateErr);
+    return null;
+  }
+
+  const matchHistory: MatchHistory = {
+    id: updated.id,
+    matchDate: updated.match_date,
+    matchTime: updated.match_time,
+    venue: updated.venue,
+    homeScore: updated.home_score,
+    awayScore: updated.away_score,
+    extraScore: updated.extra_score,
+    result: updated.result as MatchResult,
+    teams: updated.teams || [],
+    createdAt: updated.created_at,
+  };
+
+  // Clear existing player_stats for this match and re-save with new result
+  await supabase.from('player_stats').delete().eq('match_history_id', id);
+  await savePlayerStatsForMatch(matchHistory);
+
+  return matchHistory;
+}
+
 // ==========================================
 // PLAYER STATS
 // ==========================================

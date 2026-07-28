@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { CircleDot, User, ClipboardList, CalendarDays, Clock3, MapPin, CheckCircle, Link2 } from 'lucide-react';
+import { CircleDot, User, ClipboardList, CalendarDays, Clock3, MapPin, CheckCircle, Link2, Pencil } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 // ==========================================
 // TYPES
@@ -95,6 +96,12 @@ function MatchHistoryList() {
   const [totalPages, setTotalPages] = useState(0);
   const [total, setTotal] = useState(0);
 
+  const [editingMatchId, setEditingMatchId] = useState<string | null>(null);
+  const [editHome, setEditHome] = useState<number>(0);
+  const [editAway, setEditAway] = useState<number>(0);
+  const [editExtra, setEditExtra] = useState<number | null>(null);
+  const [savingScore, setSavingScore] = useState(false);
+
   const fetchMatches = useCallback(async (p: number) => {
     setLoading(true);
     try {
@@ -111,6 +118,42 @@ function MatchHistoryList() {
   useEffect(() => {
     fetchMatches(page);
   }, [page, fetchMatches]);
+
+  const handleOpenEditScore = (match: MatchHistoryItem) => {
+    setEditingMatchId(match.id);
+    setEditHome(match.homeScore);
+    setEditAway(match.awayScore);
+    setEditExtra(match.extraScore ?? null);
+  };
+
+  const handleSaveScore = async (matchId: string) => {
+    setSavingScore(true);
+    try {
+      const res = await fetch('/api/history', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: matchId,
+          homeScore: editHome,
+          awayScore: editAway,
+          extraScore: editExtra,
+        }),
+      });
+      if (res.ok) {
+        toast.success('Đã cập nhật tỉ số và tính lại chỉ số cầu thủ!');
+        setEditingMatchId(null);
+        await fetchMatches(page);
+      } else {
+        const json = await res.json().catch(() => ({}));
+        toast.error('Lỗi khi cập nhật: ' + (json.error || 'Thất bại'));
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi kết nối server');
+    } finally {
+      setSavingScore(false);
+    }
+  };
 
   const getResultBadge = (result: string) => {
     switch (result) {
@@ -140,6 +183,7 @@ function MatchHistoryList() {
               const homeTeam = match.teams.find(t => t.name.toUpperCase().includes('HOME'));
               const awayTeam = match.teams.find(t => t.name.toUpperCase().includes('AWAY'));
               const extraTeam = match.teams.find(t => t.name.toUpperCase().includes('EXTRA'));
+              const isEditing = editingMatchId === match.id;
 
               return (
                 <div key={match.id} style={{
@@ -167,41 +211,122 @@ function MatchHistoryList() {
                         </span>
                       )}
                     </div>
-                    <span style={{
-                      padding: '4px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                      background: badge.bg, color: badge.color,
-                    }}>
-                      {badge.text}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        padding: '4px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
+                        background: badge.bg, color: badge.color,
+                      }}>
+                        {badge.text}
+                      </span>
+                      {!isEditing && (
+                        <button
+                          onClick={() => handleOpenEditScore(match)}
+                          style={{
+                            padding: '4px 8px', borderRadius: '6px', border: '1px solid #ddd',
+                            background: 'white', color: '#444', fontSize: '11px', fontWeight: 700,
+                            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                          }}
+                        >
+                          <Pencil size={11} /> Sửa tỉ số
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Score */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '12px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '11px', color: '#8a8aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>HOME</div>
-                      <div style={{ fontSize: '28px', fontWeight: 900, color: match.result === 'home_win' ? '#2e7d32' : '#c62828' }}>
-                        {match.homeScore}
+                  {/* Score Display / Edit Form */}
+                  {isEditing ? (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px',
+                      padding: '12px', background: '#fff', borderRadius: '10px', border: '1px solid #e53935',
+                      marginBottom: '12px', boxShadow: '0 4px 12px rgba(229,57,53,0.1)',
+                    }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#c62828', display: 'block', marginBottom: '4px' }}>HOME</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editHome}
+                          onChange={(e) => setEditHome(parseInt(e.target.value) || 0)}
+                          style={{ width: '55px', padding: '6px', textAlign: 'center', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', fontWeight: 800 }}
+                        />
                       </div>
-                    </div>
-                    <span style={{ fontSize: '18px', fontWeight: 800, color: '#8a8aaa' }}>-</span>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '11px', color: '#8a8aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>AWAY</div>
-                      <div style={{ fontSize: '28px', fontWeight: 900, color: match.result === 'away_win' ? '#2e7d32' : '#c62828' }}>
-                        {match.awayScore}
+                      <span style={{ fontSize: '18px', fontWeight: 800, color: '#888' }}>-</span>
+                      <div style={{ textAlign: 'center' }}>
+                        <label style={{ fontSize: '11px', fontWeight: 700, color: '#1565c0', display: 'block', marginBottom: '4px' }}>AWAY</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editAway}
+                          onChange={(e) => setEditAway(parseInt(e.target.value) || 0)}
+                          style={{ width: '55px', padding: '6px', textAlign: 'center', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', fontWeight: 800 }}
+                        />
                       </div>
-                    </div>
-                    {match.extraScore !== null && match.extraScore !== undefined && (
-                      <>
-                        <span style={{ fontSize: '18px', fontWeight: 800, color: '#8a8aaa' }}>-</span>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '11px', color: '#8a8aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>EXTRA</div>
-                          <div style={{ fontSize: '28px', fontWeight: 900, color: match.result === 'extra_win' ? '#2e7d32' : '#c62828' }}>
-                            {match.extraScore}
+                      {extraTeam && (
+                        <>
+                          <span style={{ fontSize: '18px', fontWeight: 800, color: '#888' }}>-</span>
+                          <div style={{ textAlign: 'center' }}>
+                            <label style={{ fontSize: '11px', fontWeight: 700, color: '#e65100', display: 'block', marginBottom: '4px' }}>EXTRA</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editExtra ?? 0}
+                              onChange={(e) => setEditExtra(parseInt(e.target.value) || 0)}
+                              style={{ width: '55px', padding: '6px', textAlign: 'center', borderRadius: '6px', border: '1px solid #ccc', fontSize: '16px', fontWeight: 800 }}
+                            />
                           </div>
+                        </>
+                      )}
+                      <div style={{ display: 'flex', gap: '6px', marginLeft: '12px' }}>
+                        <button
+                          onClick={() => handleSaveScore(match.id)}
+                          disabled={savingScore}
+                          style={{
+                            padding: '7px 14px', borderRadius: '6px', border: 'none',
+                            background: '#2e7d32', color: 'white', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                          }}
+                        >
+                          {savingScore ? '...' : '✓ Lưu'}
+                        </button>
+                        <button
+                          onClick={() => setEditingMatchId(null)}
+                          disabled={savingScore}
+                          style={{
+                            padding: '7px 10px', borderRadius: '6px', border: '1px solid #ccc',
+                            background: '#f5f5f5', color: '#555', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '12px' }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#8a8aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>HOME</div>
+                        <div style={{ fontSize: '28px', fontWeight: 900, color: match.result === 'home_win' ? '#2e7d32' : '#c62828' }}>
+                          {match.homeScore}
                         </div>
-                      </>
-                    )}
-                  </div>
+                      </div>
+                      <span style={{ fontSize: '18px', fontWeight: 800, color: '#8a8aaa' }}>-</span>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '11px', color: '#8a8aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>AWAY</div>
+                        <div style={{ fontSize: '28px', fontWeight: 900, color: match.result === 'away_win' ? '#2e7d32' : '#c62828' }}>
+                          {match.awayScore}
+                        </div>
+                      </div>
+                      {match.extraScore !== null && match.extraScore !== undefined && (
+                        <>
+                          <span style={{ fontSize: '18px', fontWeight: 800, color: '#8a8aaa' }}>-</span>
+                          <div style={{ textAlign: 'center' }}>
+                            <div style={{ fontSize: '11px', color: '#8a8aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>EXTRA</div>
+                            <div style={{ fontSize: '28px', fontWeight: 900, color: match.result === 'extra_win' ? '#2e7d32' : '#c62828' }}>
+                              {match.extraScore}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
 
                   {/* Player lists */}
                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
