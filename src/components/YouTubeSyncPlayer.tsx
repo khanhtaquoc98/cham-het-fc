@@ -3,7 +3,7 @@ import YouTube, { YouTubeProps } from 'react-youtube';
 import { MatchCaption, YouTubeVideoConfig } from '@/types/youtube';
 import { extractYouTubeId, formatSecondsToHHMMSS, parseTimeToSeconds } from '@/lib/youtube-utils';
 import { supabase } from '@/lib/supabase';
-import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock } from 'lucide-react';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface PlayerInstance {
@@ -14,6 +14,9 @@ interface PlayerInstance {
   getPlayerState?: () => number;
   mute?: () => void;
   unMute?: () => void;
+  getVolume?: () => number;
+  setVolume?: (volume: number) => void;
+  isMuted?: () => boolean;
 }
 
 export interface YouTubeSyncPlayerRef {
@@ -172,6 +175,95 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     return sortedCaptions.some(c => c.timestamp_seconds > currentVideoTime + 1.5);
   }, [sortedCaptions, currentVideoTime]);
 
+  // Volume States for Video 1 and Video 2
+  const [vol1, setVol1] = useState(100);
+  const [isMuted1, setIsMuted1] = useState(false);
+  const [vol2, setVol2] = useState(100);
+  const [isMuted2, setIsMuted2] = useState(true); // Default Video 2 muted
+  const [showVolumePopover, setShowVolumePopover] = useState(false);
+  const volumePopoverRef = useRef<HTMLDivElement>(null);
+
+  // Click outside to close volume popover
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (volumePopoverRef.current && !volumePopoverRef.current.contains(e.target as Node)) {
+        setShowVolumePopover(false);
+      }
+    };
+    if (showVolumePopover) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showVolumePopover]);
+
+  const handleVol1Change = (newVol: number) => {
+    setVol1(newVol);
+    if (player1Ref.current && typeof player1Ref.current.setVolume === 'function') {
+      player1Ref.current.setVolume(newVol);
+    }
+    if (newVol > 0 && isMuted1) {
+      if (player1Ref.current && typeof player1Ref.current.unMute === 'function') {
+        player1Ref.current.unMute();
+      }
+      setIsMuted1(false);
+    } else if (newVol === 0 && !isMuted1) {
+      if (player1Ref.current && typeof player1Ref.current.mute === 'function') {
+        player1Ref.current.mute();
+      }
+      setIsMuted1(true);
+    }
+  };
+
+  const toggleMute1 = () => {
+    if (isMuted1) {
+      if (player1Ref.current && typeof player1Ref.current.unMute === 'function') {
+        player1Ref.current.unMute();
+      }
+      setIsMuted1(false);
+      if (vol1 === 0) handleVol1Change(50);
+    } else {
+      if (player1Ref.current && typeof player1Ref.current.mute === 'function') {
+        player1Ref.current.mute();
+      }
+      setIsMuted1(true);
+    }
+  };
+
+  const handleVol2Change = (newVol: number) => {
+    setVol2(newVol);
+    if (player2Ref.current && typeof player2Ref.current.setVolume === 'function') {
+      player2Ref.current.setVolume(newVol);
+    }
+    if (newVol > 0 && isMuted2) {
+      if (player2Ref.current && typeof player2Ref.current.unMute === 'function') {
+        player2Ref.current.unMute();
+      }
+      setIsMuted2(false);
+    } else if (newVol === 0 && !isMuted2) {
+      if (player2Ref.current && typeof player2Ref.current.mute === 'function') {
+        player2Ref.current.mute();
+      }
+      setIsMuted2(true);
+    }
+  };
+
+  const toggleMute2 = () => {
+    if (isMuted2) {
+      if (player2Ref.current && typeof player2Ref.current.unMute === 'function') {
+        player2Ref.current.unMute();
+      }
+      setIsMuted2(false);
+      if (vol2 === 0) handleVol2Change(50);
+    } else {
+      if (player2Ref.current && typeof player2Ref.current.mute === 'function') {
+        player2Ref.current.mute();
+      }
+      setIsMuted2(true);
+    }
+  };
+
   const handleOpenSyncModal = () => {
     let t1 = 0;
     let t2 = 0;
@@ -187,7 +279,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     setSyncPointModalOpen(true);
   };
 
-  // Player Options (autoplay & playsinline for mobile/web browsers)
+  // Player Options (no native controls, disable iframe kb, playsinline)
   const opts: YouTubeProps['opts'] = {
     height: '100%',
     width: '100%',
@@ -195,13 +287,22 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       autoplay: 1,
       modestbranding: 1,
       rel: 0,
-      controls: 1,
+      controls: 0,
       playsinline: 1,
+      disablekb: 1,
     },
   };
 
   const onPlayerReady1 = (event: { target: PlayerInstance }) => {
     player1Ref.current = event.target;
+    try {
+      if (typeof event.target.setVolume === 'function') {
+        event.target.setVolume(vol1);
+      }
+      if (isMuted1 && typeof event.target.mute === 'function') {
+        event.target.mute();
+      }
+    } catch {}
     setIsPlayer1Ready(true);
   };
 
@@ -209,7 +310,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     player2Ref.current = event.target;
     // Mute Video 2 by default so audio doesn't double/echo & browser autoplay succeeds
     try {
-      if (typeof event.target.mute === 'function') {
+      if (typeof event.target.setVolume === 'function') {
+        event.target.setVolume(vol2);
+      }
+      if (isMuted2 && typeof event.target.mute === 'function') {
         event.target.mute();
       }
     } catch {}
@@ -741,6 +845,19 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                   onReady={onPlayerReady1}
                   style={{ width: '100%', height: '100%' }}
                 />
+                {/* Overlay to block any direct user interaction / clicking on Video 1 */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    zIndex: 10,
+                    background: 'transparent',
+                    cursor: 'default'
+                  }}
+                />
               </div>
             ) : (
               <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '8px' }}>
@@ -789,13 +906,26 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                   onReady={onPlayerReady2}
                   style={{ width: '100%', height: '100%' }}
                 />
+                {/* Overlay to block any direct user interaction / clicking on Video 2 */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    zIndex: 10,
+                    background: 'transparent',
+                    cursor: 'default'
+                  }}
+                />
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* 5-Button Central Media Control Bar (Sát dưới Video) */}
+      {/* Central Media Control Bar (Sát dưới Video) */}
       {(cfg1.youtube_id || cfg2.youtube_id) && (
         <div style={{
           display: 'flex',
@@ -808,12 +938,13 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '8px',
+            gap: '6px',
             background: '#ffffff',
-            padding: '8px 16px',
+            padding: '8px 14px',
             borderRadius: '9999px',
             border: '1px solid #cbd5e1',
-            boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)'
+            boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)',
+            maxWidth: '100%'
           }}>
             {/* Button 1: 2nike trước */}
             <div style={{ position: 'relative' }}>
@@ -842,7 +973,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 }}
               >
                 <SkipBack size={14} style={{ color: hasPrevNote ? '#4f46e5' : '#94a3b8' }} />
-                <span>2nike trước</span>
+                <span className="hidden sm:inline">2nike trước</span>
               </button>
             </div>
 
@@ -873,7 +1004,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 }}
               >
                 <Undo2 size={14} style={{ color: '#64748b' }} />
-                <span>-5s</span>
+                <span className="hidden sm:inline">-5s</span>
               </button>
             </div>
 
@@ -887,8 +1018,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 onMouseLeave={() => setActiveTooltip(null)}
                 disabled={!isBothReady}
                 style={{
-                  width: '46px',
-                  height: '46px',
+                  width: '44px',
+                  height: '44px',
                   borderRadius: '50%',
                   border: 'none',
                   background: isPlaying
@@ -904,7 +1035,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     ? '0 4px 14px rgba(245, 158, 11, 0.4)'
                     : '0 4px 14px rgba(16, 185, 129, 0.4)',
                   transition: 'all 0.2s ease',
-                  margin: '0 4px'
+                  margin: '0 2px'
                 }}
               >
                 {isPlaying ? (
@@ -941,7 +1072,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                   boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                 }}
               >
-                <span>+5s</span>
+                <span className="hidden sm:inline">+5s</span>
                 <Redo2 size={14} style={{ color: '#64748b' }} />
               </button>
             </div>
@@ -972,9 +1103,172 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                   boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                 }}
               >
-                <span>2nike tiếp</span>
+                <span className="hidden sm:inline">2nike tiếp</span>
                 <SkipForward size={14} style={{ color: hasNextNote ? '#4f46e5' : '#94a3b8' }} />
               </button>
+            </div>
+
+            {/* Button 6: Âm thanh / Volume Popup */}
+            <div style={{ position: 'relative' }}>
+              {renderTooltip('volume', 'Chỉnh âm lượng video 1 & 2')}
+              <button
+                type="button"
+                onClick={() => setShowVolumePopover(prev => !prev)}
+                onMouseEnter={() => setActiveTooltip('volume')}
+                onMouseLeave={() => setActiveTooltip(null)}
+                disabled={!isBothReady}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '9999px',
+                  border: showVolumePopover ? '1px solid #6366f1' : '1px solid #cbd5e1',
+                  background: showVolumePopover ? '#eef2ff' : '#ffffff',
+                  color: showVolumePopover ? '#4f46e5' : '#334155',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: !isBothReady ? 'not-allowed' : 'pointer',
+                  opacity: !isBothReady ? 0.5 : 1,
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                {isMuted1 && isMuted2 ? (
+                  <VolumeX size={15} style={{ color: '#ef4444' }} />
+                ) : (
+                  <Volume2 size={15} style={{ color: '#4f46e5' }} />
+                )}
+                <span className="hidden sm:inline">Âm thanh</span>
+              </button>
+
+              {/* Volume Popover Panel */}
+              {showVolumePopover && (
+                <div
+                  ref={volumePopoverRef}
+                  style={{
+                    position: 'absolute',
+                    bottom: 'calc(100% + 12px)',
+                    right: 0,
+                    width: '260px',
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '14px 16px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+                    zIndex: 60,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Volume2 size={15} style={{ color: '#4f46e5' }} />
+                      Âm lượng Video
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowVolumePopover(false)}
+                      style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '14px', padding: '2px 4px' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Video 1 Volume */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
+                      <span style={{ color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                        Video 1 ({cfg1.title ? (cfg1.title.length > 12 ? cfg1.title.slice(0, 12) + '...' : cfg1.title) : 'Hiệp 1'})
+                      </span>
+                      <span style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>
+                        {isMuted1 ? 'Tắt âm' : `${vol1}%`}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={toggleMute1}
+                        style={{
+                          background: isMuted1 ? '#fee2e2' : '#f1f5f9',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '5px 7px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {isMuted1 ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#4f46e5' }} />}
+                      </button>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={isMuted1 ? 0 : vol1}
+                        onChange={(e) => handleVol1Change(Number(e.target.value))}
+                        style={{ flex: 1, accentColor: '#4f46e5', cursor: 'pointer' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Video 2 Volume */}
+                  {cfg2.youtube_id && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
+                        <span style={{ color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1' }} />
+                          Video 2 ({cfg2.title ? (cfg2.title.length > 12 ? cfg2.title.slice(0, 12) + '...' : cfg2.title) : 'Hiệp 2'})
+                        </span>
+                        <span style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>
+                          {isMuted2 ? 'Tắt âm' : `${vol2}%`}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={toggleMute2}
+                          style={{
+                            background: isMuted2 ? '#fee2e2' : '#f1f5f9',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '5px 7px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          {isMuted2 ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#4f46e5' }} />}
+                        </button>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={isMuted2 ? 0 : vol2}
+                          onChange={(e) => handleVol2Change(Number(e.target.value))}
+                          style={{ flex: 1, accentColor: '#6366f1', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Down arrow pointing to button */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: '20px',
+                    width: 0,
+                    height: 0,
+                    borderLeft: '6px solid transparent',
+                    borderRight: '6px solid transparent',
+                    borderTop: '6px solid #ffffff'
+                  }} />
+                </div>
+              )}
             </div>
           </div>
         </div>
