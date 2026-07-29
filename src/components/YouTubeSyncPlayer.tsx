@@ -13,6 +13,8 @@ interface PlayerInstance {
   playVideo?: () => void;
   pauseVideo?: () => void;
   getPlayerState?: () => number;
+  mute?: () => void;
+  unMute?: () => void;
 }
 
 export interface YouTubeSyncPlayerRef {
@@ -95,15 +97,16 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     setSyncPointModalOpen(true);
   };
 
-  // Player Options
+  // Player Options (autoplay & playsinline for mobile/web browsers)
   const opts: YouTubeProps['opts'] = {
     height: '100%',
     width: '100%',
     playerVars: {
-      autoplay: 0,
+      autoplay: 1,
       modestbranding: 1,
       rel: 0,
       controls: 1,
+      playsinline: 1,
     },
   };
 
@@ -114,6 +117,12 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
   const onPlayerReady2 = (event: { target: PlayerInstance }) => {
     player2Ref.current = event.target;
+    // Mute Video 2 by default so audio doesn't double/echo & browser autoplay succeeds
+    try {
+      if (typeof event.target.mute === 'function') {
+        event.target.mute();
+      }
+    } catch {}
     setIsPlayer2Ready(true);
   };
 
