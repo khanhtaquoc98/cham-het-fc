@@ -622,8 +622,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         marginBottom: '14px',
         borderBottom: '1px solid #f1f5f9'
       }}>
-        {/* Left: Title & Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        {/* Left: Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
             padding: '8px',
             borderRadius: '10px',
@@ -640,40 +640,6 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               Highlight
             </h3>
           </div>
-
-          {!isBothReady && (cfg1.youtube_id || cfg2.youtube_id) ? (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 10px',
-              borderRadius: '8px',
-              background: '#fef3c7',
-              color: '#92400e',
-              border: '1px solid #fde68a',
-              fontSize: '11px',
-              fontWeight: 700
-            }}>
-              <RefreshCw size={13} className="animate-spin" />
-              Đang nạp 2 player...
-            </div>
-          ) : (cfg1.youtube_id || cfg2.youtube_id) ? (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '4px 10px',
-              borderRadius: '8px',
-              background: '#ecfdf5',
-              color: '#065f46',
-              border: '1px solid #a7f3d0',
-              fontSize: '11px',
-              fontWeight: 700
-            }}>
-              <CheckCircle2 size={13} style={{ color: '#10b981' }} />
-              Đã nạp xong 2 Player
-            </div>
-          ) : null}
         </div>
 
         {/* Right Actions: Add 2nike Modal Button & Admin Auto calibration */}
