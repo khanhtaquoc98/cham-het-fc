@@ -12,9 +12,9 @@ function MatchVideoContent() {
   const matchId = searchParams.get('match_id') || 'default_match';
 
   // Deep linking params from shared link
-  const targetSlotParam = searchParams.get('v');
-  const targetTimeParam = searchParams.get('t');
-  const targetCaptionId = searchParams.get('c');
+  const targetSlotParam = searchParams.get('slot') || searchParams.get('v');
+  const targetTimeParam = searchParams.get('time') || searchParams.get('t');
+  const targetCaptionId = searchParams.get('caption_id') || searchParams.get('c');
 
   const [configs, setConfigs] = useState<YouTubeVideoConfig[]>([]);
   const [loadingConfig, setLoadingConfig] = useState(true);

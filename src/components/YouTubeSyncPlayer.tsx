@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { YouTubeVideoConfig } from '@/types/youtube';
 import { extractYouTubeId, formatSecondsToHHMMSS } from '@/lib/youtube-utils';
@@ -162,79 +162,76 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     return () => clearInterval(interval);
   }, [isPlaying, isBothReady, cfg2.start_offset_seconds]);
 
+  const pendingSeekRef = useRef<{ slot: 1 | 2; seconds: number; autoPlay: boolean } | null>(null);
+
+  const doSeek = useCallback((slot: 1 | 2, seconds: number, autoPlay: boolean = true) => {
+    const offset = cfg2.start_offset_seconds || 0;
+    let targetTime1 = 0;
+    let targetTime2 = 0;
+
+    if (slot === 1) {
+      targetTime1 = seconds;
+      targetTime2 = seconds - offset;
+    } else {
+      targetTime2 = seconds;
+      targetTime1 = seconds + offset;
+    }
+
+    if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
+      player1Ref.current.seekTo(Math.max(0, targetTime1), true);
+      if (autoPlay && typeof player1Ref.current.playVideo === 'function') {
+        player1Ref.current.playVideo();
+      }
+    }
+
+    if (player2Ref.current) {
+      if (targetTime2 < 0) {
+        if (typeof player2Ref.current.seekTo === 'function') {
+          player2Ref.current.seekTo(0, true);
+        }
+        if (typeof player2Ref.current.pauseVideo === 'function') {
+          player2Ref.current.pauseVideo();
+        }
+      } else {
+        if (typeof player2Ref.current.seekTo === 'function') {
+          player2Ref.current.seekTo(targetTime2, true);
+        }
+        if (autoPlay && typeof player2Ref.current.playVideo === 'function') {
+          player2Ref.current.playVideo();
+        }
+      }
+    }
+
+    if (autoPlay) setIsPlaying(true);
+  }, [cfg2.start_offset_seconds]);
+
+  // Execute pending seek once both players are ready
+  useEffect(() => {
+    if (isBothReady && pendingSeekRef.current) {
+      const { slot, seconds, autoPlay } = pendingSeekRef.current;
+      pendingSeekRef.current = null;
+      const timer = setTimeout(() => {
+        doSeek(slot, seconds, autoPlay);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isBothReady, doSeek]);
+
   // ── Imperative Ref Methods ──
   useImperativeHandle(ref, () => ({
     seekTo: (slot: 1 | 2, seconds: number, autoPlay: boolean = true) => {
-      const offset = cfg2.start_offset_seconds || 0;
-      let targetTime1 = 0;
-      let targetTime2 = 0;
-
-      if (slot === 1) {
-        targetTime1 = seconds;
-        targetTime2 = seconds - offset;
-      } else {
-        targetTime2 = seconds;
-        targetTime1 = seconds + offset;
+      if (!isBothReady) {
+        pendingSeekRef.current = { slot, seconds, autoPlay };
+        return;
       }
-
-      if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
-        player1Ref.current.seekTo(Math.max(0, targetTime1), true);
-        if (autoPlay && isBothReady && typeof player1Ref.current.playVideo === 'function') {
-          player1Ref.current.playVideo();
-        }
-      }
-
-      if (player2Ref.current) {
-        if (targetTime2 < 0) {
-          // Video 1 is seeked before Video 2 offset (t1 < offset). Video 2 pauses at 0s until t1 reaches offset
-          if (typeof player2Ref.current.seekTo === 'function') {
-            player2Ref.current.seekTo(0, true);
-          }
-          if (typeof player2Ref.current.pauseVideo === 'function') {
-            player2Ref.current.pauseVideo();
-          }
-        } else {
-          if (typeof player2Ref.current.seekTo === 'function') {
-            player2Ref.current.seekTo(targetTime2, true);
-          }
-          if (autoPlay && isBothReady && typeof player2Ref.current.playVideo === 'function') {
-            player2Ref.current.playVideo();
-          }
-        }
-      }
-
-      if (autoPlay && isBothReady) setIsPlaying(true);
+      doSeek(slot, seconds, autoPlay);
     },
     seekBothWithOffset: (masterSeconds: number, autoPlay: boolean = true) => {
-      const offset = cfg2.start_offset_seconds || 0;
-      const targetTime1 = Math.max(0, masterSeconds);
-      const targetTime2 = masterSeconds - offset;
-
-      if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
-        player1Ref.current.seekTo(targetTime1, true);
-        if (autoPlay && isBothReady && typeof player1Ref.current.playVideo === 'function') {
-          player1Ref.current.playVideo();
-        }
+      if (!isBothReady) {
+        pendingSeekRef.current = { slot: 1, seconds: masterSeconds, autoPlay };
+        return;
       }
-
-      if (player2Ref.current) {
-        if (targetTime2 < 0) {
-          if (typeof player2Ref.current.seekTo === 'function') {
-            player2Ref.current.seekTo(0, true);
-          }
-          if (typeof player2Ref.current.pauseVideo === 'function') {
-            player2Ref.current.pauseVideo();
-          }
-        } else {
-          if (typeof player2Ref.current.seekTo === 'function') {
-            player2Ref.current.seekTo(targetTime2, true);
-          }
-          if (autoPlay && isBothReady && typeof player2Ref.current.playVideo === 'function') {
-            player2Ref.current.playVideo();
-          }
-        }
-      }
-      if (autoPlay && isBothReady) setIsPlaying(true);
+      doSeek(1, masterSeconds, autoPlay);
     },
     getCurrentTimes: () => {
       let t1 = 0;
