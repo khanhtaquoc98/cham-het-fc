@@ -234,6 +234,13 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
     });
   };
 
+  const handleCardClick = (cap: MatchCaption) => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    onSeek(cap.slot, cap.timestamp_seconds);
+  };
+
   const filteredCaptions = selectedSlotFilter === 'all'
     ? captions
     : captions.filter((c) => c.slot === selectedSlotFilter);
@@ -274,7 +281,7 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
           </div>
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              Timeline Ghi Chú Trận Đấu
+              2Nike Trận Đấu
               <span style={{
                 fontSize: '11px',
                 fontWeight: 700,
@@ -284,7 +291,7 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                 color: '#3730a3',
                 border: '1px solid #c7d2fe'
               }}>
-                {captions.length} mốc
+                {captions.length} highlight
               </span>
             </h3>
             <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
@@ -387,165 +394,7 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Add New Caption Form */}
-      <form onSubmit={handleAddCaption} style={{
-        background: '#f8fafc',
-        padding: '14px',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        marginBottom: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '10px'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
-          <span style={{ color: '#3730a3', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Sparkles size={15} style={{ color: '#4f46e5' }} /> Thêm Dòng Ghi Chú Mới (Realtime)
-          </span>
-          <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 500 }}>Tự động lưu & đồng bộ tức thì</span>
-        </div>
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '10px'
-        }}>
-          {/* Target Video Slot */}
-          <div>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-              Góc Video
-            </label>
-            <select
-              value={slot}
-              onChange={(e) => setSlot(Number(e.target.value) as 1 | 2)}
-              style={{
-                width: '100%',
-                background: '#ffffff',
-                border: '1px solid #cbd5e1',
-                color: '#0f172a',
-                borderRadius: '8px',
-                padding: '8px 10px',
-                fontSize: '12px',
-                fontWeight: 600,
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            >
-              <option value={1}>Video 1: {configs.find((c) => c.slot === 1)?.title || 'Hiệp 1 / Cam 1'}</option>
-              <option value={2}>Video 2: {configs.find((c) => c.slot === 2)?.title || 'Hiệp 2 / Cam 2'}</option>
-            </select>
-          </div>
-
-          {/* Timestamp Input */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>Thời gian (HH:MM:SS)</label>
-              {getCurrentVideoTime && (
-                <button
-                  type="button"
-                  onClick={handleFetchCurrentTime}
-                  style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: '11px', fontWeight: 800, cursor: 'pointer', padding: 0 }}
-                >
-                  🎯 Lấy giờ video
-                </button>
-              )}
-            </div>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="text"
-                placeholder="00:15:30"
-                value={timeStr}
-                onChange={(e) => setTimeStr(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  color: '#0f172a',
-                  borderRadius: '8px',
-                  padding: '8px 10px 8px 30px',
-                  fontSize: '12px',
-                  fontFamily: 'monospace',
-                  fontWeight: 700,
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
-              <Clock size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
-            </div>
-          </div>
-
-          {/* Author Name */}
-          <div>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-              Người tạo (Tùy chọn)
-            </label>
-            <input
-              type="text"
-              placeholder={isAdmin ? 'Admin' : 'Tên bạn...'}
-              value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
-              style={{
-                width: '100%',
-                background: '#ffffff',
-                border: '1px solid #cbd5e1',
-                color: '#0f172a',
-                borderRadius: '8px',
-                padding: '8px 10px',
-                fontSize: '12px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Caption Text Input & Submit */}
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            placeholder="Nội dung ghi chú (vd: Pha bóng nguy hiểm, Bàn thắng mở tỷ số...)"
-            value={captionText}
-            onChange={(e) => setCaptionText(e.target.value)}
-            style={{
-              flex: 1,
-              minWidth: '200px',
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              color: '#0f172a',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              fontSize: '12px',
-              outline: 'none',
-              boxSizing: 'border-box'
-            }}
-          />
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '8px 18px',
-              fontWeight: 800,
-              fontSize: '12px',
-              cursor: submitting ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              whiteSpace: 'nowrap',
-              boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
-              opacity: submitting ? 0.6 : 1,
-              transition: 'transform 0.15s ease'
-            }}
-          >
-            <Plus size={16} />
-            Lưu Realtime
-          </button>
-        </div>
-      </form>
 
       {/* Captions List Timeline Cards */}
       <div ref={captionListRef} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '480px', overflowY: 'auto', paddingRight: '4px' }}>
@@ -566,132 +415,157 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
               <div
                 key={cap.id}
                 id={`caption-${cap.id}`}
+                onClick={() => handleCardClick(cap)}
                 style={{
                   background: isHighlighted ? 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)' : '#ffffff',
                   border: isHighlighted ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                  borderRadius: '12px',
-                  padding: '12px 14px',
+                  borderRadius: '10px',
+                  padding: '10px 14px',
                   display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
                   boxShadow: isHighlighted ? '0 8px 20px -4px rgba(99, 102, 241, 0.25)' : '0 2px 6px rgba(15, 23, 42, 0.03)',
-                  transition: 'all 0.15s ease'
+                  transition: 'all 0.15s ease',
+                  cursor: 'pointer',
+                  userSelect: 'none'
                 }}
               >
-                {/* Top Row: Play Button, Slot Badge & Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => onSeek(cap.slot, cap.timestamp_seconds)}
-                      style={{
-                        background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '6px 12px',
-                        fontSize: '12px',
-                        fontFamily: 'monospace',
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        boxShadow: '0 4px 10px rgba(79, 70, 229, 0.25)',
-                        transition: 'transform 0.15s ease'
-                      }}
-                      title={`Phát Video ${cap.slot} từ mốc ${cap.timestamp_str}`}
-                    >
-                      <Play size={12} style={{ fill: '#ffffff' }} />
-                      {cap.timestamp_str}
-                    </button>
+                {/* Left Content (Single Line) */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                  {/* Play Button & Time */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCardClick(cap);
+                    }}
+                    style={{
+                      background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '5px 10px',
+                      fontSize: '12px',
+                      fontFamily: 'monospace',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      boxShadow: '0 3px 8px rgba(79, 70, 229, 0.25)',
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0
+                    }}
+                    title={`Phát Video ${cap.slot} từ mốc ${cap.timestamp_str}`}
+                  >
+                    <Play size={11} style={{ fill: '#ffffff' }} />
+                    {cap.timestamp_str}
+                  </button>
 
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      background: cap.slot === 1 ? '#ecfdf5' : '#f5f3ff',
-                      color: cap.slot === 1 ? '#047857' : '#6d28d9',
-                      border: `1px solid ${cap.slot === 1 ? '#a7f3d0' : '#ddd6fe'}`
-                    }}>
-                      Video {cap.slot}
-                    </span>
-                  </div>
-
-                  {/* Share & Delete Action Buttons */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <button
-                      type="button"
-                      onClick={() => handleShareCaption(cap)}
-                      style={{
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        color: '#475569',
-                        borderRadius: '6px',
-                        padding: '5px 8px',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                      title="Sao chép link chia sẻ mốc thời gian"
-                    >
-                      {copiedId === cap.id ? (
-                        <Check size={14} style={{ color: '#10b981' }} />
-                      ) : (
-                        <Share2 size={14} />
-                      )}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteCaption(cap.id)}
-                      style={{
-                        background: '#fff1f2',
-                        border: '1px solid #fecdd3',
-                        color: '#e11d48',
-                        borderRadius: '6px',
-                        padding: '5px 8px',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                      title="Xóa ghi chú (Realtime)"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Bottom Row: Caption Description & Author Tag */}
-                <div style={{ width: '100%', minWidth: 0 }}>
-                  <h4 style={{
-                    fontSize: '13px',
+                  {/* Slot Badge */}
+                  <span style={{
+                    fontSize: '11px',
                     fontWeight: 700,
-                    color: '#0f172a',
-                    margin: '0 0 2px 0',
-                    lineHeight: '1.4',
-                    wordBreak: 'break-word'
+                    padding: '2px 8px',
+                    borderRadius: '6px',
+                    background: cap.slot === 1 ? '#ecfdf5' : '#f5f3ff',
+                    color: cap.slot === 1 ? '#047857' : '#6d28d9',
+                    border: `1px solid ${cap.slot === 1 ? '#a7f3d0' : '#ddd6fe'}`,
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
                   }}>
-                    {cap.caption}
-                  </h4>
+                    Video {cap.slot}
+                  </span>
 
+                  {/* Caption Title Text */}
+                  <span
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      color: '#0f172a',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                      flexShrink: 1
+                    }}
+                    title={cap.caption}
+                  >
+                    {cap.caption}
+                  </span>
+
+                  {/* Author Tag (if any) */}
                   {cap.created_by && (
                     <span style={{
                       fontSize: '11px',
                       color: '#64748b',
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                      flexShrink: 0,
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '4px'
                     }}>
-                      <User size={11} style={{ color: '#94a3b8' }} />
-                      bởi <strong style={{ color: '#334155' }}>{cap.created_by}</strong>
+                      • bởi <strong style={{ color: '#475569' }}>{cap.created_by}</strong>
                     </span>
                   )}
+                </div>
+
+                {/* Right Actions: Share & Delete */}
+                <div
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShareCaption(cap);
+                    }}
+                    style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      color: '#475569',
+                      borderRadius: '6px',
+                      padding: '5px 8px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="Sao chép link chia sẻ mốc thời gian"
+                  >
+                    {copiedId === cap.id ? (
+                      <Check size={14} style={{ color: '#10b981' }} />
+                    ) : (
+                      <Share2 size={14} />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteCaption(cap.id);
+                    }}
+                    style={{
+                      background: '#fff1f2',
+                      border: '1px solid #fecdd3',
+                      color: '#e11d48',
+                      borderRadius: '6px',
+                      padding: '5px 8px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                    title="Xóa ghi chú"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
             );

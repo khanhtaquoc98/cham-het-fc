@@ -1,10 +1,9 @@
-'use client';
-
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
-import { YouTubeVideoConfig } from '@/types/youtube';
-import { extractYouTubeId, formatSecondsToHHMMSS } from '@/lib/youtube-utils';
-import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { MatchCaption, YouTubeVideoConfig } from '@/types/youtube';
+import { extractYouTubeId, formatSecondsToHHMMSS, parseTimeToSeconds } from '@/lib/youtube-utils';
+import { supabase } from '@/lib/supabase';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface PlayerInstance {
@@ -30,6 +29,8 @@ interface Props {
   activeTargetSlot?: number;
   highlightCaptionTime?: number | null;
   autoPlayOnLoad?: boolean;
+  matchId?: string;
+  captions?: MatchCaption[];
 }
 
 const DEFAULT_CONFIG_1: YouTubeVideoConfig = {
@@ -56,7 +57,9 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   onOffsetChange,
   activeTargetSlot,
   highlightCaptionTime: _highlightCaptionTime,
-  autoPlayOnLoad = true
+  autoPlayOnLoad = true,
+  matchId,
+  captions: propsCaptions
 }, ref) => {
   const cfg1 = configs.find(c => c.slot === 1) || DEFAULT_CONFIG_1;
   const cfg2 = configs.find(c => c.slot === 2) || DEFAULT_CONFIG_2;
@@ -65,8 +68,64 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const player2Ref = useRef<PlayerInstance | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const [syncPointModalOpen, setSyncPointModalOpen] = useState(false);
   const [modalTimes, setModalTimes] = useState<{ time1: number; time2: number }>({ time1: 0, time2: 0 });
+
+  const [captionsList, setCaptionsList] = useState<MatchCaption[]>(propsCaptions || []);
+  const [currentVideoTime, setCurrentVideoTime] = useState(0);
+
+  // Add 2nike Modal State
+  const [addCaptionModalOpen, setAddCaptionModalOpen] = useState(false);
+  const [newCapSlot, setNewCapSlot] = useState<1 | 2>(1);
+  const [newCapTimeStr, setNewCapTimeStr] = useState('');
+  const [newCapAuthor, setNewCapAuthor] = useState('');
+  const [newCapText, setNewCapText] = useState('');
+  const [submittingCap, setSubmittingCap] = useState(false);
+
+  const effectiveMatchId = matchId || cfg1.match_id || cfg2.match_id || '';
+
+  useEffect(() => {
+    if (propsCaptions) {
+      setCaptionsList(propsCaptions);
+    }
+  }, [propsCaptions]);
+
+  useEffect(() => {
+    if (!effectiveMatchId) return;
+
+    async function loadCaptions() {
+      try {
+        const res = await fetch(`/api/youtube-captions?match_id=${effectiveMatchId}`);
+        const data = await res.json();
+        if (data.captions) {
+          setCaptionsList(data.captions);
+        }
+      } catch {}
+    }
+
+    loadCaptions();
+
+    const channel = supabase
+      .channel(`realtime-sync-captions-${effectiveMatchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'match_captions',
+          filter: `match_id=eq.${effectiveMatchId}`
+        },
+        () => {
+          loadCaptions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [effectiveMatchId]);
 
   // Player Ready tracking (Wait for BOTH players before playing)
   const [isPlayer1Ready, setIsPlayer1Ready] = useState(false);
@@ -81,6 +140,37 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     (cfg1.youtube_id ? isPlayer1Ready : true) &&
     (cfg2.youtube_id ? isPlayer2Ready : true)
   );
+
+  // Track current video time every 1s
+  useEffect(() => {
+    if (!isBothReady) return;
+
+    const interval = setInterval(() => {
+      try {
+        if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+          const t1 = player1Ref.current.getCurrentTime() || 0;
+          setCurrentVideoTime(t1);
+        }
+      } catch {}
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isBothReady]);
+
+  // Compute sorted captions & availability of prev/next note
+  const sortedCaptions = React.useMemo(() => {
+    return [...captionsList].sort((a, b) => a.timestamp_seconds - b.timestamp_seconds);
+  }, [captionsList]);
+
+  const hasPrevNote = React.useMemo(() => {
+    if (sortedCaptions.length === 0) return false;
+    return sortedCaptions.some(c => c.timestamp_seconds < currentVideoTime - 1.5);
+  }, [sortedCaptions, currentVideoTime]);
+
+  const hasNextNote = React.useMemo(() => {
+    if (sortedCaptions.length === 0) return false;
+    return sortedCaptions.some(c => c.timestamp_seconds > currentVideoTime + 1.5);
+  }, [sortedCaptions, currentVideoTime]);
 
   const handleOpenSyncModal = () => {
     let t1 = 0;
@@ -311,6 +401,125 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     }
   };
 
+  // ── Relative Seek (-10s, -5s, +5s, +10s) ──
+  const handleSeekRelative = (deltaSeconds: number) => {
+    if (!isBothReady) return;
+
+    let time1 = 0;
+    try {
+      if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+        time1 = player1Ref.current.getCurrentTime() || 0;
+      }
+    } catch {}
+
+    const newTime1 = Math.max(0, time1 + deltaSeconds);
+    doSeek(1, newTime1, isPlaying);
+  };
+
+  // ── Seek to Prev Note / Next Note ──
+  const handleSeekPrevNote = useCallback(() => {
+    if (!isBothReady || !hasPrevNote || !captionsList || captionsList.length === 0) return;
+
+    let time1 = 0;
+    try {
+      if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+        time1 = player1Ref.current.getCurrentTime() || 0;
+      }
+    } catch {}
+
+    const sorted = [...captionsList].sort((a, b) => a.timestamp_seconds - b.timestamp_seconds);
+    const prevCap = [...sorted].reverse().find(c => c.timestamp_seconds < time1 - 1.5);
+
+    if (prevCap) {
+      doSeek(prevCap.slot, prevCap.timestamp_seconds, isPlaying);
+    }
+  }, [isBothReady, hasPrevNote, captionsList, isPlaying, doSeek]);
+
+  const handleSeekNextNote = useCallback(() => {
+    if (!isBothReady || !hasNextNote || !captionsList || captionsList.length === 0) return;
+
+    let time1 = 0;
+    try {
+      if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+        time1 = player1Ref.current.getCurrentTime() || 0;
+      }
+    } catch {}
+
+    const sorted = [...captionsList].sort((a, b) => a.timestamp_seconds - b.timestamp_seconds);
+    const nextCap = sorted.find(c => c.timestamp_seconds > time1 + 1.5);
+
+    if (nextCap) {
+      doSeek(nextCap.slot, nextCap.timestamp_seconds, isPlaying);
+    }
+  }, [isBothReady, hasNextNote, captionsList, isPlaying, doSeek]);
+
+  // ── Global Keyboard Shortcuts ──
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName.toLowerCase();
+      const isInput = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select' || (document.activeElement as HTMLElement)?.isContentEditable;
+      if (isInput) return;
+
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        togglePlayBoth();
+      } else if (e.code === 'ArrowLeft' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleSeekRelative(-5);
+      } else if (e.code === 'ArrowRight' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleSeekRelative(5);
+      } else if (e.code === 'ArrowUp' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        handleSeekPrevNote();
+      } else if (e.code === 'ArrowDown' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        handleSeekNextNote();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [togglePlayBoth, handleSeekRelative, handleSeekPrevNote, handleSeekNextNote]);
+
+  const renderTooltip = (id: string, text: string) => {
+    if (activeTooltip !== id) return null;
+    return (
+      <div style={{
+        position: 'absolute',
+        top: 'calc(100% + 8px)',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        padding: '5px 10px',
+        background: '#0f172a',
+        color: '#ffffff',
+        fontSize: '11px',
+        fontWeight: 700,
+        borderRadius: '6px',
+        whiteSpace: 'nowrap',
+        pointerEvents: 'none',
+        boxShadow: '0 4px 14px rgba(15, 23, 42, 0.25)',
+        zIndex: 50
+      }}>
+        {text}
+        {/* Tooltip Arrow pointing UP */}
+        <div style={{
+          position: 'absolute',
+          bottom: '100%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 0,
+          height: 0,
+          borderLeft: '5px solid transparent',
+          borderRight: '5px solid transparent',
+          borderBottom: '5px solid #0f172a'
+        }} />
+      </div>
+    );
+  };
+
   // ── Auto Sync Point Tool Logic ──
   const handleAutoCalculateSyncPoint = () => {
     let time1 = 0;
@@ -329,6 +538,66 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       onOffsetChange(2, newOffset);
     }
     setSyncPointModalOpen(false);
+  };
+
+  // ── Add 2nike Modal Handlers ──
+  const handleOpenAddCaptionModal = () => {
+    let t1 = 0;
+    try {
+      if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+        t1 = player1Ref.current.getCurrentTime() || 0;
+      }
+    } catch {}
+    setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t1)));
+    setAddCaptionModalOpen(true);
+  };
+
+  const handleFetchCurrentTimeForModal = () => {
+    let t = 0;
+    try {
+      const p = newCapSlot === 1 ? player1Ref.current : player2Ref.current;
+      if (p && typeof p.getCurrentTime === 'function') {
+        t = p.getCurrentTime() || 0;
+      }
+    } catch {}
+    setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t)));
+  };
+
+  const handleSaveCaptionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCapText.trim()) {
+      toast.error('Vui lòng nhập Title');
+      return;
+    }
+
+    const sec = parseTimeToSeconds(newCapTimeStr);
+    try {
+      setSubmittingCap(true);
+      const res = await fetch('/api/youtube-captions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: effectiveMatchId || 'default_match',
+          slot: newCapSlot,
+          timestamp_seconds: sec,
+          timestamp_str: newCapTimeStr || formatSecondsToHHMMSS(sec),
+          caption: newCapText.trim(),
+          created_by: newCapAuthor.trim() || (isAdmin ? 'Admin' : 'Khán giả')
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.caption) {
+        toast.success('Đã lưu 2nike mới!');
+        setNewCapText('');
+        setAddCaptionModalOpen(false);
+      } else {
+        toast.error(data.error || 'Lỗi khi lưu 2nike');
+      }
+    } catch {
+      toast.error('Không thể kết nối máy chủ');
+    } finally {
+      setSubmittingCap(false);
+    }
   };
 
   return (
@@ -353,7 +622,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         marginBottom: '14px',
         borderBottom: '1px solid #f1f5f9'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Left: Title & Status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           <div style={{
             padding: '8px',
             borderRadius: '10px',
@@ -367,71 +637,69 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           </div>
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-              Màn Hình Phát Multi-Cam
+              Highlight
             </h3>
           </div>
-        </div>
 
-        {/* Sync Controls & Player Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {!isBothReady && (cfg1.youtube_id || cfg2.youtube_id) ? (
             <div style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 12px',
+              padding: '4px 10px',
               borderRadius: '8px',
               background: '#fef3c7',
               color: '#92400e',
               border: '1px solid #fde68a',
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: 700
             }}>
-              <RefreshCw size={14} className="animate-spin" />
-              Đang nạp 2 player đồng bộ...
+              <RefreshCw size={13} className="animate-spin" />
+              Đang nạp 2 player...
             </div>
           ) : (cfg1.youtube_id || cfg2.youtube_id) ? (
             <div style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 12px',
+              padding: '4px 10px',
               borderRadius: '8px',
               background: '#ecfdf5',
               color: '#065f46',
               border: '1px solid #a7f3d0',
-              fontSize: '12px',
+              fontSize: '11px',
               fontWeight: 700
             }}>
-              <CheckCircle2 size={14} style={{ color: '#10b981' }} />
+              <CheckCircle2 size={13} style={{ color: '#10b981' }} />
               Đã nạp xong 2 Player
             </div>
           ) : null}
+        </div>
 
-          {cfg1.youtube_id && cfg2.youtube_id && (
+        {/* Right Actions: Add 2nike Modal Button & Admin Auto calibration */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {(cfg1.youtube_id || cfg2.youtube_id) && (
             <button
               type="button"
-              onClick={togglePlayBoth}
-              disabled={!isBothReady}
+              onClick={handleOpenAddCaptionModal}
               style={{
-                padding: '8px 16px',
+                background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                color: '#ffffff',
+                border: 'none',
                 borderRadius: '8px',
+                padding: '8px 14px',
                 fontWeight: 800,
                 fontSize: '12px',
+                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                cursor: !isBothReady ? 'not-allowed' : 'pointer',
-                opacity: !isBothReady ? 0.6 : 1,
-                border: 'none',
-                background: isPlaying ? '#fef3c7' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: isPlaying ? '#78350f' : '#ffffff',
-                boxShadow: isPlaying ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.3)',
+                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
                 transition: 'all 0.15s ease'
               }}
             >
-              {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ fill: '#ffffff' }} />}
-              {isPlaying ? 'Tạm Dừng Cả 2 Video' : 'Phát Đồng Bộ Cả 2 Video'}
+              <Plus size={15} />
+              Lưu 2nike
             </button>
           )}
 
@@ -561,6 +829,191 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         )}
       </div>
 
+      {/* 5-Button Central Media Control Bar (Sát dưới Video) */}
+      {(cfg1.youtube_id || cfg2.youtube_id) && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingTop: '8px',
+          marginTop: '6px'
+        }}>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            background: '#ffffff',
+            padding: '8px 16px',
+            borderRadius: '9999px',
+            border: '1px solid #cbd5e1',
+            boxShadow: '0 4px 14px rgba(15, 23, 42, 0.08)'
+          }}>
+            {/* Button 1: 2nike trước */}
+            <div style={{ position: 'relative' }}>
+              {renderTooltip('prevNote', hasPrevNote ? 'Chuyển tới 2nike trước (Phím ↑)' : 'Đã ở mốc 2nike đầu tiên')}
+              <button
+                type="button"
+                onClick={handleSeekPrevNote}
+                onMouseEnter={() => setActiveTooltip('prevNote')}
+                onMouseLeave={() => setActiveTooltip(null)}
+                disabled={!isBothReady || !hasPrevNote}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '9999px',
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: (!isBothReady || !hasPrevNote) ? 'not-allowed' : 'pointer',
+                  opacity: (!isBothReady || !hasPrevNote) ? 0.4 : 1,
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                <SkipBack size={14} style={{ color: hasPrevNote ? '#4f46e5' : '#94a3b8' }} />
+                <span>2nike trước</span>
+              </button>
+            </div>
+
+            {/* Button 2: -5s */}
+            <div style={{ position: 'relative' }}>
+              {renderTooltip('back5', 'Lùi 5s (Phím ←)')}
+              <button
+                type="button"
+                onClick={() => handleSeekRelative(-5)}
+                onMouseEnter={() => setActiveTooltip('back5')}
+                onMouseLeave={() => setActiveTooltip(null)}
+                disabled={!isBothReady}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '9999px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#334155',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: !isBothReady ? 'not-allowed' : 'pointer',
+                  opacity: !isBothReady ? 0.5 : 1,
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                <Undo2 size={14} style={{ color: '#64748b' }} />
+                <span>-5s</span>
+              </button>
+            </div>
+
+            {/* Button 3: Play / Pause */}
+            <div style={{ position: 'relative' }}>
+              {renderTooltip('play', isPlaying ? 'Tạm dừng cả 2 video (Phím Space)' : 'Phát đồng bộ cả 2 video (Phím Space)')}
+              <button
+                type="button"
+                onClick={togglePlayBoth}
+                onMouseEnter={() => setActiveTooltip('play')}
+                onMouseLeave={() => setActiveTooltip(null)}
+                disabled={!isBothReady}
+                style={{
+                  width: '46px',
+                  height: '46px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: isPlaying
+                    ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                    : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: !isBothReady ? 'not-allowed' : 'pointer',
+                  opacity: !isBothReady ? 0.6 : 1,
+                  boxShadow: isPlaying
+                    ? '0 4px 14px rgba(245, 158, 11, 0.4)'
+                    : '0 4px 14px rgba(16, 185, 129, 0.4)',
+                  transition: 'all 0.2s ease',
+                  margin: '0 4px'
+                }}
+              >
+                {isPlaying ? (
+                  <Pause size={20} fill="#ffffff" />
+                ) : (
+                  <Play size={20} fill="#ffffff" style={{ marginLeft: '2px' }} />
+                )}
+              </button>
+            </div>
+
+            {/* Button 4: +5s */}
+            <div style={{ position: 'relative' }}>
+              {renderTooltip('next5', 'Tới 5s (Phím →)')}
+              <button
+                type="button"
+                onClick={() => handleSeekRelative(5)}
+                onMouseEnter={() => setActiveTooltip('next5')}
+                onMouseLeave={() => setActiveTooltip(null)}
+                disabled={!isBothReady}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '9999px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#334155',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: !isBothReady ? 'not-allowed' : 'pointer',
+                  opacity: !isBothReady ? 0.5 : 1,
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                <span>+5s</span>
+                <Redo2 size={14} style={{ color: '#64748b' }} />
+              </button>
+            </div>
+
+            {/* Button 5: 2nike tiếp */}
+            <div style={{ position: 'relative' }}>
+              {renderTooltip('nextNote', hasNextNote ? 'Chuyển tới 2nike tiếp (Phím ↓)' : 'Đã ở mốc 2nike cuối cùng')}
+              <button
+                type="button"
+                onClick={handleSeekNextNote}
+                onMouseEnter={() => setActiveTooltip('nextNote')}
+                onMouseLeave={() => setActiveTooltip(null)}
+                disabled={!isBothReady || !hasNextNote}
+                style={{
+                  padding: '7px 12px',
+                  borderRadius: '9999px',
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  cursor: (!isBothReady || !hasNextNote) ? 'not-allowed' : 'pointer',
+                  opacity: (!isBothReady || !hasNextNote) ? 0.4 : 1,
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                <span>2nike tiếp</span>
+                <SkipForward size={14} style={{ color: hasNextNote ? '#4f46e5' : '#94a3b8' }} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Auto Sync Modal */}
       {syncPointModalOpen && (
         <div style={{
@@ -644,6 +1097,204 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 Tính & Lưu Độ Trễ
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Form: Thêm / Lưu 2nike */}
+      {addCaptionModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            maxWidth: '480px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
+            color: '#0f172a',
+            position: 'relative'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Sparkles size={18} style={{ color: '#4f46e5' }} />
+                Thêm 2nike Mới (Realtime)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setAddCaptionModalOpen(false)}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '18px', fontWeight: 700, cursor: 'pointer', padding: '4px' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCaptionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Target Video Slot */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                  Góc Video
+                </label>
+                <select
+                  value={newCapSlot}
+                  onChange={(e) => setNewCapSlot(Number(e.target.value) as 1 | 2)}
+                  style={{
+                    width: '100%',
+                    background: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    color: '#0f172a',
+                    borderRadius: '10px',
+                    padding: '10px 12px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                >
+                  <option value={1}>Video 1: {cfg1.title || 'Hiệp 1 / Cam 1'}</option>
+                  <option value={2}>Video 2: {cfg2.title || 'Hiệp 2 / Cam 2'}</option>
+                </select>
+              </div>
+
+              {/* Timestamp Input + Button Lấy Giờ */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Thời gian (HH:MM:SS)</label>
+                  <button
+                    type="button"
+                    onClick={handleFetchCurrentTimeForModal}
+                    style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: '12px', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                  >
+                    🎯 Lấy giờ hiện tại video
+                  </button>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder="00:15:30"
+                    value={newCapTimeStr}
+                    onChange={(e) => setNewCapTimeStr(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      color: '#0f172a',
+                      borderRadius: '10px',
+                      padding: '10px 12px 10px 34px',
+                      fontSize: '13px',
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <Clock size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+                </div>
+              </div>
+
+              {/* Author Name */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                  Người tạo (Tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  placeholder={isAdmin ? 'Admin' : 'Tên bạn...'}
+                  value={newCapAuthor}
+                  onChange={(e) => setNewCapAuthor(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    color: '#0f172a',
+                    borderRadius: '10px',
+                    padding: '10px 12px',
+                    fontSize: '13px',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Caption Text Input */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                  Title
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Nội dung ghi chú (vd: Pha bóng nguy hiểm, Bàn thắng mở tỷ số...)"
+                  value={newCapText}
+                  onChange={(e) => setNewCapText(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: '#f8fafc',
+                    border: '1px solid #cbd5e1',
+                    color: '#0f172a',
+                    borderRadius: '10px',
+                    padding: '10px 12px',
+                    fontSize: '13px',
+                    outline: 'none',
+                    resize: 'vertical',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Modal Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setAddCaptionModalOpen(false)}
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#475569',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingCap}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '13px',
+                    cursor: submittingCap ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
+                    opacity: submittingCap ? 0.6 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  {submittingCap ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={16} />}
+                  Lưu 2nike
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
