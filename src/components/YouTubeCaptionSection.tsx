@@ -239,60 +239,121 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
     : captions.filter((c) => c.slot === selectedSlotFilter);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-5 shadow-sm text-slate-900 w-full">
+    <div style={{
+      background: '#ffffff',
+      borderRadius: '16px',
+      border: '1px solid #e2e8f0',
+      padding: '16px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+      color: '#0f172a',
+      width: '100%',
+      boxSizing: 'border-box'
+    }}>
       {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-            <MessageSquare size={20} />
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px',
+        paddingBottom: '14px',
+        marginBottom: '14px',
+        borderBottom: '1px solid #f1f5f9'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            padding: '8px',
+            borderRadius: '10px',
+            background: '#e0e7ff',
+            color: '#4f46e5',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <MessageSquare size={18} />
           </div>
           <div>
-            <h3 className="text-base font-extrabold text-slate-900 m-0 flex items-center gap-2">
+            <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
               Timeline Ghi Chú Trận Đấu
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-800 border border-indigo-200">
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: '12px',
+                background: '#e0e7ff',
+                color: '#3730a3',
+                border: '1px solid #c7d2fe'
+              }}>
                 {captions.length} mốc
               </span>
             </h3>
-            <p className="text-xs text-slate-500 m-0 mt-0.5">
+            <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
               Bấm mốc thời gian để tua tới đoạn highlight mong muốn
             </p>
           </div>
         </div>
 
         {/* Filters & Actions */}
-        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {/* Slot Filter Pills */}
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-auto overflow-x-auto">
+          <div style={{
+            display: 'flex',
+            background: '#f1f5f9',
+            padding: '3px',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0'
+          }}>
             <button
               type="button"
               onClick={() => setSelectedSlotFilter('all')}
-              className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                selectedSlotFilter === 'all'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              style={{
+                border: 'none',
+                padding: '4px 10px',
+                borderRadius: '7px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                background: selectedSlotFilter === 'all' ? '#ffffff' : 'transparent',
+                color: selectedSlotFilter === 'all' ? '#0f172a' : '#64748b',
+                boxShadow: selectedSlotFilter === 'all' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
             >
               Tất cả ({captions.length})
             </button>
             <button
               type="button"
               onClick={() => setSelectedSlotFilter(1)}
-              className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                selectedSlotFilter === 1
-                  ? 'bg-white text-emerald-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              style={{
+                border: 'none',
+                padding: '4px 10px',
+                borderRadius: '7px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                background: selectedSlotFilter === 1 ? '#ffffff' : 'transparent',
+                color: selectedSlotFilter === 1 ? '#047857' : '#64748b',
+                boxShadow: selectedSlotFilter === 1 ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
             >
               Video 1
             </button>
             <button
               type="button"
               onClick={() => setSelectedSlotFilter(2)}
-              className={`flex-1 sm:flex-initial px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                selectedSlotFilter === 2
-                  ? 'bg-white text-purple-700 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              style={{
+                border: 'none',
+                padding: '4px 10px',
+                borderRadius: '7px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                background: selectedSlotFilter === 2 ? '#ffffff' : 'transparent',
+                color: selectedSlotFilter === 2 ? '#6d28d9' : '#64748b',
+                boxShadow: selectedSlotFilter === 2 ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
             >
               Video 2
             </button>
@@ -303,7 +364,20 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
               type="button"
               onClick={handleResetAllCaptions}
               disabled={resetting || captions.length === 0}
-              className="bg-rose-50 text-rose-600 border border-rose-200 rounded-xl px-3 py-1.5 font-bold text-xs flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-rose-100 transition-all"
+              style={{
+                background: '#fff1f2',
+                color: '#e11d48',
+                border: '1px solid #fecdd3',
+                borderRadius: '8px',
+                padding: '6px 10px',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: resetting || captions.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: resetting || captions.length === 0 ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
               title="Refresh / Xóa sạch caption dữ liệu trận đấu"
             >
               <RefreshCw size={14} className={resetting ? 'animate-spin' : ''} />
@@ -314,24 +388,48 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
       </div>
 
       {/* Add New Caption Form */}
-      <form onSubmit={handleAddCaption} className="bg-gradient-to-b from-slate-50 to-slate-100/70 p-3.5 sm:p-4 rounded-xl border border-slate-200 mb-5 flex flex-col gap-3">
-        <div className="flex items-center justify-between text-xs font-bold">
-          <span className="text-indigo-800 flex items-center gap-1.5">
-            <Sparkles size={16} className="text-indigo-600" /> Thêm Dòng Ghi Chú Mới (Realtime)
+      <form onSubmit={handleAddCaption} style={{
+        background: '#f8fafc',
+        padding: '14px',
+        borderRadius: '12px',
+        border: '1px solid #e2e8f0',
+        marginBottom: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '10px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
+          <span style={{ color: '#3730a3', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Sparkles size={15} style={{ color: '#4f46e5' }} /> Thêm Dòng Ghi Chú Mới (Realtime)
           </span>
-          <span className="text-slate-500 text-[11px] font-medium hidden sm:inline">Tự động lưu & đồng bộ tức thì</span>
+          <span style={{ color: '#64748b', fontSize: '11px', fontWeight: 500 }}>Tự động lưu & đồng bộ tức thì</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '10px'
+        }}>
           {/* Target Video Slot */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
               Góc Video
             </label>
             <select
               value={slot}
               onChange={(e) => setSlot(Number(e.target.value) as 1 | 2)}
-              className="w-full bg-white border border-slate-300 text-slate-900 rounded-lg px-3 py-2 text-xs font-semibold outline-none focus:border-indigo-500 shadow-2xs"
+              style={{
+                width: '100%',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#0f172a',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                fontSize: '12px',
+                fontWeight: 600,
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
             >
               <option value={1}>Video 1: {configs.find((c) => c.slot === 1)?.title || 'Hiệp 1 / Cam 1'}</option>
               <option value={2}>Video 2: {configs.find((c) => c.slot === 2)?.title || 'Hiệp 2 / Cam 2'}</option>
@@ -340,33 +438,45 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
 
           {/* Timestamp Input */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[11px] font-bold text-slate-600">Thời gian (HH:MM:SS)</label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>Thời gian (HH:MM:SS)</label>
               {getCurrentVideoTime && (
                 <button
                   type="button"
                   onClick={handleFetchCurrentTime}
-                  className="bg-none border-none text-indigo-600 text-[11px] font-extrabold cursor-pointer hover:underline"
+                  style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: '11px', fontWeight: 800, cursor: 'pointer', padding: 0 }}
                 >
                   🎯 Lấy giờ video
                 </button>
               )}
             </div>
-            <div className="relative">
+            <div style={{ position: 'relative' }}>
               <input
                 type="text"
                 placeholder="00:15:30"
                 value={timeStr}
                 onChange={(e) => setTimeStr(e.target.value)}
-                className="w-full bg-white border border-slate-300 text-slate-900 rounded-lg pl-8 pr-3 py-2 text-xs font-mono font-bold outline-none focus:border-indigo-500 shadow-2xs"
+                style={{
+                  width: '100%',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: '#0f172a',
+                  borderRadius: '8px',
+                  padding: '8px 10px 8px 30px',
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                  fontWeight: 700,
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
               />
-              <Clock size={14} className="absolute left-2.5 top-2.5 text-slate-400" />
+              <Clock size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94a3b8' }} />
             </div>
           </div>
 
           {/* Author Name */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
               Người tạo (Tùy chọn)
             </label>
             <input
@@ -374,24 +484,62 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
               placeholder={isAdmin ? 'Admin' : 'Tên bạn...'}
               value={authorName}
               onChange={(e) => setAuthorName(e.target.value)}
-              className="w-full bg-white border border-slate-300 text-slate-900 rounded-lg px-3 py-2 text-xs outline-none focus:border-indigo-500 shadow-2xs"
+              style={{
+                width: '100%',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#0f172a',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                fontSize: '12px',
+                outline: 'none',
+                boxSizing: 'border-box'
+              }}
             />
           </div>
         </div>
 
         {/* Caption Text Input & Submit */}
-        <div className="flex flex-col sm:flex-row gap-2.5">
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
           <input
             type="text"
             placeholder="Nội dung ghi chú (vd: Pha bóng nguy hiểm, Bàn thắng mở tỷ số...)"
             value={captionText}
             onChange={(e) => setCaptionText(e.target.value)}
-            className="flex-1 bg-white border border-slate-300 text-slate-900 rounded-lg px-3.5 py-2 text-xs outline-none focus:border-indigo-500 shadow-2xs"
+            style={{
+              flex: 1,
+              minWidth: '200px',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              color: '#0f172a',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              fontSize: '12px',
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
           />
           <button
             type="submit"
             disabled={submitting}
-            className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white border-none rounded-lg px-5 py-2 font-extrabold text-xs cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap shadow-md shadow-indigo-500/20 disabled:opacity-60 disabled:cursor-not-allowed hover:from-indigo-700 hover:to-indigo-800 transition-all w-full sm:w-auto"
+            style={{
+              background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px 18px',
+              fontWeight: 800,
+              fontSize: '12px',
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
+              opacity: submitting ? 0.6 : 1,
+              transition: 'transform 0.15s ease'
+            }}
           >
             <Plus size={16} />
             Lưu Realtime
@@ -400,14 +548,14 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
       </form>
 
       {/* Captions List Timeline Cards */}
-      <div ref={captionListRef} className="flex flex-col gap-2.5 max-h-[480px] overflow-y-auto pr-1">
+      <div ref={captionListRef} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '480px', overflowY: 'auto', paddingRight: '4px' }}>
         {loading ? (
-          <div className="text-center py-9 text-slate-500 text-xs flex items-center justify-center gap-2">
-            <RefreshCw size={16} className="animate-spin text-indigo-600" />
+          <div style={{ textAlign: 'center', padding: '32px 0', color: '#64748b', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <RefreshCw size={16} className="animate-spin" style={{ color: '#4f46e5' }} />
             Đang tải dữ liệu timeline caption...
           </div>
         ) : filteredCaptions.length === 0 ? (
-          <div className="text-center py-9 text-slate-400 text-xs bg-slate-50 rounded-xl border border-dashed border-slate-300">
+          <div style={{ textAlign: 'center', padding: '32px', color: '#94a3b8', fontSize: '12px', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
             Chưa có ghi chú mốc thời gian nào. Hãy nhập mốc đầu tiên ở trên!
           </div>
         ) : (
@@ -418,44 +566,80 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
               <div
                 key={cap.id}
                 id={`caption-${cap.id}`}
-                className={`rounded-xl p-3 sm:p-4 flex flex-col gap-2.5 shadow-2xs transition-all ${
-                  isHighlighted
-                    ? 'bg-gradient-to-r from-indigo-50 to-indigo-100/70 border-2 border-indigo-500 shadow-md shadow-indigo-500/20'
-                    : 'bg-white border border-slate-200 hover:border-slate-300'
-                }`}
+                style={{
+                  background: isHighlighted ? 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)' : '#ffffff',
+                  border: isHighlighted ? '2px solid #6366f1' : '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  boxShadow: isHighlighted ? '0 8px 20px -4px rgba(99, 102, 241, 0.25)' : '0 2px 6px rgba(15, 23, 42, 0.03)',
+                  transition: 'all 0.15s ease'
+                }}
               >
                 {/* Top Row: Play Button, Slot Badge & Actions */}
-                <div className="flex items-center justify-between w-full gap-2">
-                  <div className="flex items-center gap-2 flex-wrap">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       onClick={() => onSeek(cap.slot, cap.timestamp_seconds)}
-                      className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white border-none rounded-lg px-3 py-1.5 text-xs font-mono font-extrabold cursor-pointer inline-flex items-center gap-1.5 shrink-0 shadow-xs shadow-indigo-600/30 active:scale-95 transition-all"
+                      style={{
+                        background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontFamily: 'monospace',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: '0 4px 10px rgba(79, 70, 229, 0.25)',
+                        transition: 'transform 0.15s ease'
+                      }}
                       title={`Phát Video ${cap.slot} từ mốc ${cap.timestamp_str}`}
                     >
-                      <Play size={12} className="fill-white" />
+                      <Play size={12} style={{ fill: '#ffffff' }} />
                       {cap.timestamp_str}
                     </button>
 
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${
-                      cap.slot === 1
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                        : 'bg-purple-50 text-purple-800 border-purple-200'
-                    }`}>
+                    <span style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '2px 8px',
+                      borderRadius: '6px',
+                      background: cap.slot === 1 ? '#ecfdf5' : '#f5f3ff',
+                      color: cap.slot === 1 ? '#047857' : '#6d28d9',
+                      border: `1px solid ${cap.slot === 1 ? '#a7f3d0' : '#ddd6fe'}`
+                    }}>
                       Video {cap.slot}
                     </span>
                   </div>
 
                   {/* Share & Delete Action Buttons */}
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <button
                       type="button"
                       onClick={() => handleShareCaption(cap)}
-                      className="p-1.5 rounded-lg bg-slate-100 text-slate-600 border border-slate-200 cursor-pointer inline-flex items-center gap-1 text-xs font-semibold hover:bg-slate-200 active:scale-95 transition-all"
+                      style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        color: '#475569',
+                        borderRadius: '6px',
+                        padding: '5px 8px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
                       title="Sao chép link chia sẻ mốc thời gian"
                     >
                       {copiedId === cap.id ? (
-                        <Check size={14} className="text-emerald-600" />
+                        <Check size={14} style={{ color: '#10b981' }} />
                       ) : (
                         <Share2 size={14} />
                       )}
@@ -464,7 +648,18 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                     <button
                       type="button"
                       onClick={() => handleDeleteCaption(cap.id)}
-                      className="p-1.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 cursor-pointer inline-flex items-center gap-1 text-xs font-semibold hover:bg-rose-100 active:scale-95 transition-all"
+                      style={{
+                        background: '#fff1f2',
+                        border: '1px solid #fecdd3',
+                        color: '#e11d48',
+                        borderRadius: '6px',
+                        padding: '5px 8px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
                       title="Xóa ghi chú (Realtime)"
                     >
                       <Trash2 size={14} />
@@ -473,15 +668,28 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                 </div>
 
                 {/* Bottom Row: Caption Description & Author Tag */}
-                <div className="w-full min-w-0 pt-0.5">
-                  <h4 className="text-xs sm:text-sm font-bold text-slate-900 m-0 leading-relaxed break-words">
+                <div style={{ width: '100%', minWidth: 0 }}>
+                  <h4 style={{
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    margin: '0 0 2px 0',
+                    lineHeight: '1.4',
+                    wordBreak: 'break-word'
+                  }}>
                     {cap.caption}
                   </h4>
 
                   {cap.created_by && (
-                    <span className="text-[11px] text-slate-500 inline-flex items-center gap-1 mt-1">
-                      <User size={11} className="text-slate-400" />
-                      bởi <strong className="text-slate-700">{cap.created_by}</strong>
+                    <span style={{
+                      fontSize: '11px',
+                      color: '#64748b',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <User size={11} style={{ color: '#94a3b8' }} />
+                      bởi <strong style={{ color: '#334155' }}>{cap.created_by}</strong>
                     </span>
                   )}
                 </div>
