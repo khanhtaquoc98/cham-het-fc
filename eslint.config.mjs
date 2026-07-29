@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "check_db.js",
+    "jest.config.js",
+    "migrate_fix_result.js",
+    "seed.js",
+    "public/sw.js",
   ]),
 ]);
 

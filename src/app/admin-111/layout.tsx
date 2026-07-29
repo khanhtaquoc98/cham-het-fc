@@ -17,7 +17,6 @@ const navItems = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isWidePage = pathname.startsWith('/admin-111/highlight');
 
   return (
     <div style={{ minHeight: '100vh', background: '#faf5f5', fontFamily: 'Chiron GoRound TC, sans-serif' }}>
@@ -50,7 +49,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
 
       {/* Navigation */}
-      <div className="admin-content" style={{ maxWidth: isWidePage ? '100%' : '900px', width: '100%', margin: '0 auto', padding: '16px 20px 0', boxSizing: 'border-box' }}>
+      <div className="admin-content" style={{ maxWidth: '100%', width: '100%', margin: '0 auto', padding: '16px 20px 0', boxSizing: 'border-box' }}>
         <div className="admin-nav">
           {navItems.map(item => {
             const isActive = item.href === '/admin-111'
@@ -78,7 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </div>
 
       {/* Page Content */}
-      <div className="admin-content" style={{ maxWidth: isWidePage ? '100%' : '900px', width: '100%', margin: '0 auto', padding: '16px 20px 24px', boxSizing: 'border-box' }}>
+      <div className="admin-content" style={{ maxWidth: '100%', width: '100%', margin: '0 auto', padding: '16px 20px 24px', boxSizing: 'border-box' }}>
         {children}
       </div>
     </div>
