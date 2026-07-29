@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Documentation - Match Highlight & 2Nike Timeline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg-main: #f8fafc;
+      --bg-card: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --border-color: #e2e8f0;
+      --code-bg: #1e293b;
+      --code-text: #f8fafc;
+      --res-bg: #0f172a;
+      --res-text: #38bdf8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: 280px;
+      background: #ffffff;
+      border-right: 1px solid var(--border-color);
+      padding: 24px 16px;
+      position: fixed;
+      top: 0; bottom: 0; left: 0;
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 24px;
+      padding: 0 8px;
+    }
+
+    .brand-logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #4f46e5, #3730a3);
+      color: white;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 18px;
+    }
+
+    .brand-title {
+      font-size: 15px; font-weight: 800; color: #0f172a; line-height: 1.2;
+    }
+
+    .nav-group-title {
+      font-size: 11px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.8px; color: #94a3b8; margin: 16px 8px 8px;
+    }
+
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
+      color: #475569; font-size: 13px; font-weight: 700;
+      text-decoration: none; transition: all 0.15s ease;
+      margin-bottom: 4px;
+    }
+
+    .nav-item:hover, .nav-item.active {
+      background: #e0e7ff; color: #4338ca;
+    }
+
+    .badge-method {
+      font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;
+    }
+    .method-get { background: #dcfce7; color: #15803d; }
+    .method-post { background: #dbeafe; color: #1e40af; }
+    .method-delete { background: #fee2e2; color: #b91c1c; }
+
+    /* Main Content Area */
+    .main-content {
+      margin-left: 280px;
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 1100px;
+    }
+
+    .header-banner {
+      background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%);
+      color: white;
+      padding: 28px;
+      border-radius: 20px;
+      margin-bottom: 32px;
+      box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.3);
+    }
+
+    .header-banner h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    .header-banner p { opacity: 0.9; font-size: 14px; line-height: 1.5; }
+
+    .domain-selector {
+      margin-top: 16px;
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(255,255,255,0.15);
+      padding: 8px 14px; border-radius: 12px; width: fit-content;
+      backdrop-filter: blur(8px);
+    }
+    .domain-selector select {
+      background: transparent; border: none; color: white;
+      font-family: inherit; font-size: 13px; font-weight: 700; outline: none; cursor: pointer;
+    }
+    .domain-selector select option { background: #0f172a; color: white; }
+
+    /* Section Cards */
+    .api-card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      padding: 24px;
+      margin-bottom: 28px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+
+    .api-card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; flex-wrap: wrap; gap: 10px;
+    }
+
+    .api-title-group { display: flex; align-items: center; gap: 12px; }
+    .api-title { font-size: 17px; font-weight: 800; color: #0f172a; }
+    .api-path { font-family: 'Fira Code', monospace; font-size: 13px; color: #475569; }
+
+    .api-desc { font-size: 13.5px; color: #475569; line-height: 1.6; margin-bottom: 16px; }
+
+    .section-label {
+      font-size: 12px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #64748b; margin: 14px 0 6px 0;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    /* Code Snippets */
+    .code-box {
+      background: var(--code-bg);
+      border-radius: 12px;
+      padding: 16px;
+      position: relative;
+      margin-bottom: 14px;
+    }
+
+    .response-box {
+      background: var(--res-bg);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid #1e293b;
+    }
+
+    .code-box pre, .response-box pre {
+      font-family: 'Fira Code', monospace;
+      font-size: 12.5px;
+      color: var(--code-text);
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .response-box pre { color: var(--res-text); }
+
+    .copy-btn {
+      position: absolute; top: 12px; right: 12px;
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 6px 12px; border-radius: 8px;
+      font-size: 11px; font-weight: 700; cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.3); }
+
+    /* Auth Callout */
+    .callout {
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px;
+      padding: 16px; margin-bottom: 24px; color: #1e40af; font-size: 13px; line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">⚽</div>
+      <div>
+        <div class="brand-title">Match Highlight API</div>
+        <div style="font-size: 11px; color: #94a3b8;">Cham Het FC System</div>
+      </div>
+    </div>
+
+    <div class="nav-group-title">Tổng quan</div>
+    <a href="#overview" class="nav-item active">📖 Giới thiệu & Auth</a>
+
+    <div class="nav-group-title">Match & History</div>
+    <a href="#endpoint-history" class="nav-item">
+      <span class="badge-method method-get">GET</span> 1. Danh sách trận đấu
+    </a>
+
+    <div class="nav-group-title">YouTube Configs</div>
+    <a href="#endpoint-config-get" class="nav-item">
+      <span class="badge-method method-get">GET</span> 2. Lấy Video Config
+    </a>
+    <a href="#endpoint-config-post" class="nav-item">
+      <span class="badge-method method-post">POST</span> 3. Lưu Video Config
+    </a>
+
+    <div class="nav-group-title">2Nike Highlight Captions</div>
+    <a href="#endpoint-caption-get" class="nav-item">
+      <span class="badge-method method-get">GET</span> 4. Lấy Timeline Captions
+    </a>
+    <a href="#endpoint-caption-post" class="nav-item">
+      <span class="badge-method method-post">POST</span> 5. Thêm Highlight Mới
+    </a>
+    <a href="#endpoint-caption-delete-single" class="nav-item">
+      <span class="badge-method method-delete">DEL</span> 6. Xóa 1 Highlight Theo ID
+    </a>
+    <a href="#endpoint-caption-delete-all" class="nav-item">
+      <span class="badge-method method-delete">DEL</span> 7. Xóa Sạch Highlight Trận
+    </a>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    
+    <!-- Banner -->
+    <div class="header-banner" id="overview">
+      <h1>Tài Liệu REST API & cURL Match Highlight</h1>
+      <p>Hệ thống API quản lý 2 góc quay Video YouTube và mốc thời gian ghi chú 2Nike Timeline cho các trận đấu.</p>
+
+      <div class="domain-selector">
+        <label style="font-size: 12px; font-weight: 700;">🌐 Chọn Environment:</label>
+        <select id="envSelect" onchange="updateDomain()">
+          <option value="https://cham-het-fc-team.vercel.app">Production (Vercel): https://cham-het-fc-team.vercel.app</option>
+          <option value="http://localhost:3111">Local Dev: http://localhost:3111</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Auth Callout -->
+    <div class="callout">
+      <strong>🔒 Thông tin Xác Thực (JWT Role):</strong> Các API Endpoint dưới đây <strong>KHÔNG BẮT BUỘC JWT Token</strong>. Bạn có thể tự do gọi cURL từ Telegram Bot, Python, Postman mà không cần đăng nhập.
+    </div>
+
+    <!-- 1. Endpoint History -->
+    <div class="api-card" id="endpoint-history">
+      <div class="api-card-header">
+        <div class="api-title-group">
+          <span class="badge-method method-get">GET</span>
+          <span class="api-title">1. Danh Sách Trận Đấu</span>
+        </div>
+        <span class="api-path">/api/history?pageSize=30</span>
+      </div>
+      <p class="api-desc">Lấy danh sách các trận đấu trong lịch sử bao gồm ngày, giờ, sân thi đấu, đội hình và kết quả.</p>
+
+      <div class="section-label">⚡ Lệnh cURL Request</div>
+      <div class="code-box">
+        <button class="copy-btn" onclick="copyCode(this)">Copy cURL</button>
+        <pre><code class="curl-code" data-endpoint="/api/history?pageSize=30" data-method="GET">curl -X GET "{DOMAIN}/api/history?pageSize=30" \
+  -H "Accept: application/json"</code></pre>
+      </div>
+
+      <div class="section-label">📥 Response Example (200 OK)</div>
+      <div class="response-box">
+        <pre><code>{
+  "matches": [
+    {
+      "id": "511200ce-7584-4c66-9de3-f431f3927016",
+      "matchDate": "23/07/2026",
+      "matchTime": "19:30",
+      "venue": "Sân bóng FC",
+      "homeScore": 5,
+      "awayScore": 3,
+      "result": "home_win",
+      "teams": [
+        {
+          "name": "HOME",
+          "players": [{ "name": "Tú" }, { "name": "Khánh" }]
+        },
+        {
+          "name": "AWAY",
+          "players": [{ "name": "Đạt" }, { "name": "Lâm" }]
+        }
+      ]
+    }
+  ]
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- 2. Endpoint Config GET -->
+    <div class="api-card" id="endpoint-config-get">
+      <div class="api-card-header">
+        <div class="api-title-group">
+          <span class="badge-method method-get">GET</span>
+          <span class="api-title">2. Lấy Cấu Hình 2 Video YouTube</span>
+        </div>
+        <span class="api-path">/api/youtube-config?match_id={MATCH_ID}</span>
+      </div>
+      <p class="api-desc">Lấy link YouTube, tiêu đề và số giây trễ offset của 2 góc quay cho trận đấu.</p>
+
+      <div class="section-label">⚡ Lệnh cURL Request</div>
+      <div class="code-box">
+        <button class="copy-btn" onclick="copyCode(this)">Copy cURL</button>
+        <pre><code class="curl-code" data-endpoint="/api/youtube-config?match_id=default_match" data-method="GET">curl -X GET "{DOMAIN}/api/youtube-config?match_id=default_match" \
+  -H "Accept: application/json"</code></pre>
+      </div>
+
+      <div class="section-label">📥 Response Example (200 OK)</div>
+      <div class="response-box">
+        <pre><code>{
+  "configs": [
+    {
+      "slot": 1,
+      "match_id": "default_match",
+      "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "youtube_id": "dQw4w9WgXcQ",
+      "title": "Hiệp 1 / Cam 1",
+      "start_offset_seconds": 0
+    },
+    {
+      "slot": 2,
+      "match_id": "default_match",
+      "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "youtube_id": "dQw4w9WgXcQ",
+      "title": "Hiệp 2 / Cam 2",
+      "start_offset_seconds": 12
+    }
+  ]
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- 3. Endpoint Config POST -->
+    <div class="api-card" id="endpoint-config-post">
+      <div class="api-card-header">
+        <div class="api-title-group">
+          <span class="badge-method method-post">POST</span>
+          <span class="api-title">3. Lưu Cấu Hình 2 Video YouTube</span>
+        </div>
+        <span class="api-path">/api/youtube-config</span>
+      </div>
+      <p class="api-desc">Cập nhật link YouTube và căn số giây trễ delay giữa Video 1 và Video 2.</p>
+
+      <div class="section-label">⚡ Lệnh cURL Request</div>
+      <div class="code-box">
+        <button class="copy-btn" onclick="copyCode(this)">Copy cURL</button>
+        <pre><code class="curl-code" data-endpoint="/api/youtube-config" data-method="POST">curl -X POST "{DOMAIN}/api/youtube-config" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "match_id": "default_match",
+    "configs": [
+      { "slot": 1, "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "title": "Hiệp 1 / Cam 1", "start_offset_seconds": 0 },
+      { "slot": 2, "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "title": "Hiệp 2 / Cam 2", "start_offset_seconds": 12 }
+    ]
+  }'</code></pre>
+      </div>
+
+      <div class="section-label">📥 Response Example (200 OK)</div>
+      <div class="response-box">
+        <pre><code>{
+  "success": true,
+  "configs": [
+    {
+      "match_id": "default_match",
+      "slot": 1,
+      "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "youtube_id": "dQw4w9WgXcQ",
+      "title": "Hiệp 1 / Cam 1",
+      "start_offset_seconds": 0
+    },
+    {
+      "match_id": "default_match",
+      "slot": 2,
+      "youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "youtube_id": "dQw4w9WgXcQ",
+      "title": "Hiệp 2 / Cam 2",
+      "start_offset_seconds": 12
+    }
+  ]
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- 4. Endpoint Caption GET -->
+    <div class="api-card" id="endpoint-caption-get">
+      <div class="api-card-header">
+        <div class="api-title-group">
+          <span class="badge-method method-get">GET</span>
+          <span class="api-title">4. Lấy Danh Sách Highlight 2Nike</span>
+        </div>
+        <span class="api-path">/api/youtube-captions?match_id={MATCH_ID}</span>
+      </div>
+      <p class="api-desc">Lấy tất cả các mốc thời gian ghi chú highlight 2Nike được sắp xếp theo thời gian trận đấu.</p>
+
+      <div class="section-label">⚡ Lệnh cURL Request</div>
+      <div class="code-box">
+        <button class="copy-btn" onclick="copyCode(this)">Copy cURL</button>
+        <pre><code class="curl-code" data-endpoint="/api/youtube-captions?match_id=default_match" data-method="GET">curl -X GET "{DOMAIN}/api/youtube-captions?match_id=default_match" \
+  -H "Accept: application/json"</code></pre>
+      </div>
+
+      <div class="section-label">📥 Response Example (200 OK)</div>
+      <div class="response-box">
+        <pre><code>{
+  "captions": [
+    {
+      "id": "c1f3a2b4-5678-90ab-cdef-1234567890ab",
+      "match_id": "default_match",
+      "slot": 1,
+      "youtube_id": "dQw4w9WgXcQ",
+      "timestamp_seconds": 930,
+      "timestamp_str": "15:30",
+      "caption": "Bàn thắng siêu phẩm sút xa của Tú",
+      "created_by": "Admin",
+      "created_at": "2026-07-29T10:30:00.000Z"
+    }
+  ]
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- 5. Endpoint Caption POST -->
+    <div class="api-card" id="endpoint-caption-post">
+      <div class="api-card-header">
+        <div class="api-title-group">
+          <span class="badge-method method-post">POST</span>
+          <span class="api-title">5. Thêm Mốc Highlight 2Nike Mới</span>
+        </div>
+        <span class="api-path">/api/youtube-captions</span>
+      </div>
+      <p class="api-desc">Tạo một dòng ghi chú mốc thời gian highlight trên Video 1 hoặc Video 2 của trận đấu.</p>
+
+      <div class="section-label">⚡ Lệnh cURL Request</div>
+      <div class="code-box">
+        <button class="copy-btn" onclick="copyCode(this)">Copy cURL</button>
+        <pre><code class="curl-code" data-endpoint="/api/youtube-captions" data-method="POST">curl -X POST "{DOMAIN}/api/youtube-captions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "match_id": "default_match",
+    "slot": 1,
+    "youtube_id": "dQw4w9WgXcQ",
+    "timestamp_seconds": 930,
+    "timestamp_str": "15:30",
+    "caption": "Bàn thắng siêu phẩm sút xa của Tú",
+    "created_by": "Admin"
+  }'</code></pre>
+      </div>
+
+      <div class="section-label">📥 Response Example (200 OK)</div>
+      <div class="response-box">
+        <pre><code>{
+  "success": true,
+  "caption": {
+    "id": "c1f3a2b4-5678-90ab-cdef-1234567890ab",
+    "match_id": "default_match",
+    "slot": 1,
+    "youtube_id": "dQw4w9WgXcQ",
+    "timestamp_seconds": 930,
+    "timestamp_str": "15:30",
+    "caption": "Bàn thắng siêu phẩm sút xa của Tú",
+    "created_by": "Admin",
+    "created_at": "2026-07-29T10:30:00.000Z"
+  }
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- 6. Endpoint Caption DELETE Single -->
+    <div class="api-card" id="endpoint-caption-delete-single">
+      <div class="api-card-header">
+        <div class="api-title-group">
+          <span class="badge-method method-delete">DELETE</span>
+          <span class="api-title">6. Xóa 1 Cột Mốc Highlight 2Nike Theo ID</span>
+        </div>
+        <span class="api-path">/api/youtube-captions?id={CAPTION_ID}</span>
+      </div>
+      <p class="api-desc">Xóa một mốc ghi chú highlight 2Nike cụ thể dựa vào ID ghi chú.</p>
+
+      <div class="section-label">⚡ Lệnh cURL Request</div>
+      <div class="code-box">
+        <button class="copy-btn" onclick="copyCode(this)">Copy cURL</button>
+        <pre><code class="curl-code" data-endpoint="/api/youtube-captions?id=CAPTION_ID" data-method="DELETE">curl -X DELETE "{DOMAIN}/api/youtube-captions?id=c1f3a2b4-5678-90ab-cdef-1234567890ab" \
+  -H "Accept: application/json"</code></pre>
+      </div>
+
+      <div class="section-label">📥 Response Example (200 OK)</div>
+      <div class="response-box">
+        <pre><code>{
+  "success": true,
+  "id": "c1f3a2b4-5678-90ab-cdef-1234567890ab"
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- 7. Endpoint Caption DELETE All -->
+    <div class="api-card" id="endpoint-caption-delete-all">
+      <div class="api-card-header">
+        <div class="api-title-group">
+          <span class="badge-method method-delete">DELETE</span>
+          <span class="api-title">7. Xóa Sạch Tất Cả Highlight 2Nike Của Trận</span>
+        </div>
+        <span class="api-path">/api/youtube-captions?match_id={MATCH_ID}&reset_all=true</span>
+      </div>
+      <p class="api-desc">Xóa toàn bộ tất cả mốc timeline ghi chú 2Nike của một trận đấu cụ thể.</p>
+
+      <div class="section-label">⚡ Lệnh cURL Request</div>
+      <div class="code-box">
+        <button class="copy-btn" onclick="copyCode(this)">Copy cURL</button>
+        <pre><code class="curl-code" data-endpoint="/api/youtube-captions?match_id=default_match&reset_all=true" data-method="DELETE">curl -X DELETE "{DOMAIN}/api/youtube-captions?match_id=default_match&reset_all=true" \
+  -H "Accept: application/json"</code></pre>
+      </div>
+
+      <div class="section-label">📥 Response Example (200 OK)</div>
+      <div class="response-box">
+        <pre><code>{
+  "success": true,
+  "count": 5
+}</code></pre>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    function getSelectedDomain() {
+      return document.getElementById('envSelect').value;
+    }
+
+    function updateDomain() {
+      const domain = getSelectedDomain();
+      document.querySelectorAll('.curl-code').forEach(el => {
+        const text = el.getAttribute('data-original-text') || el.innerText;
+        if (!el.getAttribute('data-original-text')) {
+          el.setAttribute('data-original-text', text);
+        }
+        el.innerText = text.replace(/{DOMAIN}/g, domain);
+      });
+    }
+
+    function copyCode(btn) {
+      const codeBox = btn.nextElementSibling.querySelector('code');
+      const textToCopy = codeBox.innerText;
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        const orig = btn.innerText;
+        btn.innerText = '✓ Copied!';
+        btn.style.background = '#059669';
+        setTimeout(() => {
+          btn.innerText = orig;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      updateDomain();
+    });
+  </script>
+</body>
+</html>

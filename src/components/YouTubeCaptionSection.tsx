@@ -223,7 +223,8 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
   // ── 7. Handle Share Timestamp Link ──
   const handleShareCaption = (cap: MatchCaption) => {
     if (typeof window === 'undefined') return;
-    const shareUrl = `${window.location.origin}${window.location.pathname}?slot=${cap.slot}&time=${cap.timestamp_seconds}&caption_id=${cap.id}`;
+    const currentMatchId = cap.match_id || matchId;
+    const shareUrl = `${window.location.origin}/match-video?match_id=${currentMatchId}&slot=${cap.slot}&time=${cap.timestamp_seconds}&caption_id=${cap.id}`;
 
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopiedId(cap.id);
