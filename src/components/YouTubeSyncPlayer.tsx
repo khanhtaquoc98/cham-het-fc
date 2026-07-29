@@ -27,6 +27,7 @@ interface Props {
   onOffsetChange?: (slot: 1 | 2, offsetSeconds: number) => void;
   activeTargetSlot?: number;
   highlightCaptionTime?: number | null;
+  autoPlayOnLoad?: boolean;
 }
 
 const DEFAULT_CONFIG_1: YouTubeVideoConfig = {
@@ -52,7 +53,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   isAdmin = false,
   onOffsetChange,
   activeTargetSlot,
-  highlightCaptionTime: _highlightCaptionTime
+  highlightCaptionTime: _highlightCaptionTime,
+  autoPlayOnLoad = true
 }, ref) => {
   const cfg1 = configs.find(c => c.slot === 1) || DEFAULT_CONFIG_1;
   const cfg2 = configs.find(c => c.slot === 2) || DEFAULT_CONFIG_2;
@@ -108,21 +110,11 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const onPlayerReady1 = (event: { target: PlayerInstance }) => {
     player1Ref.current = event.target;
     setIsPlayer1Ready(true);
-    try {
-      if (typeof event.target.pauseVideo === 'function') {
-        event.target.pauseVideo();
-      }
-    } catch {}
   };
 
   const onPlayerReady2 = (event: { target: PlayerInstance }) => {
     player2Ref.current = event.target;
     setIsPlayer2Ready(true);
-    try {
-      if (typeof event.target.pauseVideo === 'function') {
-        event.target.pauseVideo();
-      }
-    } catch {}
   };
 
   // ── Sync Loop: Ensures Video 2 waits at 0s until Video 1 reaches start_offset_seconds ──
@@ -180,7 +172,9 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
       player1Ref.current.seekTo(Math.max(0, targetTime1), true);
       if (autoPlay && typeof player1Ref.current.playVideo === 'function') {
-        player1Ref.current.playVideo();
+        try {
+          player1Ref.current.playVideo();
+        } catch {}
       }
     }
 
@@ -197,7 +191,9 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           player2Ref.current.seekTo(targetTime2, true);
         }
         if (autoPlay && typeof player2Ref.current.playVideo === 'function') {
-          player2Ref.current.playVideo();
+          try {
+            player2Ref.current.playVideo();
+          } catch {}
         }
       }
     }
@@ -205,17 +201,24 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     if (autoPlay) setIsPlaying(true);
   }, [cfg2.start_offset_seconds]);
 
-  // Execute pending seek once both players are ready
+  // Execute pending seek or auto-start once both players are ready
   useEffect(() => {
-    if (isBothReady && pendingSeekRef.current) {
+    if (!isBothReady) return;
+
+    if (pendingSeekRef.current) {
       const { slot, seconds, autoPlay } = pendingSeekRef.current;
       pendingSeekRef.current = null;
       const timer = setTimeout(() => {
         doSeek(slot, seconds, autoPlay);
       }, 300);
       return () => clearTimeout(timer);
+    } else if (autoPlayOnLoad && (cfg1.youtube_id || cfg2.youtube_id)) {
+      const timer = setTimeout(() => {
+        doSeek(1, 0, true);
+      }, 300);
+      return () => clearTimeout(timer);
     }
-  }, [isBothReady, doSeek]);
+  }, [isBothReady, doSeek, autoPlayOnLoad, cfg1.youtube_id, cfg2.youtube_id]);
 
   // ── Imperative Ref Methods ──
   useImperativeHandle(ref, () => ({
