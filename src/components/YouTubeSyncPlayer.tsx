@@ -335,83 +335,31 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     setSyncPointModalOpen(false);
   };
 
-  const formatOffsetDisplay = (offsetSec: number) => {
-    if (offsetSec === 0) return '0s (Đồng bộ chuẩn)';
-    if (offsetSec > 0) return `+${offsetSec}s (Video 2 trễ ${offsetSec}s so với Video 1)`;
-    return `${offsetSec}s (Video 2 nhanh hơn ${Math.abs(offsetSec)}s)`;
-  };
-
   return (
-    <div style={{
-      background: '#ffffff',
-      borderRadius: '16px',
-      border: '1px solid #e2e8f0',
-      padding: '20px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-      color: '#0f172a'
-    }}>
+    <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-5 shadow-sm text-slate-900 w-full">
       {/* Header & Controls */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '12px',
-        paddingBottom: '16px',
-        marginBottom: '16px',
-        borderBottom: '1px solid #f1f5f9'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            padding: '10px',
-            borderRadius: '12px',
-            background: '#e0e7ff',
-            color: '#4f46e5',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-100">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
             <Video size={20} />
           </div>
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+            <h3 className="text-base font-extrabold text-slate-900 m-0">
               Màn Hình Phát Multi-Cam
             </h3>
           </div>
         </div>
 
         {/* Sync Controls & Player Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {!isBothReady && (cfg1.youtube_id || cfg2.youtube_id) ? (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '10px',
-              background: '#fef3c7',
-              color: '#92400e',
-              border: '1px solid #fde68a',
-              fontSize: '12px',
-              fontWeight: 700
-            }}>
+            <div className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold w-full sm:w-auto">
               <RefreshCw size={14} className="animate-spin" />
               Đang nạp 2 player đồng bộ...
             </div>
           ) : (cfg1.youtube_id || cfg2.youtube_id) ? (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '10px',
-              background: '#ecfdf5',
-              color: '#065f46',
-              border: '1px solid #a7f3d0',
-              fontSize: '11px',
-              fontWeight: 700
-            }}>
-              <CheckCircle2 size={13} style={{ color: '#10b981' }} />
+            <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold w-full sm:w-auto">
+              <CheckCircle2 size={14} className="text-emerald-500" />
               Đã nạp xong 2 Player
             </div>
           ) : null}
@@ -421,23 +369,13 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               type="button"
               onClick={togglePlayBoth}
               disabled={!isBothReady}
-              style={{
-                background: isPlaying ? '#fef3c7' : '#059669',
-                color: isPlaying ? '#92400e' : '#ffffff',
-                border: isPlaying ? '1px solid #fde68a' : 'none',
-                borderRadius: '10px',
-                padding: '10px 16px',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: !isBothReady ? 'not-allowed' : 'pointer',
-                opacity: !isBothReady ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: isPlaying ? 'none' : '0 4px 12px rgba(5,150,105,0.2)'
-              }}
+              className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all w-full sm:w-auto ${
+                isPlaying
+                  ? 'bg-amber-50 text-amber-900 border border-amber-200'
+                  : 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700'
+              }`}
             >
-              {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ fill: 'currentColor' }} />}
+              {isPlaying ? <Pause size={14} /> : <Play size={14} className="fill-current" />}
               {isPlaying ? 'Tạm Dừng Cả 2 Video' : 'Phát Đồng Bộ Cả 2 Video'}
             </button>
           )}
@@ -447,23 +385,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               type="button"
               onClick={handleOpenSyncModal}
               disabled={!isBothReady}
-              style={{
-                background: '#f1f5f9',
-                color: '#334155',
-                border: '1px solid #cbd5e1',
-                borderRadius: '10px',
-                padding: '10px 14px',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: !isBothReady ? 'not-allowed' : 'pointer',
-                opacity: !isBothReady ? 0.6 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
+              className="bg-slate-100 text-slate-700 border border-slate-300 rounded-xl px-3.5 py-2 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 transition-all w-full sm:w-auto"
               title="Căn mốc đồng bộ tự động"
             >
-              <Sliders size={14} style={{ color: '#4f46e5' }} />
+              <Sliders size={14} className="text-indigo-600" />
               Căn Độ Trễ Auto
             </button>
           )}
@@ -471,39 +396,24 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       </div>
 
       {/* Video Players Grid: 50% / 50% on PC, Full Width on Mobile */}
-      <div className={`grid grid-cols-1 ${cfg1.youtube_id && cfg2.youtube_id ? 'md:grid-cols-2' : ''} gap-4`}>
+      <div className={`grid grid-cols-1 ${cfg1.youtube_id && cfg2.youtube_id ? 'md:grid-cols-2' : ''} gap-3 sm:gap-4`}>
         {/* Video Slot 1 */}
-        <div style={{
-          background: '#f8fafc',
-          borderRadius: '14px',
-          border: activeTargetSlot === 1 ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column'
-        }}>
-          <div style={{
-            padding: '10px 14px',
-            background: '#f1f5f9',
-            borderBottom: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: '12px',
-            fontWeight: 800,
-            color: '#334155'
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+        <div className={`bg-slate-50 rounded-xl overflow-hidden flex flex-col border ${
+          activeTargetSlot === 1 ? 'border-2 border-indigo-600 shadow-md' : 'border-slate-200'
+        }`}>
+          <div className="px-3.5 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between text-xs font-extrabold text-slate-700">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 height-2 rounded-full bg-emerald-500" />
               {cfg1.title || 'Slot 1: Hiệp 1 / Cam 1'}
             </span>
-            <span style={{ fontSize: '11px', color: '#64748b', background: '#e2e8f0', padding: '2px 8px', borderRadius: '6px' }}>
+            <span className="text-[11px] text-slate-500 bg-slate-200 px-2 py-0.5 rounded-md">
               Master Standard
             </span>
           </div>
 
-          <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', background: '#000' }}>
+          <div className="relative w-full pt-[56.25%] bg-black">
             {cfg1.youtube_id ? (
-              <div style={{ position: 'absolute', inset: 0 }}>
+              <div className="absolute inset-0">
                 <YouTube
                   videoId={extractYouTubeId(cfg1.youtube_id)}
                   opts={opts}
@@ -513,9 +423,9 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 />
               </div>
             ) : (
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '8px' }}>
-                <Video size={36} style={{ opacity: 0.5 }} />
-                <span style={{ fontSize: '13px', fontWeight: 600 }}>Chưa cấu hình URL Video Slot 1</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-2">
+                <Video size={36} className="opacity-50" />
+                <span className="text-xs font-semibold">Chưa cấu hình URL Video Slot 1</span>
               </div>
             )}
           </div>
@@ -523,36 +433,21 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
         {/* Video Slot 2 */}
         {cfg2.youtube_id && (
-          <div style={{
-            background: '#f8fafc',
-            borderRadius: '14px',
-            border: activeTargetSlot === 2 ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <div style={{
-              padding: '10px 14px',
-              background: '#f1f5f9',
-              borderBottom: '1px solid #e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              fontSize: '12px',
-              fontWeight: 800,
-              color: '#334155'
-            }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
+          <div className={`bg-slate-50 rounded-xl overflow-hidden flex flex-col border ${
+            activeTargetSlot === 2 ? 'border-2 border-indigo-600 shadow-md' : 'border-slate-200'
+          }`}>
+            <div className="px-3.5 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between text-xs font-extrabold text-slate-700">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 height-2 rounded-full bg-indigo-500" />
                 {cfg2.title || 'Slot 2: Hiệp 2 / Cam 2'}
               </span>
-              <span style={{ fontSize: '11px', color: '#854d0e', background: '#fef9c3', border: '1px solid #fef08a', padding: '2px 8px', borderRadius: '6px' }}>
+              <span className="text-[11px] text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md">
                 Độ trễ: {formatSecondsToHHMMSS(cfg2.start_offset_seconds || 0)}
               </span>
             </div>
 
-            <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', background: '#000' }}>
-              <div style={{ position: 'absolute', inset: 0 }}>
+            <div className="relative w-full pt-[56.25%] bg-black">
+              <div className="absolute inset-0">
                 <YouTube
                   videoId={extractYouTubeId(cfg2.youtube_id)}
                   opts={opts}
@@ -568,79 +463,36 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
       {/* Auto Sync Modal */}
       {syncPointModalOpen && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(15, 23, 42, 0.6)',
-          backdropFilter: 'blur(4px)',
-          zIndex: 9999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '20px'
-        }}>
-          <div style={{
-            background: '#ffffff',
-            borderRadius: '16px',
-            maxWidth: '480px',
-            width: '100%',
-            padding: '24px',
-            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-            color: '#0f172a'
-          }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 12px 0', color: '#0f172a' }}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl text-slate-900">
+            <h3 className="text-base sm:text-lg font-extrabold m-0 mb-3 text-slate-900">
               Tool Căn Độ Trễ Tự Động (Auto Offset Calibration)
             </h3>
-            <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, margin: '0 0 16px 0' }}>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed m-0 mb-4">
               Hãy bấm <strong>Play</strong> trên cả 2 video, tìm đến một tình huống diễn ra cùng lúc (ví dụ: quả phạt góc hoặc bàn thắng), sau đó tạm dừng cả 2 video đúng thời điểm đó và nhấn nút bên dưới.
             </p>
 
-            <div style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              padding: '12px 16px',
-              fontSize: '13px',
-              marginBottom: '20px'
-            }}>
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-xs sm:text-sm mb-5">
               <div>
                 <strong>Video 1 (Mốc):</strong> {formatSecondsToHHMMSS(modalTimes.time1)}
               </div>
-              <div style={{ marginTop: '6px' }}>
+              <div className="mt-1.5">
                 <strong>Video 2 (Tình huống tương ứng):</strong> {formatSecondsToHHMMSS(modalTimes.time2)}
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <div className="flex justify-end gap-2.5">
               <button
                 type="button"
                 onClick={() => setSyncPointModalOpen(false)}
-                style={{
-                  padding: '9px 16px',
-                  borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
-                  color: '#475569',
-                  fontWeight: 600,
-                  fontSize: '13px',
-                  cursor: 'pointer'
-                }}
+                className="px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-600 font-semibold text-xs cursor-pointer hover:bg-slate-50 transition-all"
               >
                 Hủy
               </button>
               <button
                 type="button"
                 onClick={handleAutoCalculateSyncPoint}
-                style={{
-                  padding: '9px 16px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: '#4f46e5',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: 'pointer'
-                }}
+                className="px-4 py-2 rounded-xl border-none bg-indigo-600 text-white font-bold text-xs cursor-pointer hover:bg-indigo-700 transition-all shadow-md shadow-indigo-600/20"
               >
                 Tính & Lưu Độ Trễ
               </button>

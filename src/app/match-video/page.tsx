@@ -105,7 +105,7 @@ function MatchVideoContent() {
 
   return (
     <div style={{ background: '#f8fafc', color: '#0f172a', minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column' }}>
-      <main style={{ width: '100%', maxWidth: '100%', margin: '0', padding: '16px 20px 24px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, boxSizing: 'border-box' }}>
+      <main className="w-full max-w-full p-2 sm:p-4 md:p-6 flex flex-col gap-4 flex-1 box-border">
         {/* Dual YouTube Sync Player Component (Full Width 50%/50%) */}
         <YouTubeSyncPlayer
           ref={playerRef}
