@@ -423,6 +423,15 @@ export function PlayerHoverCard({ player, children, style }: {
     )
   ) : null;
 
+  const handleClick = () => {
+    if (!show) {
+      updatePosition();
+      setShow(true);
+    } else {
+      setShow(false);
+    }
+  };
+
   return (
     <div
       ref={triggerRef}
@@ -431,6 +440,7 @@ export function PlayerHoverCard({ player, children, style }: {
       onMouseEnter={handleMouseEnter}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
     >
       {children}
       {tooltipElement}

@@ -954,7 +954,7 @@ export default function Home() {
       )}
 
       {/* Main */}
-      <main style={{ padding: '0 24px 60px', maxWidth: '1200px', margin: '0 auto', flex: 1, width: '100%' }}>
+      <main className="app-main-content" style={{ padding: '0 24px 60px', maxWidth: '1200px', margin: '0 auto', flex: 1, width: '100%' }}>
         {loading ? (
           <div style={{ padding: '40px 0' }}>
             <div className="skeleton" style={{ height: '72px', marginBottom: '24px' }} />
@@ -978,51 +978,28 @@ export default function Home() {
 
             {/* Bench Section */}
             {matchData.bench !== undefined && !(paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0) && (
-              <div className="content-appear stagger-1" style={{ marginTop: '24px', marginBottom: '24px', padding: '24px', background: 'var(--bg-secondary)', borderRadius: '16px', border: '1px solid var(--border-subtle)', boxShadow: '0 8px 32px rgba(0,0,0,0.05)' }}>
+              <div className="bench-section content-appear stagger-1">
                 
-                <h3 style={{ textAlign: 'center', fontSize: '16px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                <h3 className="bench-title">
                   <Armchair size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
                   ĐIỂM DANH DỰ BỊ / EXTRA TRÊN APP ({matchData.bench.length})
                 </h3>
 
                 {/* Input box open to EVERYONE to add player name */}
-                <div style={{ maxWidth: '480px', margin: '0 auto 20px' }}>
-                  <form onSubmit={(e) => { e.preventDefault(); handleAddPlayerToBench(customBenchName); }} style={{ display: 'flex', gap: '8px' }}>
+                <div className="bench-form-container">
+                  <form onSubmit={(e) => { e.preventDefault(); handleAddPlayerToBench(customBenchName); }} className="bench-form">
                     <input
                       type="text"
                       placeholder="Nhập tên điểm danh vào App..."
                       value={customBenchName}
                       onChange={(e) => setCustomBenchName(e.target.value)}
                       disabled={benchSaving}
-                      style={{
-                        flex: 1,
-                        padding: '10px 14px',
-                        borderRadius: '10px',
-                        border: '1px solid var(--border-subtle)',
-                        background: 'var(--bg-primary)',
-                        color: 'var(--text-primary)',
-                        fontSize: '14px',
-                        outline: 'none',
-                      }}
+                      className="bench-input"
                     />
                     <button
                       type="submit"
                       disabled={benchSaving || !customBenchName.trim()}
-                      style={{
-                        background: 'linear-gradient(135deg, var(--accent), var(--accent-dark))',
-                        color: 'white',
-                        border: 'none',
-                        padding: '10px 18px',
-                        borderRadius: '10px',
-                        fontWeight: 800,
-                        fontSize: '14px',
-                        cursor: benchSaving || !customBenchName.trim() ? 'not-allowed' : 'pointer',
-                        opacity: benchSaving || !customBenchName.trim() ? 0.6 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        whiteSpace: 'nowrap',
-                      }}
+                      className="bench-button"
                     >
                       <Plus size={16} /> Điểm danh
                     </button>
@@ -1030,20 +1007,11 @@ export default function Home() {
 
                   {/* Quick self check-in button for logged in user */}
                   {currentUser && !isInTeam && !isInBench && (
-                    <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                    <div className="bench-quick-container">
                       <button
                         onClick={handleJoinBench}
                         disabled={benchSaving}
-                        style={{
-                          background: 'transparent',
-                          color: 'var(--accent)',
-                          border: '1px dashed var(--accent)',
-                          padding: '6px 16px',
-                          borderRadius: '20px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          cursor: benchSaving ? 'not-allowed' : 'pointer',
-                        }}
+                        className="bench-quick-btn"
                       >
                         ⚡ Quick Điểm danh cho tôi ({currentUser.name || currentUser.username})
                       </button>
@@ -1051,20 +1019,11 @@ export default function Home() {
                   )}
 
                   {currentUser && isInBench && (
-                    <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                    <div className="bench-quick-container">
                       <button
                         onClick={handleLeaveBench}
                         disabled={benchSaving}
-                        style={{
-                          background: 'transparent',
-                          color: 'var(--text-muted)',
-                          border: '1px dashed var(--border-subtle)',
-                          padding: '6px 16px',
-                          borderRadius: '20px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          cursor: benchSaving ? 'not-allowed' : 'pointer',
-                        }}
+                        className="bench-quick-btn bench-quick-btn-leave"
                       >
                         Rời khỏi Bench (Tài khoản tôi)
                       </button>
@@ -1073,7 +1032,7 @@ export default function Home() {
                 </div>
 
                 {matchData.bench.length > 0 ? (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+                  <div className="bench-list">
                     {matchData.bench.map((player, idx) => {
                       const matched = findMatchingPlayer(player.name, player.telegramHandle, player.playerId, playerConfigs);
                       const stat = findPlayerStat(player.name, player.telegramHandle, player.playerId, playerConfigs, playerStats);
@@ -1093,7 +1052,7 @@ export default function Home() {
                       };
                       return (
                         <PlayerHoverCard key={idx} player={cardData}>
-                          <div style={{ padding: '8px 14px', background: 'var(--bg-primary)', border: '1px solid var(--border-subtle)', borderRadius: '20px', fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                          <div className="bench-chip">
                             <span>{player.name}</span>
                             <button
                               onClick={(e) => {
@@ -1115,6 +1074,7 @@ export default function Home() {
                                 cursor: 'pointer',
                                 padding: 0,
                                 transition: 'all 0.2s ease',
+                                flexShrink: 0,
                               }}
                             >
                               <X size={12} />
