@@ -94,51 +94,51 @@ export const MatchHighlightSelector: React.FC<Props> = ({
 
   const getWinnerInfo = (item: MatchCardInfo) => {
     if (item.isLive) {
-      return { text: 'Trận đấu đang diễn ra', color: '#047857', bg: '#d1fae5', border: '#a7f3d0' };
+      return { text: 'Trận đấu đang diễn ra', color: '#047857', bg: '#d1fae5', isLive: true };
     }
 
-    const homeName = 'HOME';
-    const awayName = 'AWAY';
-    const extraName = 'EXTRA';
+    const homeName = 'Home';
+    const awayName = 'Away';
+    const extraName = 'Extra';
 
     if (item.result === 'home_win') {
       return {
-        text: `🏆 ${homeName} thắng`,
+        text: `${homeName} thắng`,
         color: '#047857',
         bg: '#d1fae5',
-        border: '#a7f3d0'
+        isTrophy: true
       };
     } else if (item.result === 'away_win') {
       return {
-        text: `🏆 ${awayName} thắng`,
+        text: `${awayName} thắng`,
         color: '#1d4ed8',
         bg: '#dbeafe',
-        border: '#bfdbfe'
+        isTrophy: true
       };
     } else if (item.result === 'extra_win') {
       return {
-        text: `🏆 ${extraName} thắng`,
+        text: `${extraName} thắng`,
         color: '#c2410c',
         bg: '#ffedd5',
-        border: '#fed7aa'
+        isTrophy: true
       };
     } else if (item.result === 'draw') {
       return {
-        text: `🤝 Hòa`,
+        text: 'Hòa',
         color: '#475569',
         bg: '#f1f5f9',
-        border: '#cbd5e1'
+        isDraw: true
       };
     }
 
     // Fallback if result string not set explicitly
     if (item.homeScore !== undefined && item.awayScore !== undefined) {
       if (item.homeScore > item.awayScore) {
-        return { text: `🏆 ${homeName} thắng`, color: '#047857', bg: '#d1fae5', border: '#a7f3d0' };
+        return { text: `${homeName} thắng`, color: '#047857', bg: '#d1fae5', isTrophy: true };
       } else if (item.awayScore > item.homeScore) {
-        return { text: `🏆 ${awayName} thắng`, color: '#1d4ed8', bg: '#dbeafe', border: '#bfdbfe' };
+        return { text: `${awayName} thắng`, color: '#1d4ed8', bg: '#dbeafe', isTrophy: true };
       } else {
-        return { text: `🤝 Hòa`, color: '#475569', bg: '#f1f5f9', border: '#cbd5e1' };
+        return { text: 'Hòa', color: '#475569', bg: '#f1f5f9', isDraw: true };
       }
     }
 
@@ -382,14 +382,19 @@ export const MatchHighlightSelector: React.FC<Props> = ({
                 {winnerInfo && (
                   <div style={{
                     background: winnerInfo.bg,
-                    border: `1px solid ${winnerInfo.border}`,
+                    border: 'none',
                     color: winnerInfo.color,
                     padding: '6px 10px',
                     borderRadius: '8px',
                     fontSize: '12.5px',
                     fontWeight: 800,
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px'
                   }}>
+                    {winnerInfo.isTrophy && <Trophy size={13} style={{ color: winnerInfo.color }} />}
                     {winnerInfo.text}
                   </div>
                 )}

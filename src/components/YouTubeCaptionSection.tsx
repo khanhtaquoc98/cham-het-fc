@@ -6,8 +6,8 @@ import { parseTimeToSeconds, formatSecondsToTime } from '@/lib/youtube-utils';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'react-hot-toast';
 import {
-  Clock, Plus, Trash2, Share2, Play, RefreshCw, MessageSquare,
-  Sparkles, Check, User
+  Trash2, Share2, Play, RefreshCw, MessageSquare,
+  Check, User
 } from 'lucide-react';
 
 interface Props {
@@ -257,6 +257,56 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
       width: '100%',
       boxSizing: 'border-box'
     }}>
+      <style>{`
+        .caption-card-item {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
+          padding: 10px 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          cursor: pointer;
+          user-select: none;
+          position: relative;
+        }
+        .caption-card-item:hover {
+          border-color: #818cf8;
+          box-shadow: 0 6px 18px -2px rgba(99, 102, 241, 0.16);
+          transform: translateY(-1.5px);
+        }
+        .caption-card-item.is-highlighted {
+          background: linear-gradient(135deg, #f5f3ff 0%, #e0e7ff 100%);
+          border: 2px solid #6366f1;
+          box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.25);
+        }
+        .timestamp-play-btn {
+          background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+          color: #ffffff;
+          border: none;
+          border-radius: 8px;
+          padding: 6px 11px;
+          font-size: 12px;
+          font-family: monospace;
+          font-weight: 800;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 3px 8px rgba(79, 70, 229, 0.28);
+          white-space: nowrap;
+          flex-shrink: 0;
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .timestamp-play-btn:hover {
+          transform: scale(1.04);
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+        }
+      `}</style>
+
       {/* Section Header */}
       <div style={{
         display: 'flex',
@@ -395,8 +445,6 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
         </div>
       </div>
 
-
-
       {/* Captions List Timeline Cards */}
       <div ref={captionListRef} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '480px', overflowY: 'auto', paddingRight: '4px' }}>
         {loading ? (
@@ -417,20 +465,7 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                 key={cap.id}
                 id={`caption-${cap.id}`}
                 onClick={() => handleCardClick(cap)}
-                style={{
-                  background: isHighlighted ? 'linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%)' : '#ffffff',
-                  border: isHighlighted ? '2px solid #6366f1' : '1px solid #e2e8f0',
-                  borderRadius: '10px',
-                  padding: '10px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                  boxShadow: isHighlighted ? '0 8px 20px -4px rgba(99, 102, 241, 0.25)' : '0 2px 6px rgba(15, 23, 42, 0.03)',
-                  transition: 'all 0.15s ease',
-                  cursor: 'pointer',
-                  userSelect: 'none'
-                }}
+                className={`caption-card-item ${isHighlighted ? 'is-highlighted' : ''}`}
               >
                 {/* Left Content (Single Line) */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
@@ -441,23 +476,7 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                       e.stopPropagation();
                       handleCardClick(cap);
                     }}
-                    style={{
-                      background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '5px 10px',
-                      fontSize: '12px',
-                      fontFamily: 'monospace',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                      boxShadow: '0 3px 8px rgba(79, 70, 229, 0.25)',
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0
-                    }}
+                    className="timestamp-play-btn"
                     title={`Phát Video ${cap.slot} từ mốc ${cap.timestamp_str}`}
                   >
                     <Play size={11} style={{ fill: '#ffffff' }} />
@@ -468,15 +487,24 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                   <span style={{
                     fontSize: '11px',
                     fontWeight: 700,
-                    padding: '2px 8px',
-                    borderRadius: '6px',
+                    padding: '3px 9px',
+                    borderRadius: '8px',
                     background: cap.slot === 1 ? '#ecfdf5' : '#f5f3ff',
                     color: cap.slot === 1 ? '#047857' : '#6d28d9',
                     border: `1px solid ${cap.slot === 1 ? '#a7f3d0' : '#ddd6fe'}`,
                     whiteSpace: 'nowrap',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}>
-                    Video {cap.slot}
+                    <span style={{
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      background: cap.slot === 1 ? '#10b981' : '#8b5cf6'
+                    }} />
+                    Cam {cap.slot}
                   </span>
 
                   {/* Caption Title Text */}
@@ -501,14 +529,18 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                     <span style={{
                       fontSize: '11px',
                       color: '#64748b',
-                      fontWeight: 500,
+                      fontWeight: 600,
                       whiteSpace: 'nowrap',
                       flexShrink: 0,
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '4px'
+                      gap: '4px',
+                      background: '#f1f5f9',
+                      padding: '2px 8px',
+                      borderRadius: '6px'
                     }}>
-                      • bởi <strong style={{ color: '#475569' }}>{cap.created_by}</strong>
+                      <User size={10} style={{ color: '#64748b' }} />
+                      {cap.created_by}
                     </span>
                   )}
                 </div>
@@ -525,48 +557,52 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                       handleShareCaption(cap);
                     }}
                     style={{
-                      background: '#f8fafc',
-                      border: '1px solid #e2e8f0',
-                      color: '#475569',
-                      borderRadius: '6px',
-                      padding: '5px 8px',
+                      background: copiedId === cap.id ? '#d1fae5' : '#f8fafc',
+                      border: `1px solid ${copiedId === cap.id ? '#6ee7b7' : '#e2e8f0'}`,
+                      color: copiedId === cap.id ? '#047857' : '#475569',
+                      borderRadius: '8px',
+                      padding: '6px 9px',
                       fontSize: '12px',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '4px'
+                      gap: '4px',
+                      transition: 'all 0.15s ease'
                     }}
                     title="Sao chép link chia sẻ mốc thời gian"
                   >
                     {copiedId === cap.id ? (
-                      <Check size={14} style={{ color: '#10b981' }} />
+                      <Check size={13} style={{ color: '#059669' }} />
                     ) : (
-                      <Share2 size={14} />
+                      <Share2 size={13} />
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteCaption(cap.id);
-                    }}
-                    style={{
-                      background: '#fff1f2',
-                      border: '1px solid #fecdd3',
-                      color: '#e11d48',
-                      borderRadius: '6px',
-                      padding: '5px 8px',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                    title="Xóa ghi chú"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCaption(cap.id);
+                      }}
+                      style={{
+                        background: '#fff1f2',
+                        border: '1px solid #fecdd3',
+                        color: '#e11d48',
+                        borderRadius: '8px',
+                        padding: '6px 9px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title="Xóa ghi chú"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             );
