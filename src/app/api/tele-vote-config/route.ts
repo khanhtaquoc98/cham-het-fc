@@ -19,7 +19,35 @@ export const DEFAULT_VOTE_CONFIG: TeleVoteConfig = {
 const VOTE_CONFIG_KEY = 'config_vote_tele';
 const THIRD_PARTY_API_URL = 'https://api-production-6834.up.railway.app/api/bot-storage';
 
-async function fetchThirdPartyActiveVote() {
+function parseBenchNames(benchData: any): string[] {
+  if (!Array.isArray(benchData)) return [];
+  const names: string[] = [];
+  for (const item of benchData) {
+    if (!item) continue;
+    let name = '';
+    if (Array.isArray(item)) {
+      const val = item[1];
+      if (typeof val === 'string') {
+        name = val;
+      } else if (val && typeof val === 'object' && typeof val.name === 'string') {
+        name = val.name;
+      } else if (typeof item[0] === 'string') {
+        name = item[0];
+      }
+    } else if (typeof item === 'object' && typeof item.name === 'string') {
+      name = item.name;
+    } else if (typeof item === 'string') {
+      name = item;
+    }
+
+    if (name && name.trim()) {
+      names.push(name.trim());
+    }
+  }
+  return names;
+}
+
+async function fetchThirdPartyData() {
   try {
     const res = await fetch(THIRD_PARTY_API_URL, {
       method: 'GET',
@@ -35,7 +63,7 @@ async function fetchThirdPartyActiveVote() {
     }
 
     const data = await res.json();
-    return data?.activeVote || null;
+    return data || null;
   } catch (err) {
     console.error('Error fetching third-party vote API:', err);
     return null;
@@ -68,17 +96,45 @@ export async function GET(request: Request) {
     const requestedProvider = searchParams.get('provider');
     const isThirdParty = requestedProvider ? (requestedProvider === 'third_party') : (savedConfig.provider === 'third_party');
 
+    if (action === 'third_party_teams') {
+      const thirdPartyData = await fetchThirdPartyData();
+      if (thirdPartyData) {
+        return NextResponse.json({
+          ok: true,
+          teamA: thirdPartyData.teamA || [],
+          teamB: thirdPartyData.teamB || [],
+          team3A: thirdPartyData.team3A || [],
+          team3B: thirdPartyData.team3B || [],
+          team3C: thirdPartyData.team3C || [],
+          bench: thirdPartyData.bench || []
+        });
+      }
+      return NextResponse.json({ ok: false, teamA: [], teamB: [], team3A: [], team3B: [], team3C: [], bench: [] });
+    }
+
     // Handle fetching voters
     if (action === 'voters') {
 
       if (isThirdParty) {
-        const activeVote = await fetchThirdPartyActiveVote();
-        if (activeVote && activeVote.votes) {
-          const voters = Object.values(activeVote.votes).map((v: any) => ({
-            user_name: v.name || 'Unknown',
-            option_ids: Array.isArray(v.options) ? v.options : []
-          }));
-          return NextResponse.json({ voters });
+        const thirdPartyData = await fetchThirdPartyData();
+        if (thirdPartyData) {
+          const benchNames = parseBenchNames(thirdPartyData.bench);
+          if (benchNames.length > 0) {
+            const voters = benchNames.map(name => ({
+              user_name: name,
+              option_ids: [1]
+            }));
+            return NextResponse.json({ voters });
+          }
+
+          const activeVote = thirdPartyData.activeVote;
+          if (activeVote && activeVote.votes) {
+            const voters = Object.values(activeVote.votes).map((v: any) => ({
+              user_name: v.name || 'Unknown',
+              option_ids: Array.isArray(v.options) ? v.options : []
+            }));
+            return NextResponse.json({ voters });
+          }
         }
         return NextResponse.json({ voters: [] });
       }
@@ -98,10 +154,15 @@ export async function GET(request: Request) {
 
     // Handle fetching vote config
     if (isThirdParty) {
-      const activeVote = await fetchThirdPartyActiveVote();
-      if (activeVote) {
+      const thirdPartyData = await fetchThirdPartyData();
+      if (thirdPartyData) {
+        const activeVote = thirdPartyData.activeVote;
+        const benchNames = parseBenchNames(thirdPartyData.bench);
+
         let totalSum = 0;
-        if (activeVote.votes && typeof activeVote.votes === 'object') {
+        if (benchNames.length > 0) {
+          totalSum = benchNames.length;
+        } else if (activeVote && activeVote.votes && typeof activeVote.votes === 'object') {
           Object.values(activeVote.votes).forEach((v: any) => {
             const opts = Array.isArray(v.options) ? v.options : [];
             opts.forEach((num: any) => {
@@ -112,13 +173,13 @@ export async function GET(request: Request) {
         }
 
         const configFromThirdParty: TeleVoteConfig = {
-          chat_id: String(activeVote.chatId ?? savedConfig.chat_id ?? DEFAULT_VOTE_CONFIG.chat_id),
+          chat_id: String(activeVote?.chatId ?? savedConfig.chat_id ?? DEFAULT_VOTE_CONFIG.chat_id),
           is_anonymous: false,
-          message_id: Number(activeVote.messageId ?? savedConfig.message_id ?? DEFAULT_VOTE_CONFIG.message_id),
-          options: Array.isArray(activeVote.options) ? activeVote.options : savedConfig.options,
-          poll_id: String(activeVote.id ?? savedConfig.poll_id ?? ''),
+          message_id: Number(activeVote?.messageId ?? savedConfig.message_id ?? DEFAULT_VOTE_CONFIG.message_id),
+          options: Array.isArray(activeVote?.options) ? activeVote.options : savedConfig.options,
+          poll_id: String(activeVote?.id ?? savedConfig.poll_id ?? ''),
           thread_id: String(savedConfig.thread_id || DEFAULT_VOTE_CONFIG.thread_id),
-          title: activeVote.question || savedConfig.title || DEFAULT_VOTE_CONFIG.title,
+          title: activeVote?.question || savedConfig.title || DEFAULT_VOTE_CONFIG.title,
           show_vote: savedConfig.show_vote ?? true,
           provider: 'third_party',
           total_voters: totalSum

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Image from 'next/image';
 import { MatchData, Team } from '@/types/match';
 import { PlayerConfig } from '@/types/player';
@@ -703,6 +703,37 @@ export default function Home() {
 
   const [benchSaving, setBenchSaving] = useState(false);
   const [customBenchName, setCustomBenchName] = useState('');
+  const [showBenchSuggestions, setShowBenchSuggestions] = useState(false);
+
+  const filteredBenchSuggestions = useMemo(() => {
+    const query = customBenchName.trim().toLowerCase();
+    if (!query) return [];
+
+    const list: { name: string; subNames?: string[] }[] = [];
+    const seen = new Set<string>();
+
+    (playerConfigs || []).forEach(p => {
+      if (p.name && !seen.has(p.name.toLowerCase())) {
+        seen.add(p.name.toLowerCase());
+        list.push({ name: p.name, subNames: p.subNames });
+      }
+    });
+
+    (matchData?.teams || []).forEach(t => {
+      t.players.forEach(p => {
+        if (p.name && !seen.has(p.name.toLowerCase())) {
+          seen.add(p.name.toLowerCase());
+          list.push({ name: p.name });
+        }
+      });
+    });
+
+    return list.filter(item => {
+      const matchName = item.name.toLowerCase().includes(query);
+      const matchSub = item.subNames?.some(s => s.toLowerCase().includes(query));
+      return matchName || matchSub;
+    }).slice(0, 8);
+  }, [customBenchName, playerConfigs, matchData]);
 
   // Listen for match-data-updated event from VoteFloatingWidget or other components
   useEffect(() => {
@@ -987,15 +1018,78 @@ export default function Home() {
 
                 {/* Input box open to EVERYONE to add player name */}
                 <div className="bench-form-container">
-                  <form onSubmit={(e) => { e.preventDefault(); handleAddPlayerToBench(customBenchName); }} className="bench-form">
-                    <input
-                      type="text"
-                      placeholder="Nhập tên điểm danh vào App..."
-                      value={customBenchName}
-                      onChange={(e) => setCustomBenchName(e.target.value)}
-                      disabled={benchSaving}
-                      className="bench-input"
-                    />
+                  <form onSubmit={(e) => { e.preventDefault(); setShowBenchSuggestions(false); handleAddPlayerToBench(customBenchName); }} className="bench-form">
+                    <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
+                      <input
+                        type="text"
+                        placeholder="Nhập tên điểm danh vào App..."
+                        value={customBenchName}
+                        onChange={(e) => {
+                          setCustomBenchName(e.target.value);
+                          setShowBenchSuggestions(true);
+                        }}
+                        onFocus={() => setShowBenchSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowBenchSuggestions(false), 200)}
+                        disabled={benchSaving}
+                        className="bench-input"
+                        style={{ width: '100%' }}
+                      />
+                      {showBenchSuggestions && filteredBenchSuggestions.length > 0 && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          marginTop: '4px',
+                          background: 'var(--bg-primary, #ffffff)',
+                          border: '1px solid var(--border-subtle, #e2e8f0)',
+                          borderRadius: '10px',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                          maxHeight: '220px',
+                          overflowY: 'auto',
+                          zIndex: 100
+                        }}>
+                          {filteredBenchSuggestions.map((item: { name: string; subNames?: string[] }, idx: number) => (
+                            <div
+                              key={idx}
+                              onMouseDown={() => {
+                                setCustomBenchName(item.name);
+                                setShowBenchSuggestions(false);
+                              }}
+                              style={{
+                                padding: '9px 14px',
+                                fontSize: '13px',
+                                cursor: 'pointer',
+                                borderBottom: idx < filteredBenchSuggestions.length - 1 ? '1px solid var(--border-subtle, #f1f5f9)' : 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '8px',
+                                color: 'var(--text-primary, #1e293b)'
+                              }}
+                            >
+                              <span style={{ fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>👤 {item.name}</span>
+                              {item.subNames && item.subNames.length > 0 && (
+                                <span
+                                  title={item.subNames.join(', ')}
+                                  style={{
+                                    fontSize: '11px',
+                                    color: 'var(--text-muted, #64748b)',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    textAlign: 'right',
+                                    minWidth: 0
+                                  }}
+                                >
+                                  ({item.subNames.join(', ')})
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     <button
                       type="submit"
                       disabled={benchSaving || !customBenchName.trim()}

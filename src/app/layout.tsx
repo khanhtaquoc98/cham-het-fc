@@ -149,7 +149,58 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeProvider />
-        <Toaster position="top-center" />
+        <Toaster
+          position="top-center"
+          gutter={10}
+          containerStyle={{ top: 24 }}
+          toastOptions={{
+            duration: 3500,
+            style: {
+              background: 'rgba(255, 255, 255, 0.92)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              color: '#0f172a',
+              boxShadow: '0 12px 32px -4px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06)',
+              borderRadius: '16px',
+              border: '1px solid rgba(226, 232, 240, 0.8)',
+              padding: '12px 18px',
+              fontSize: '13.5px',
+              fontWeight: 600,
+              maxWidth: '440px',
+              lineHeight: '1.45',
+            },
+            success: {
+              duration: 3500,
+              iconTheme: {
+                primary: '#10b981',
+                secondary: '#ffffff',
+              },
+              style: {
+                borderLeft: '4px solid #10b981',
+                background: 'rgba(240, 253, 244, 0.95)',
+                color: '#065f46',
+                borderTop: '1px solid rgba(167, 243, 208, 0.6)',
+                borderRight: '1px solid rgba(167, 243, 208, 0.6)',
+                borderBottom: '1px solid rgba(167, 243, 208, 0.6)',
+              },
+            },
+            error: {
+              duration: 4200,
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#ffffff',
+              },
+              style: {
+                borderLeft: '4px solid #ef4444',
+                background: 'rgba(254, 242, 242, 0.95)',
+                color: '#991b1b',
+                borderTop: '1px solid rgba(254, 202, 202, 0.6)',
+                borderRight: '1px solid rgba(254, 202, 202, 0.6)',
+                borderBottom: '1px solid rgba(254, 202, 202, 0.6)',
+              },
+            },
+          }}
+        />
         <Header />
         {children}
       </body>

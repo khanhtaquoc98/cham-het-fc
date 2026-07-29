@@ -101,6 +101,16 @@ export default function VenuePage() {
   const [rawVoteTextInput, setRawVoteTextInput] = useState('');
   const [showRawTextInput, setShowRawTextInput] = useState(false);
 
+  // Sync API to Team Modal state
+  const [teamSyncMode, setTeamSyncMode] = useState<2 | 3>(2);
+  const [isSyncTeamModalOpen, setIsSyncTeamModalOpen] = useState(false);
+  const [syncingTeam, setSyncingTeam] = useState(false);
+  const [teamSyncPreview, setTeamSyncPreview] = useState<{
+    team1: Player[];
+    team2: Player[];
+    team3?: Player[];
+  } | null>(null);
+
   // Drag and drop state
   const [draggedPlayer, setDraggedPlayer] = useState<{player: Player, sourceId: string, index: number} | null>(null);
 
@@ -356,7 +366,8 @@ export default function VenuePage() {
       }
 
       const pollId = voteConfig.poll_id || '';
-      const res = await fetch(`/api/tele-vote-config?action=voters&poll_id=${pollId}`);
+      const provider = voteConfig.provider || 'internal';
+      const res = await fetch(`/api/tele-vote-config?action=voters&poll_id=${pollId}&provider=${provider}&t=${Date.now()}`);
       const data = await res.json();
       const votersList = data.voters || [];
 
@@ -417,7 +428,7 @@ export default function VenuePage() {
     }
 
     try {
-      const newBenchPlayers: Player[] = votedCandidates.map(c => {
+      const incomingBenchPlayers: Player[] = votedCandidates.map(c => {
         const officialPlayer = allPlayers.find(p => p.id === c.mappedPlayerId);
         return {
           name: officialPlayer ? officialPlayer.name : c.customName || c.originalVotedName,
@@ -426,11 +437,23 @@ export default function VenuePage() {
         };
       });
 
-      setBench(newBenchPlayers);
+      // Merge with existing bench players to preserve manual check-ins
+      const currentBench = bench || [];
+      const existingNames = new Set(currentBench.map(p => p.name.trim().toLowerCase()));
+
+      const mergedBench = [...currentBench];
+      incomingBenchPlayers.forEach(p => {
+        if (!existingNames.has(p.name.trim().toLowerCase())) {
+          existingNames.add(p.name.trim().toLowerCase());
+          mergedBench.push(p);
+        }
+      });
+
+      setBench(mergedBench);
       await fetch('/api/match/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bench: newBenchPlayers }),
+        body: JSON.stringify({ bench: mergedBench }),
       });
 
       if (rememberSubNames) {
@@ -457,11 +480,114 @@ export default function VenuePage() {
         }
       }
 
-      toast.success(`🎉 Đã đồng bộ ${newBenchPlayers.length} cầu thủ lên Bench!`);
+      toast.success(`🎉 Đã đồng bộ ${incomingBenchPlayers.length} cầu thủ lên Bench (đã giữ lại các người ở Bench hiện tại)!`);
       setIsSyncModalOpen(false);
     } catch (err) {
       console.error(err);
       toast.error('Lỗi khi đồng bộ lên Bench');
+    }
+  };
+
+  const parseTeamArrayToPlayers = (raw: any[]): Player[] => {
+    if (!Array.isArray(raw)) return [];
+    const list: Player[] = [];
+    for (const item of raw) {
+      if (!item) continue;
+      let name = '';
+      let playerId: string | undefined = undefined;
+
+      if (Array.isArray(item)) {
+        const val = item[1];
+        if (typeof val === 'string') name = val;
+        else if (val && typeof val === 'object') {
+          name = val.name || '';
+          playerId = val.userId ? String(val.userId) : undefined;
+        } else if (typeof item[0] === 'string') name = item[0];
+      } else if (typeof item === 'object') {
+        name = item.name || '';
+        playerId = item.userId || item.playerId ? String(item.userId || item.playerId) : undefined;
+      } else if (typeof item === 'string') {
+        name = item;
+      }
+
+      if (name && name.trim()) {
+        list.push({ name: name.trim(), telegramHandle: '', playerId });
+      }
+    }
+    return list;
+  };
+
+  const handleOpenSyncTeamModal = async () => {
+    setSyncingTeam(true);
+    try {
+      const res = await fetch(`/api/tele-vote-config?action=third_party_teams&t=${Date.now()}`);
+      const data = await res.json();
+      if (data.ok) {
+        if (teamSyncMode === 2) {
+          const t1 = parseTeamArrayToPlayers(data.teamA);
+          const t2 = parseTeamArrayToPlayers(data.teamB);
+          setTeamSyncPreview({ team1: t1, team2: t2 });
+        } else {
+          const t1 = parseTeamArrayToPlayers(data.team3A);
+          const t2 = parseTeamArrayToPlayers(data.team3B);
+          const t3 = parseTeamArrayToPlayers(data.team3C);
+          setTeamSyncPreview({ team1: t1, team2: t2, team3: t3 });
+        }
+        setIsSyncTeamModalOpen(true);
+      } else {
+        toast.error('Không thể lấy dữ liệu chia đội từ API Bot Storage');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi khi tải dữ liệu team từ API');
+    } finally {
+      setSyncingTeam(false);
+    }
+  };
+
+  const handleConfirmSyncToTeam = async () => {
+    if (!teamSyncPreview) return;
+    setSaving(true);
+    try {
+      const newTeams: Team[] = [
+        { name: 'HOME', players: teamSyncPreview.team1 },
+        { name: 'AWAY', players: teamSyncPreview.team2 },
+      ];
+      if (teamSyncMode === 3 && teamSyncPreview.team3) {
+        newTeams.push({ name: 'EXTRA', players: teamSyncPreview.team3 });
+      }
+
+      // Preserve existing bench players (e.g. Huy em, Phúc em) that are not assigned to teams
+      const teamPlayerNames = new Set(
+        newTeams.flatMap(t => t.players.map(p => p.name.trim().toLowerCase()))
+      );
+
+      const mergedBench = (bench || []).filter(
+        p => !teamPlayerNames.has(p.name.trim().toLowerCase())
+      );
+
+      const newVenue = { ...venue, teamConfig: teamSyncMode };
+      setVenue(newVenue);
+      setTeams(newTeams);
+      setBench(mergedBench);
+
+      const res = await fetch('/api/match/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teams: newTeams, bench: mergedBench, venue: newVenue }),
+      });
+
+      if (res.ok) {
+        toast.success(`Đã đồng bộ ${teamSyncMode} đội từ API thành công (đã giữ lại các cầu thủ ở Bench hiện tại)!`);
+        setIsSyncTeamModalOpen(false);
+      } else {
+        toast.error('Lỗi khi lưu dữ liệu đội mới');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Lỗi kết nối khi đồng bộ team');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -1084,7 +1210,7 @@ export default function VenuePage() {
               <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary, #1e293b)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span>⚽ Danh sách cầu thủ đi đá ({liveVotersNames.length} suất)</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', maxWidth: '100%' }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -1092,26 +1218,47 @@ export default function VenuePage() {
                     setEditingTagIndex(liveVotersNames.length);
                     setEditingTagValue(`Cầu thủ ${liveVotersNames.length + 1}`);
                   }}
-                  style={{ background: 'rgba(0, 136, 204, 0.08)', border: '1px solid rgba(0, 136, 204, 0.25)', color: '#0088cc', fontSize: '12px', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                  style={{ background: 'rgba(0, 136, 204, 0.08)', border: '1px solid rgba(0, 136, 204, 0.25)', color: '#0088cc', fontSize: '12px', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}
                 >
                   ➕ Thêm người
                 </button>
                 <button
                   type="button"
                   onClick={() => loadLiveVoters()}
-                  style={{ background: 'transparent', border: 'none', color: '#0088cc', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
+                  style={{ background: 'transparent', border: '1px solid rgba(0, 136, 204, 0.2)', color: '#0088cc', fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}
                 >
-                  {loadingVotersList ? '⏳ Đang tải...' : '🔄 Tải lại từ API'}
+                  {loadingVotersList ? '⏳ Đang tải...' : '🔄 Tải lại'}
                 </button>
                 <button
                   type="button"
                   onClick={handleOpenSyncModal}
                   disabled={syncingVoters}
-                  style={{ background: '#4CAF50', border: 'none', color: '#ffffff', fontSize: '12px', padding: '5px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px', opacity: syncingVoters ? 0.6 : 1 }}
+                  style={{ background: '#4CAF50', border: 'none', color: '#ffffff', fontSize: '12px', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '5px', opacity: syncingVoters ? 0.6 : 1, whiteSpace: 'nowrap' }}
                 >
                   <RefreshCw size={13} style={{ display: 'inline', verticalAlign: 'middle' }} className={syncingVoters ? 'spin' : ''} />
-                  {syncingVoters ? 'Đang tải vote...' : 'Sync Vote lên Bench'}
+                  {syncingVoters ? 'Đang tải...' : 'Sync Vote lên Bench'}
                 </button>
+
+                {/* Sync API to Team button & dropdown */}
+                <div style={{ display: 'inline-flex', alignItems: 'center', borderRadius: '6px', overflow: 'hidden', border: '1px solid #0288d1', maxWidth: '100%', flexWrap: 'nowrap' }}>
+                  <select
+                    value={teamSyncMode}
+                    onChange={e => setTeamSyncMode(Number(e.target.value) as 2 | 3)}
+                    style={{ background: '#e1f5fe', color: '#0288d1', border: 'none', borderRight: '1px solid #b3e5fc', fontSize: '12px', padding: '6px 8px', fontWeight: 700, cursor: 'pointer', outline: 'none', whiteSpace: 'nowrap' }}
+                  >
+                    <option value={2}>2 Team (A/B)</option>
+                    <option value={3}>3 Team (A/B/C)</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleOpenSyncTeamModal}
+                    disabled={syncingTeam}
+                    style={{ background: '#0288d1', color: 'white', border: 'none', fontSize: '12px', padding: '6px 12px', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '5px', opacity: syncingTeam ? 0.6 : 1, whiteSpace: 'nowrap' }}
+                  >
+                    <RefreshCw size={13} className={syncingTeam ? 'spin' : ''} />
+                    {syncingTeam ? 'Đang tải...' : 'Sync lên Team'}
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -1721,6 +1868,107 @@ export default function VenuePage() {
                 style={{ padding: '10px 20px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', opacity: votedCandidates.length === 0 ? 0.5 : 1 }}
               >
                 ✅ Đưa {votedCandidates.length} cầu thủ lên Bench
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SYNC API TO TEAM PREVIEW MODAL */}
+      {isSyncTeamModalOpen && teamSyncPreview && (
+        <div className="install-modal-overlay" onClick={() => setIsSyncTeamModalOpen(false)}>
+          <div
+            className="install-modal"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '640px', width: '92%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', padding: '24px' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '12px', marginBottom: '16px' }}>
+              <h3 className="install-modal-title" style={{ margin: 0, fontSize: '17px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                ⚡ Sync dữ liệu API Bot Storage lên Chia Team ({teamSyncMode} Đội)
+              </h3>
+              <button onClick={() => setIsSyncTeamModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: 'var(--text-muted)' }}>
+                ✕
+              </button>
+            </div>
+
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', lineHeight: 1.5 }}>
+              Dữ liệu lấy từ API <strong style={{ color: '#0288d1' }}>bot-storage</strong> theo chế độ <strong style={{ color: '#0288d1' }}>{teamSyncMode} Đội</strong>. Bấm nút bên dưới để áp dụng trực tiếp lên sơ đồ chia đội.
+            </p>
+
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '16px' }}>
+              {/* Team 1 / Home */}
+              <div style={{ background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '10px', padding: '12px 14px' }}>
+                <div style={{ fontWeight: 800, fontSize: '13.5px', color: '#1565c0', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🔵 Đội 1 (Home) - Nguồn: {teamSyncMode === 2 ? 'teamA' : 'team3A'}</span>
+                  <span>({teamSyncPreview.team1.length} cầu thủ)</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {teamSyncPreview.team1.length === 0 ? (
+                    <span style={{ fontSize: '12px', opacity: 0.6, fontStyle: 'italic' }}>Chưa có cầu thủ</span>
+                  ) : (
+                    teamSyncPreview.team1.map((p, i) => (
+                      <span key={i} style={{ background: 'white', border: '1px solid #bbdefb', padding: '3px 10px', borderRadius: '16px', fontSize: '12px', fontWeight: 700, color: '#0d47a1' }}>
+                        👤 {p.name}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Team 2 / Away */}
+              <div style={{ background: '#ffebee', border: '1px solid #ef9a9a', borderRadius: '10px', padding: '12px 14px' }}>
+                <div style={{ fontWeight: 800, fontSize: '13.5px', color: '#c62828', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🔴 Đội 2 (Away) - Nguồn: {teamSyncMode === 2 ? 'teamB' : 'team3B'}</span>
+                  <span>({teamSyncPreview.team2.length} cầu thủ)</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {teamSyncPreview.team2.length === 0 ? (
+                    <span style={{ fontSize: '12px', opacity: 0.6, fontStyle: 'italic' }}>Chưa có cầu thủ</span>
+                  ) : (
+                    teamSyncPreview.team2.map((p, i) => (
+                      <span key={i} style={{ background: 'white', border: '1px solid #ffcdd2', padding: '3px 10px', borderRadius: '16px', fontSize: '12px', fontWeight: 700, color: '#b71c1c' }}>
+                        👤 {p.name}
+                      </span>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Team 3 / Extra (if 3 team mode) */}
+              {teamSyncMode === 3 && teamSyncPreview.team3 && (
+                <div style={{ background: '#f3e5f5', border: '1px solid #ce93d8', borderRadius: '10px', padding: '12px 14px' }}>
+                  <div style={{ fontWeight: 800, fontSize: '13.5px', color: '#7b1fa2', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>🟣 Đội 3 (Extra / Dự bị) - Nguồn: team3C</span>
+                    <span>({teamSyncPreview.team3.length} cầu thủ)</span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {teamSyncPreview.team3.length === 0 ? (
+                      <span style={{ fontSize: '12px', opacity: 0.6, fontStyle: 'italic' }}>Chưa có cầu thủ</span>
+                    ) : (
+                      teamSyncPreview.team3.map((p, i) => (
+                        <span key={i} style={{ background: 'white', border: '1px solid #e1bee7', padding: '3px 10px', borderRadius: '16px', fontSize: '12px', fontWeight: 700, color: '#4a148c' }}>
+                          👤 {p.name}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setIsSyncTeamModalOpen(false)}
+                style={{ padding: '10px 16px', background: 'var(--bg-secondary)', border: '1px solid var(--border-subtle)', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmSyncToTeam}
+                style={{ padding: '10px 20px', background: '#0288d1', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                ✅ Xác nhận Sync lên Chia Team ({teamSyncMode} Đội)
               </button>
             </div>
           </div>
