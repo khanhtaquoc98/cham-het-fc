@@ -752,6 +752,62 @@ export default function Home() {
     return nameRegex.test(name.trim());
   };
 
+  const isCurrentDateBeforeMatchDate = (dateStr?: string): boolean => {
+    if (!dateStr || !dateStr.trim()) return false;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const parts = dateStr.trim().split(/[\/\-]/);
+    if (parts.length < 2) return false;
+
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    let year = now.getFullYear();
+    if (parts.length >= 3 && parts[2].length === 4) {
+      year = parseInt(parts[2], 10);
+    }
+
+    const matchDate = new Date(year, month, day);
+    if (isNaN(matchDate.getTime())) return false;
+
+    return today.getTime() < matchDate.getTime();
+  };
+
+  const isPlayerInMatch = (nameToCheck: string, targetMatchData: MatchData): boolean => {
+    const norm = nameToCheck.trim().toLowerCase();
+
+    // Find official player config if name matches main name or subNames
+    const officialPlayer = (playerConfigs || []).find(p => {
+      const pName = p.name.trim().toLowerCase();
+      const pSubs = (p.subNames || []).map(s => s.trim().toLowerCase());
+      return pName === norm || pSubs.includes(norm);
+    });
+
+    const checkNameMatches = (pName: string, pId?: string): boolean => {
+      const pNorm = pName.trim().toLowerCase();
+      if (pNorm === norm) return true;
+      if (officialPlayer) {
+        if (pId && pId === officialPlayer.id) return true;
+        if (pNorm === officialPlayer.name.trim().toLowerCase()) return true;
+        const subs = (officialPlayer.subNames || []).map(s => s.trim().toLowerCase());
+        if (subs.includes(pNorm)) return true;
+      }
+      return false;
+    };
+
+    // Check bench
+    const inBench = (targetMatchData.bench || []).some(p => checkNameMatches(p.name, p.playerId));
+    if (inBench) return true;
+
+    // Check teams
+    const inTeam = (targetMatchData.teams || []).some(t =>
+      t.players.some(p => checkNameMatches(p.name, p.playerId))
+    );
+    if (inTeam) return true;
+
+    return false;
+  };
+
   const handleAddPlayerToBench = async (nameToAdd: string) => {
     const trimmed = nameToAdd.trim();
     if (!trimmed) {
@@ -765,14 +821,16 @@ export default function Home() {
     }
     if (!matchData) return;
 
-    const norm = trimmed.toLowerCase();
-    const currentBench = matchData.bench || [];
-    const isDuplicateBench = currentBench.some(p => p.name.trim().toLowerCase() === norm);
-    if (isDuplicateBench) {
-      toast.error(`Cầu thủ "${trimmed}" đã có trong điểm danh App!`);
-      return;
+    // Check if current date is before match date
+    const isBeforeMatchDay = isCurrentDateBeforeMatchDate(matchData.venue?.date);
+    if (isBeforeMatchDay) {
+      if (isPlayerInMatch(trimmed, matchData)) {
+        toast.error(`Cầu thủ "${trimmed}" đã có trong danh sách thi đấu / dự bị!`);
+        return;
+      }
     }
 
+    const currentBench = matchData.bench || [];
     setBenchSaving(true);
     try {
       const newPlayer = {
@@ -879,12 +937,12 @@ export default function Home() {
        }
     }
     
-    // Check if player is already in bench
-    const isAlreadyInBench = matchData.bench.some(p => isCurrentUserPlayer(p));
-    
-    if (isAlreadyInBench) {
-      toast.error('Bạn đã ở trong danh sách Bench rồi!');
-      return;
+    const isBeforeMatchDay = isCurrentDateBeforeMatchDate(matchData.venue?.date);
+    if (isBeforeMatchDay) {
+      if (isPlayerInMatch(playerName, matchData)) {
+        toast.error('Bạn đã có trong danh sách thi đấu / dự bị!');
+        return;
+      }
     }
 
     setBenchSaving(true);
