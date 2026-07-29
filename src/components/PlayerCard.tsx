@@ -63,6 +63,7 @@ export function PlayerCard({ player, style, className, externalRotate }: {
   const hasImage = !imgError;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoaded(false);
     setImgError(false);
     setCacheBuster(Date.now());
@@ -308,6 +309,7 @@ export function PlayerHoverCard({ player, children, style }: {
   const triggerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

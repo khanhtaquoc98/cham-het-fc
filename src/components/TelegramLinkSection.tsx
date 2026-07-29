@@ -41,8 +41,8 @@ export default function TelegramLinkSection({ currentTelegramId }: TelegramLinkS
       } else {
         toast.error(data.error || "Gửi OTP thất bại");
       }
-    } catch (err: any) {
-      toast.error(err.message || "Lỗi kết nối");
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Lỗi kết nối");
     } finally {
       setIsLoading(false);
     }
@@ -69,8 +69,8 @@ export default function TelegramLinkSection({ currentTelegramId }: TelegramLinkS
       } else {
         toast.error(data.error || "Lỗi liên kết Telegram");
       }
-    } catch (err: any) {
-      toast.error(err.message || "Lỗi kết nối");
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Lỗi kết nối");
     } finally {
       setIsLoading(false);
     }

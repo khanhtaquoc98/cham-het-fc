@@ -30,8 +30,8 @@ export default function RegisterPage() {
         toast.error(data.error || "Đăng ký thất bại");
         setIsLoading(false);
       }
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Đăng ký thất bại");
       setIsLoading(false);
     } 
   };

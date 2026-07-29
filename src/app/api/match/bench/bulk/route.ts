@@ -97,7 +97,7 @@ export async function POST(request: Request) {
       };
     }
 
-    let workingBench: Player[] = [...(matchData.bench || [])];
+    const workingBench: Player[] = [...(matchData.bench || [])];
     const currentTeams = matchData.teams || [];
     const registeredPlayers = await getPlayers();
 

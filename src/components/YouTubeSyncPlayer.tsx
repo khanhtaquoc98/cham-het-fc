@@ -1,0 +1,646 @@
+'use client';
+
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import YouTube, { YouTubeProps } from 'react-youtube';
+import { YouTubeVideoConfig } from '@/types/youtube';
+import { extractYouTubeId, formatSecondsToHHMMSS } from '@/lib/youtube-utils';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+
+interface PlayerInstance {
+  getCurrentTime?: () => number;
+  seekTo?: (seconds: number, allowSeekAhead?: boolean) => void;
+  playVideo?: () => void;
+  pauseVideo?: () => void;
+  getPlayerState?: () => number;
+}
+
+export interface YouTubeSyncPlayerRef {
+  seekTo: (slot: 1 | 2, seconds: number, autoPlay?: boolean) => void;
+  seekBothWithOffset: (masterSeconds: number, autoPlay?: boolean) => void;
+  getCurrentTimes: () => { time1: number; time2: number };
+}
+
+interface Props {
+  configs: YouTubeVideoConfig[];
+  isAdmin?: boolean;
+  onOffsetChange?: (slot: 1 | 2, offsetSeconds: number) => void;
+  activeTargetSlot?: number;
+  highlightCaptionTime?: number | null;
+}
+
+const DEFAULT_CONFIG_1: YouTubeVideoConfig = {
+  slot: 1,
+  match_id: '',
+  youtube_url: '',
+  youtube_id: '',
+  title: 'Slot 1: Hiệp 1 / Cam 1',
+  start_offset_seconds: 0,
+};
+
+const DEFAULT_CONFIG_2: YouTubeVideoConfig = {
+  slot: 2,
+  match_id: '',
+  youtube_url: '',
+  youtube_id: '',
+  title: 'Slot 2: Hiệp 2 / Cam 2',
+  start_offset_seconds: 0,
+};
+
+export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
+  configs,
+  isAdmin = false,
+  onOffsetChange,
+  activeTargetSlot,
+  highlightCaptionTime: _highlightCaptionTime
+}, ref) => {
+  const cfg1 = configs.find(c => c.slot === 1) || DEFAULT_CONFIG_1;
+  const cfg2 = configs.find(c => c.slot === 2) || DEFAULT_CONFIG_2;
+
+  const player1Ref = useRef<PlayerInstance | null>(null);
+  const player2Ref = useRef<PlayerInstance | null>(null);
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [syncPointModalOpen, setSyncPointModalOpen] = useState(false);
+  const [modalTimes, setModalTimes] = useState<{ time1: number; time2: number }>({ time1: 0, time2: 0 });
+
+  // Player Ready tracking (Wait for BOTH players before playing)
+  const [isPlayer1Ready, setIsPlayer1Ready] = useState(false);
+  const [isPlayer2Ready, setIsPlayer2Ready] = useState(false);
+
+  useEffect(() => {
+    setIsPlayer1Ready(false);
+    setIsPlayer2Ready(false);
+  }, [cfg1.youtube_id, cfg2.youtube_id]);
+
+  const isBothReady = Boolean(
+    (cfg1.youtube_id ? isPlayer1Ready : true) &&
+    (cfg2.youtube_id ? isPlayer2Ready : true)
+  );
+
+  const handleOpenSyncModal = () => {
+    let t1 = 0;
+    let t2 = 0;
+    try {
+      if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+        t1 = player1Ref.current.getCurrentTime() || 0;
+      }
+      if (player2Ref.current && typeof player2Ref.current.getCurrentTime === 'function') {
+        t2 = player2Ref.current.getCurrentTime() || 0;
+      }
+    } catch {}
+    setModalTimes({ time1: Math.floor(t1), time2: Math.floor(t2) });
+    setSyncPointModalOpen(true);
+  };
+
+  // Player Options
+  const opts: YouTubeProps['opts'] = {
+    height: '100%',
+    width: '100%',
+    playerVars: {
+      autoplay: 0,
+      modestbranding: 1,
+      rel: 0,
+      controls: 1,
+    },
+  };
+
+  const onPlayerReady1 = (event: { target: PlayerInstance }) => {
+    player1Ref.current = event.target;
+    setIsPlayer1Ready(true);
+    try {
+      if (typeof event.target.pauseVideo === 'function') {
+        event.target.pauseVideo();
+      }
+    } catch {}
+  };
+
+  const onPlayerReady2 = (event: { target: PlayerInstance }) => {
+    player2Ref.current = event.target;
+    setIsPlayer2Ready(true);
+    try {
+      if (typeof event.target.pauseVideo === 'function') {
+        event.target.pauseVideo();
+      }
+    } catch {}
+  };
+
+  // ── Sync Loop: Ensures Video 2 waits at 0s until Video 1 reaches start_offset_seconds ──
+  useEffect(() => {
+    if (!isPlaying || !isBothReady) return;
+
+    const interval = setInterval(() => {
+      try {
+        if (player1Ref.current && player2Ref.current) {
+          const t1 = typeof player1Ref.current.getCurrentTime === 'function' ? (player1Ref.current.getCurrentTime() || 0) : 0;
+          const t2 = typeof player2Ref.current.getCurrentTime === 'function' ? (player2Ref.current.getCurrentTime() || 0) : 0;
+          const offset = cfg2.start_offset_seconds || 0;
+
+          if (t1 < offset) {
+            // Video 1 hasn't reached offset yet (e.g. t1 < 320s). Video 2 stays paused at 0s
+            const state2 = typeof player2Ref.current.getPlayerState === 'function' ? player2Ref.current.getPlayerState() : -1;
+            if (state2 === 1) { // if currently playing, pause it
+              if (typeof player2Ref.current.pauseVideo === 'function') player2Ref.current.pauseVideo();
+              if (typeof player2Ref.current.seekTo === 'function') player2Ref.current.seekTo(0, true);
+            }
+          } else {
+            // Video 1 reached or passed offset (e.g. t1 >= 320s). Video 2 should play from t1 - offset
+            const expectedT2 = t1 - offset;
+            const state2 = typeof player2Ref.current.getPlayerState === 'function' ? player2Ref.current.getPlayerState() : -1;
+
+            if (state2 !== 1) {
+              if (typeof player2Ref.current.seekTo === 'function') player2Ref.current.seekTo(expectedT2, true);
+              if (typeof player2Ref.current.playVideo === 'function') player2Ref.current.playVideo();
+            } else if (Math.abs(t2 - expectedT2) > 1.5) {
+              if (typeof player2Ref.current.seekTo === 'function') player2Ref.current.seekTo(expectedT2, true);
+            }
+          }
+        }
+      } catch {}
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isPlaying, isBothReady, cfg2.start_offset_seconds]);
+
+  // ── Imperative Ref Methods ──
+  useImperativeHandle(ref, () => ({
+    seekTo: (slot: 1 | 2, seconds: number, autoPlay: boolean = true) => {
+      const offset = cfg2.start_offset_seconds || 0;
+      let targetTime1 = 0;
+      let targetTime2 = 0;
+
+      if (slot === 1) {
+        targetTime1 = seconds;
+        targetTime2 = seconds - offset;
+      } else {
+        targetTime2 = seconds;
+        targetTime1 = seconds + offset;
+      }
+
+      if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
+        player1Ref.current.seekTo(Math.max(0, targetTime1), true);
+        if (autoPlay && isBothReady && typeof player1Ref.current.playVideo === 'function') {
+          player1Ref.current.playVideo();
+        }
+      }
+
+      if (player2Ref.current) {
+        if (targetTime2 < 0) {
+          // Video 1 is seeked before Video 2 offset (t1 < offset). Video 2 pauses at 0s until t1 reaches offset
+          if (typeof player2Ref.current.seekTo === 'function') {
+            player2Ref.current.seekTo(0, true);
+          }
+          if (typeof player2Ref.current.pauseVideo === 'function') {
+            player2Ref.current.pauseVideo();
+          }
+        } else {
+          if (typeof player2Ref.current.seekTo === 'function') {
+            player2Ref.current.seekTo(targetTime2, true);
+          }
+          if (autoPlay && isBothReady && typeof player2Ref.current.playVideo === 'function') {
+            player2Ref.current.playVideo();
+          }
+        }
+      }
+
+      if (autoPlay && isBothReady) setIsPlaying(true);
+    },
+    seekBothWithOffset: (masterSeconds: number, autoPlay: boolean = true) => {
+      const offset = cfg2.start_offset_seconds || 0;
+      const targetTime1 = Math.max(0, masterSeconds);
+      const targetTime2 = masterSeconds - offset;
+
+      if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
+        player1Ref.current.seekTo(targetTime1, true);
+        if (autoPlay && isBothReady && typeof player1Ref.current.playVideo === 'function') {
+          player1Ref.current.playVideo();
+        }
+      }
+
+      if (player2Ref.current) {
+        if (targetTime2 < 0) {
+          if (typeof player2Ref.current.seekTo === 'function') {
+            player2Ref.current.seekTo(0, true);
+          }
+          if (typeof player2Ref.current.pauseVideo === 'function') {
+            player2Ref.current.pauseVideo();
+          }
+        } else {
+          if (typeof player2Ref.current.seekTo === 'function') {
+            player2Ref.current.seekTo(targetTime2, true);
+          }
+          if (autoPlay && isBothReady && typeof player2Ref.current.playVideo === 'function') {
+            player2Ref.current.playVideo();
+          }
+        }
+      }
+      if (autoPlay && isBothReady) setIsPlaying(true);
+    },
+    getCurrentTimes: () => {
+      let t1 = 0;
+      let t2 = 0;
+      try {
+        if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+          t1 = player1Ref.current.getCurrentTime() || 0;
+        }
+        if (player2Ref.current && typeof player2Ref.current.getCurrentTime === 'function') {
+          t2 = player2Ref.current.getCurrentTime() || 0;
+        }
+      } catch {}
+      return { time1: Math.floor(t1), time2: Math.floor(t2) };
+    }
+  }));
+
+  // ── Master Play Both ──
+  const togglePlayBoth = () => {
+    if (!isBothReady) {
+      toast.error('Đang chuẩn bị nạp 2 player... Vui lòng đợi trong giây lát!', { icon: '⏳' });
+      return;
+    }
+
+    const nextPlaying = !isPlaying;
+    setIsPlaying(nextPlaying);
+
+    const offset = cfg2.start_offset_seconds || 0;
+
+    let time1 = 0;
+    try {
+      if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+        time1 = player1Ref.current.getCurrentTime() || 0;
+      }
+    } catch {}
+
+    if (player1Ref.current) {
+      if (nextPlaying) {
+        if (typeof player1Ref.current.playVideo === 'function') player1Ref.current.playVideo();
+      } else {
+        if (typeof player1Ref.current.pauseVideo === 'function') player1Ref.current.pauseVideo();
+      }
+    }
+
+    if (player2Ref.current) {
+      if (nextPlaying) {
+        if (time1 < offset) {
+          // Video 1 is still before Video 2 offset (t1 < offset). Video 2 pauses at 0s
+          if (typeof player2Ref.current.seekTo === 'function') {
+            player2Ref.current.seekTo(0, true);
+          }
+          if (typeof player2Ref.current.pauseVideo === 'function') {
+            player2Ref.current.pauseVideo();
+          }
+        } else {
+          const targetTime2 = time1 - offset;
+          if (typeof player2Ref.current.seekTo === 'function') {
+            player2Ref.current.seekTo(targetTime2, true);
+          }
+          if (typeof player2Ref.current.playVideo === 'function') {
+            player2Ref.current.playVideo();
+          }
+        }
+      } else {
+        if (typeof player2Ref.current.pauseVideo === 'function') {
+          player2Ref.current.pauseVideo();
+        }
+      }
+    }
+  };
+
+  // ── Auto Sync Point Tool Logic ──
+  const handleAutoCalculateSyncPoint = () => {
+    let time1 = 0;
+    let time2 = 0;
+    try {
+      if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+        time1 = player1Ref.current.getCurrentTime() || 0;
+      }
+      if (player2Ref.current && typeof player2Ref.current.getCurrentTime === 'function') {
+        time2 = player2Ref.current.getCurrentTime() || 0;
+      }
+    } catch {}
+
+    // Offset of Video 2 relative to Video 1 (time1 - time2)
+    const newOffset = Math.round(time1 - time2);
+    if (onOffsetChange) {
+      onOffsetChange(2, newOffset);
+    }
+    setSyncPointModalOpen(false);
+  };
+
+  const formatOffsetDisplay = (offsetSec: number) => {
+    if (offsetSec === 0) return '0s (Đồng bộ chuẩn)';
+    if (offsetSec > 0) return `+${offsetSec}s (Video 2 trễ ${offsetSec}s so với Video 1)`;
+    return `${offsetSec}s (Video 2 nhanh hơn ${Math.abs(offsetSec)}s)`;
+  };
+
+  return (
+    <div style={{
+      background: '#ffffff',
+      borderRadius: '16px',
+      border: '1px solid #e2e8f0',
+      padding: '20px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+      color: '#0f172a'
+    }}>
+      {/* Header & Controls */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px',
+        paddingBottom: '16px',
+        marginBottom: '16px',
+        borderBottom: '1px solid #f1f5f9'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            padding: '10px',
+            borderRadius: '12px',
+            background: '#e0e7ff',
+            color: '#4f46e5',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Video size={20} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              Màn Hình Phát Multi-Cam
+            </h3>
+          </div>
+        </div>
+
+        {/* Sync Controls & Player Status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {!isBothReady && (cfg1.youtube_id || cfg2.youtube_id) ? (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '10px',
+              background: '#fef3c7',
+              color: '#92400e',
+              border: '1px solid #fde68a',
+              fontSize: '12px',
+              fontWeight: 700
+            }}>
+              <RefreshCw size={14} className="animate-spin" />
+              Đang nạp 2 player đồng bộ...
+            </div>
+          ) : (cfg1.youtube_id || cfg2.youtube_id) ? (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              borderRadius: '10px',
+              background: '#ecfdf5',
+              color: '#065f46',
+              border: '1px solid #a7f3d0',
+              fontSize: '11px',
+              fontWeight: 700
+            }}>
+              <CheckCircle2 size={13} style={{ color: '#10b981' }} />
+              Đã nạp xong 2 Player
+            </div>
+          ) : null}
+
+          {cfg1.youtube_id && cfg2.youtube_id && (
+            <button
+              type="button"
+              onClick={togglePlayBoth}
+              disabled={!isBothReady}
+              style={{
+                background: isPlaying ? '#fef3c7' : '#059669',
+                color: isPlaying ? '#92400e' : '#ffffff',
+                border: isPlaying ? '1px solid #fde68a' : 'none',
+                borderRadius: '10px',
+                padding: '10px 16px',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: !isBothReady ? 'not-allowed' : 'pointer',
+                opacity: !isBothReady ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: isPlaying ? 'none' : '0 4px 12px rgba(5,150,105,0.2)'
+              }}
+            >
+              {isPlaying ? <Pause size={14} /> : <Play size={14} style={{ fill: 'currentColor' }} />}
+              {isPlaying ? 'Tạm Dừng Cả 2 Video' : 'Phát Đồng Bộ Cả 2 Video'}
+            </button>
+          )}
+
+          {isAdmin && cfg1.youtube_id && cfg2.youtube_id && (
+            <button
+              type="button"
+              onClick={handleOpenSyncModal}
+              disabled={!isBothReady}
+              style={{
+                background: '#f1f5f9',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                borderRadius: '10px',
+                padding: '10px 14px',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: !isBothReady ? 'not-allowed' : 'pointer',
+                opacity: !isBothReady ? 0.6 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+              title="Căn mốc đồng bộ tự động"
+            >
+              <Sliders size={14} style={{ color: '#4f46e5' }} />
+              Căn Độ Trễ Auto
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Video Players Grid: 50% / 50% on PC, Full Width on Mobile */}
+      <div className={`grid grid-cols-1 ${cfg1.youtube_id && cfg2.youtube_id ? 'md:grid-cols-2' : ''} gap-4`}>
+        {/* Video Slot 1 */}
+        <div style={{
+          background: '#f8fafc',
+          borderRadius: '14px',
+          border: activeTargetSlot === 1 ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <div style={{
+            padding: '10px 14px',
+            background: '#f1f5f9',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '12px',
+            fontWeight: 800,
+            color: '#334155'
+          }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+              {cfg1.title || 'Slot 1: Hiệp 1 / Cam 1'}
+            </span>
+            <span style={{ fontSize: '11px', color: '#64748b', background: '#e2e8f0', padding: '2px 8px', borderRadius: '6px' }}>
+              Master Standard
+            </span>
+          </div>
+
+          <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', background: '#000' }}>
+            {cfg1.youtube_id ? (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <YouTube
+                  videoId={extractYouTubeId(cfg1.youtube_id)}
+                  opts={opts}
+                  onReady={onPlayerReady1}
+                  style={{ width: '100%', height: '100%' }}
+                  className="w-full h-full"
+                />
+              </div>
+            ) : (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '8px' }}>
+                <Video size={36} style={{ opacity: 0.5 }} />
+                <span style={{ fontSize: '13px', fontWeight: 600 }}>Chưa cấu hình URL Video Slot 1</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Video Slot 2 */}
+        {cfg2.youtube_id && (
+          <div style={{
+            background: '#f8fafc',
+            borderRadius: '14px',
+            border: activeTargetSlot === 2 ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <div style={{
+              padding: '10px 14px',
+              background: '#f1f5f9',
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '12px',
+              fontWeight: 800,
+              color: '#334155'
+            }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
+                {cfg2.title || 'Slot 2: Hiệp 2 / Cam 2'}
+              </span>
+              <span style={{ fontSize: '11px', color: '#854d0e', background: '#fef9c3', border: '1px solid #fef08a', padding: '2px 8px', borderRadius: '6px' }}>
+                Độ trễ: {formatSecondsToHHMMSS(cfg2.start_offset_seconds || 0)}
+              </span>
+            </div>
+
+            <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', background: '#000' }}>
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <YouTube
+                  videoId={extractYouTubeId(cfg2.youtube_id)}
+                  opts={opts}
+                  onReady={onPlayerReady2}
+                  style={{ width: '100%', height: '100%' }}
+                  className="w-full h-full"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Auto Sync Modal */}
+      {syncPointModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            maxWidth: '480px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+            color: '#0f172a'
+          }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 12px 0', color: '#0f172a' }}>
+              Tool Căn Độ Trễ Tự Động (Auto Offset Calibration)
+            </h3>
+            <p style={{ fontSize: '13px', color: '#475569', lineHeight: 1.6, margin: '0 0 16px 0' }}>
+              Hãy bấm <strong>Play</strong> trên cả 2 video, tìm đến một tình huống diễn ra cùng lúc (ví dụ: quả phạt góc hoặc bàn thắng), sau đó tạm dừng cả 2 video đúng thời điểm đó và nhấn nút bên dưới.
+            </p>
+
+            <div style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              fontSize: '13px',
+              marginBottom: '20px'
+            }}>
+              <div>
+                <strong>Video 1 (Mốc):</strong> {formatSecondsToHHMMSS(modalTimes.time1)}
+              </div>
+              <div style={{ marginTop: '6px' }}>
+                <strong>Video 2 (Tình huống tương ứng):</strong> {formatSecondsToHHMMSS(modalTimes.time2)}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setSyncPointModalOpen(false)}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#475569',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleAutoCalculateSyncPoint}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#4f46e5',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                Tính & Lưu Độ Trễ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
+
+YouTubeSyncPlayer.displayName = 'YouTubeSyncPlayer';

@@ -814,6 +814,26 @@ body {
   background: linear-gradient(90deg, #e53935 0%, #c62828 50%, #e53935 100%);
 }
 
+@keyframes announcement-scroll {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes announcement-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ========================= */
 /* THEME TOGGLE              */
 /* ========================= */

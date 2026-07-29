@@ -13,6 +13,14 @@ interface MatchInfo {
   venue: { date?: string; time?: string; venue?: string };
 }
 
+interface CheckPaidData {
+  paidCount?: number;
+  totalCount?: number;
+  paidAmount?: number;
+  totalAmount?: number;
+  percent?: number;
+}
+
 export default function PublicPaymentPage() {
   const [matchInfo, setMatchInfo] = useState<MatchInfo | null>(null);
   const [summary, setSummary] = useState<PaymentSummary | null>(null);
@@ -20,7 +28,7 @@ export default function PublicPaymentPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
 
-  const [checkPaidData, setCheckPaidData] = useState<any>(null);
+  const [checkPaidData, setCheckPaidData] = useState<CheckPaidData | null>(null);
   const [checkPaidLoading, setCheckPaidLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
@@ -226,12 +234,12 @@ export default function PublicPaymentPage() {
           ) : checkPaidData ? (
             <div style={{ padding: '16px 20px', borderRadius: 14, background: 'white', border: '1px solid rgba(198,40,40,0.1)', boxShadow: '0 2px 8px rgba(198,40,40,0.04)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 10, color: '#4a4a6a', fontWeight: 600 }}>
-                <span>{checkPaidData.paidCount}/{checkPaidData.totalCount} đã thanh toán</span>
-                <span style={{ color: '#2e7d32' }}>{formatVND(checkPaidData.paidAmount)} / {formatVND(checkPaidData.totalAmount)}</span>
+                <span>{checkPaidData.paidCount || 0}/{checkPaidData.totalCount || 0} đã thanh toán</span>
+                <span style={{ color: '#2e7d32' }}>{formatVND(checkPaidData.paidAmount || 0)} / {formatVND(checkPaidData.totalAmount || 0)}</span>
               </div>
               <div style={{ width: '100%', height: 6, background: '#f0f0f5', borderRadius: 3, overflow: 'hidden' }}>
                 <div style={{
-                  width: `${checkPaidData.totalAmount > 0 ? (checkPaidData.paidAmount / checkPaidData.totalAmount) * 100 : 0}%`,
+                  width: `${(checkPaidData.totalAmount || 0) > 0 ? ((checkPaidData.paidAmount || 0) / (checkPaidData.totalAmount || 1)) * 100 : 0}%`,
                   height: '100%',
                   background: 'linear-gradient(90deg, #4caf50, #2e7d32)',
                   transition: 'width 1s ease-in-out'
