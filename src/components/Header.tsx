@@ -7,9 +7,16 @@ import { usePathname } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { Settings, Coins, LogOut, Video } from 'lucide-react';
 
+interface User {
+  username: string;
+  balance: number;
+  role?: string;
+  avatarUrl?: string | null;
+}
+
 export default function Header() {
   const pathname = usePathname();
-  const [user, setUser] = useState<{username: string; balance: number} | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [statsLoading, setStatsLoading] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -158,18 +165,37 @@ export default function Header() {
               <div 
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 style={{
-                display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                 background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
-                padding: '6px 12px', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.2)'
+                padding: '3px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.3)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)', transition: 'all 0.2s ease'
               }}>
-                <div style={{
-                  width: '28px', height: '28px', borderRadius: '50%',
-                  background: 'var(--accent)', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '14px'
-                }}>
-                  {user.username.charAt(0).toUpperCase()}
-                </div>
-                <span style={{ color: 'white', fontWeight: 600, fontSize: '13px' }}>{user.username}</span>
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.username}
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      objectFit: 'scale-down',
+                      border: '1px solid rgba(255,255,255,0.4)',
+                      flexShrink: 0
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    width: '32px', height: '32px', borderRadius: '50%',
+                    background: 'var(--accent)', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', color: 'white', fontWeight: 800, fontSize: '14px',
+                    flexShrink: 0
+                  }}>
+                    {user.username.charAt(0).toUpperCase()}
+                  </div>
+                )}
               </div>
               
               {showUserMenu && (

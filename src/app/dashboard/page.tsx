@@ -6,6 +6,8 @@ import RefreshButton from "./RefreshButton";
 import SuccessToast from "./SuccessToast";
 import TelegramLinkSection from "@/components/TelegramLinkSection";
 
+import UserProfileSection from "@/components/UserProfileSection";
+
 export default async function DashboardPage(props: { searchParams?: Promise<{ status?: string, cancel?: string, orderCode?: string, page?: string }> }) {
   const session = await getSession();
   if (!session) {
@@ -93,6 +95,75 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
 
   const balance = user?.balance || 0;
 
+  // Fetch linked player info if user has player_id
+  let linkedPlayer = null;
+  if (user?.player_id) {
+    const { data: p } = await supabase
+      .from("players")
+      .select("id, name, jersey_number, avatar_version, telegram_handle")
+      .eq("id", user.player_id)
+      .single();
+    if (p) {
+      linkedPlayer = p;
+    }
+  }
+
+  // Fetch 5 recent matches for the linked player
+  let playerRecentMatches: Array<{
+    id: string;
+    matchHistoryId: string;
+    matchDate?: string | null;
+    matchTime?: string | null;
+    teamName?: string | null;
+    result?: string | null;
+    homeScore?: number | null;
+    awayScore?: number | null;
+  }> = [];
+
+  if (user?.player_id) {
+    const { data: pStats } = await supabase
+      .from('player_stats')
+      .select('id, match_history_id, team_name, result, created_at, match_history(id, match_date, match_time, home_score, away_score, result)')
+      .eq('player_id', user.player_id)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (pStats && pStats.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      playerRecentMatches = pStats.map((s: any) => ({
+        id: s.id,
+        matchHistoryId: s.match_history_id || s.match_history?.id || s.id,
+        matchDate: s.match_history?.match_date,
+        matchTime: s.match_history?.match_time,
+        teamName: s.team_name,
+        result: s.result,
+        homeScore: s.match_history?.home_score,
+        awayScore: s.match_history?.away_score,
+      }));
+    } else if (linkedPlayer?.name) {
+      const { data: pStatsByName } = await supabase
+        .from('player_stats')
+        .select('id, match_history_id, team_name, result, created_at, match_history(id, match_date, match_time, home_score, away_score, result)')
+        .ilike('player_name', linkedPlayer.name)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (pStatsByName) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        playerRecentMatches = pStatsByName.map((s: any) => ({
+          id: s.id,
+          matchHistoryId: s.match_history_id || s.match_history?.id || s.id,
+          matchDate: s.match_history?.match_date,
+          matchTime: s.match_history?.match_time,
+          teamName: s.team_name,
+          result: s.result,
+          homeScore: s.match_history?.home_score,
+          awayScore: s.match_history?.away_score,
+        }));
+      }
+    }
+  }
+
   // Fetch transaction history
   const page = Math.max(1, parseInt(searchParams?.page || "1", 10));
   const limit = 5;
@@ -122,116 +193,146 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
   }
 
   return (
-    <div style={{ minHeight: '100vh', padding: '0 20px 20px', background: 'var(--bg-primary)' }}>
-      <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ minHeight: '100vh', padding: '16px 16px 32px', background: 'var(--bg-primary)' }}>
+      <div style={{ maxWidth: '1280px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         
         {isSuccess && <SuccessToast confirmed={depositConfirmed} />}
 
-        {/* Balance Card using the signature field style */}
-        <div className="field-header" style={{ padding: '40px 24px', borderRadius: '24px', marginBottom: 0, boxShadow: '0 8px 32px rgba(198,40,40,0.15)' }}>
-          <div className="field-corner-tl"></div><div className="field-corner-tr"></div>
-          <div className="field-corner-bl"></div><div className="field-corner-br"></div>
-          
-          <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', opacity: 0.9, marginBottom: '12px', color: 'white' }}>Số Dư Hiện Tại</h2>
-            <div style={{ fontSize: '48px', fontWeight: 900, textShadow: '0 4px 16px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', gap: '12px', color: 'white' }}>
-              {balance.toLocaleString()} ⚽
-            </div>
-            <div style={{ marginTop: '16px', background: 'rgba(0,0,0,0.15)', padding: '6px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, color: 'white', backdropFilter: 'blur(4px)' }}>
-              1,000 VNĐ = 1,000 Bóng
-            </div>
-            
-            <div style={{ display: 'flex', gap: '12px', marginTop: '32px', width: '100%', justifyContent: 'center' }}>
-              <Link href="/dashboard/deposit" style={{ background: 'white', color: 'var(--accent)', fontWeight: 800, padding: '14px 24px', borderRadius: '12px', textDecoration: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'all 0.2s ease' }}>
-                Thêm Bóng
-              </Link>
-              <Link href="/" style={{ background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(4px)', color: 'white', fontWeight: 700, padding: '14px 24px', borderRadius: '12px', textDecoration: 'none', transition: 'all 0.2s ease', border: '1px solid rgba(255,255,255,0.1)' }}>
-                Trang Chủ
-              </Link>
-            </div>
-          </div>
-        </div>
+        {/* Full-width 50/50 Responsive Grid layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full items-start">
 
-        <TelegramLinkSection currentTelegramId={user?.telegram_id || null} />
-        
-        {/* History */}
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              Lịch sử giao dịch ⏳
-            </h3>
-            <RefreshButton />
+          {/* Left Side (50%): Single Unified Profile Section (Avatar, Name, Jersey & Telegram) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+            <UserProfileSection
+              user={{
+                id: session.id,
+                username: session.username,
+                telegram_id: user?.telegram_id || null
+              }}
+              linkedPlayer={linkedPlayer}
+              recentMatches={playerRecentMatches}
+            />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {(!transactions || transactions.length === 0) ? (
-              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: '14px' }}>
-                <div style={{ fontSize: '32px', marginBottom: '8px', opacity: 0.5 }}>📝</div>
-                Chưa có giao dịch nào.
-              </div>
-            ) : (
-              transactions.map((tx) => (
-                <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px solid var(--border-subtle)', transition: 'background 0.2s ease' }} className="hover:bg-[var(--player-hover-bg)]">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 800, color: tx.amount > 0 ? 'var(--field-accent-light)' : 'var(--text-secondary)', background: tx.amount > 0 ? 'rgba(229,57,53,0.1)' : 'var(--bg-secondary)' }}>
-                      {tx.amount > 0 ? "+" : "-"}
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                        <p style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px' }}>
-                          {tx.type === "deposit" ? "Thêm qua QR" : (tx.type === "payment" ? "Thanh toán trận đấu" : "Khác")}
-                        </p>
-                        <span style={{
-                          fontSize: '11px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
-                          background: tx.status === 'success' ? 'rgba(46,125,50,0.1)' : tx.status === 'pending' ? 'rgba(158,158,158,0.1)' : 'rgba(211,47,47,0.1)',
-                          color: tx.status === 'success' ? '#2e7d32' : tx.status === 'pending' ? 'var(--text-muted)' : '#d32f2f'
-                        }}>
-                          {tx.status === 'success' ? 'Thành công' : tx.status === 'pending' ? 'Đang xử lý' : tx.status === 'cancelled' || tx.status === 'cancel' ? 'Đã hủy' : 'Thất bại'}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{new Date(tx.created_at).toLocaleString("vi-VN")}</p>
-                    </div>
-                  </div>
-                  <div style={{ fontWeight: 800, fontSize: '16px', color: tx.amount > 0 ? 'var(--field-accent-light)' : 'var(--text-primary)' }}>
-                    {tx.amount > 0 ? "+" : ""}{(tx.amount || 0).toLocaleString('en-US')} ⚽
-                  </div>
+
+          {/* Right Side (50%): Balance Card + Transaction History */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
+            {/* Balance Card */}
+            <div className="field-header" style={{
+              padding: '32px 24px',
+              borderRadius: '20px',
+              marginBottom: 0,
+              boxShadow: '0 8px 32px rgba(198,40,40,0.15)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              position: 'relative'
+            }}>
+              <div className="field-corner-tl"></div><div className="field-corner-tr"></div>
+              <div className="field-corner-bl"></div><div className="field-corner-br"></div>
+              
+              <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                <h2 style={{ fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', opacity: 0.9, marginBottom: '10px', color: 'white' }}>SỐ DƯ HIỆN TẠI</h2>
+                <div style={{ fontSize: '44px', fontWeight: 900, textShadow: '0 4px 16px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', gap: '10px', color: 'white' }}>
+                  {balance.toLocaleString()} ⚽
                 </div>
-              ))
-            )}
-          </div>
-          
-          {totalPages > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
-              <Link 
-                href={page > 1 ? `/dashboard?page=${page - 1}` : '#'}
-                style={{ 
-                  padding: '8px 16px', borderRadius: '8px', 
-                  background: page > 1 ? 'var(--bg-secondary)' : 'transparent',
-                  color: page > 1 ? 'var(--text-primary)' : 'var(--border-subtle)',
-                  border: `1px solid ${page > 1 ? 'var(--border-subtle)' : 'transparent'}`,
-                  textDecoration: 'none', fontWeight: 600, fontSize: '13px',
-                  pointerEvents: page > 1 ? 'auto' : 'none', transition: 'all 0.2s ease'
-                }}
-              >
-                ← Trước
-              </Link>
-              <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px' }}>
-                TRANG {page} / {totalPages}
-              </span>
-              <Link 
-                href={page < totalPages ? `/dashboard?page=${page + 1}` : '#'}
-                style={{ 
-                  padding: '8px 16px', borderRadius: '8px', 
-                  background: page < totalPages ? 'var(--bg-secondary)' : 'transparent',
-                  color: page < totalPages ? 'var(--text-primary)' : 'var(--border-subtle)',
-                  border: `1px solid ${page < totalPages ? 'var(--border-subtle)' : 'transparent'}`,
-                  textDecoration: 'none', fontWeight: 600, fontSize: '13px',
-                  pointerEvents: page < totalPages ? 'auto' : 'none', transition: 'all 0.2s ease'
-                }}
-              >
-                Tiếp →
-              </Link>
+                <div style={{ marginTop: '12px', background: 'rgba(0,0,0,0.15)', padding: '5px 14px', borderRadius: '20px', fontSize: '12.5px', fontWeight: 600, color: 'white', backdropFilter: 'blur(4px)' }}>
+                  1,000 VNĐ = 1,000 Bóng
+                </div>
+                
+                <div style={{ display: 'flex', gap: '12px', marginTop: '24px', width: '100%', justifyContent: 'center' }}>
+                  <Link href="/dashboard/deposit" style={{ background: 'white', color: 'var(--accent)', fontWeight: 800, padding: '12px 24px', borderRadius: '12px', textDecoration: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', transition: 'all 0.2s ease', textAlign: 'center', flex: 1, maxWidth: '160px' }}>
+                    Thêm Bóng
+                  </Link>
+                  <Link href="/" style={{ background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(4px)', color: 'white', fontWeight: 700, padding: '12px 24px', borderRadius: '12px', textDecoration: 'none', transition: 'all 0.2s ease', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center', flex: 1, maxWidth: '160px' }}>
+                    Trang Chủ
+                  </Link>
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Transaction History Card */}
+            <div className="glass-card" style={{ padding: '24px', borderRadius: '20px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                    Lịch sử giao dịch ⏳
+                  </h3>
+                  <RefreshButton />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {(!transactions || transactions.length === 0) ? (
+                    <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: '14px' }}>
+                      <div style={{ fontSize: '36px', marginBottom: '8px', opacity: 0.5 }}>📝</div>
+                      Chưa có giao dịch nào.
+                    </div>
+                  ) : (
+                    transactions.map((tx) => (
+                      <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', background: 'var(--bg-primary)', borderRadius: '12px', border: '1px solid var(--border-subtle)', transition: 'background 0.2s ease' }} className="hover:bg-[var(--player-hover-bg)]">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div style={{ width: '38px', height: '38px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 800, color: tx.amount > 0 ? 'var(--field-accent-light)' : 'var(--text-secondary)', background: tx.amount > 0 ? 'rgba(229,57,53,0.1)' : 'var(--bg-secondary)', flexShrink: 0 }}>
+                            {tx.amount > 0 ? "+" : "-"}
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px', flexWrap: 'wrap' }}>
+                              <p style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '14px', margin: 0 }}>
+                                {tx.type === "deposit" ? "Thêm qua QR" : (tx.type === "payment" ? "Thanh toán trận đấu" : "Khác")}
+                              </p>
+                              <span style={{
+                                fontSize: '11px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
+                                background: tx.status === 'success' ? 'rgba(46,125,50,0.1)' : tx.status === 'pending' ? 'rgba(158,158,158,0.1)' : 'rgba(211,47,47,0.1)',
+                                color: tx.status === 'success' ? '#2e7d32' : tx.status === 'pending' ? 'var(--text-muted)' : '#d32f2f'
+                              }}>
+                                {tx.status === 'success' ? 'Thành công' : tx.status === 'pending' ? 'Đang xử lý' : tx.status === 'cancelled' || tx.status === 'cancel' ? 'Đã hủy' : 'Thất bại'}
+                              </span>
+                            </div>
+                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0 }}>{new Date(tx.created_at).toLocaleString("vi-VN")}</p>
+                          </div>
+                        </div>
+                        <div style={{ fontWeight: 800, fontSize: '15px', color: tx.amount > 0 ? 'var(--field-accent-light)' : 'var(--text-primary)', flexShrink: 0, marginLeft: '12px' }}>
+                          {tx.amount > 0 ? "+" : ""}{(tx.amount || 0).toLocaleString('en-US')} ⚽
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
+                  <Link 
+                    href={page > 1 ? `/dashboard?page=${page - 1}` : '#'}
+                    style={{ 
+                      padding: '8px 16px', borderRadius: '8px', 
+                      background: page > 1 ? 'var(--bg-secondary)' : 'transparent',
+                      color: page > 1 ? 'var(--text-primary)' : 'var(--border-subtle)',
+                      border: `1px solid ${page > 1 ? 'var(--border-subtle)' : 'transparent'}`,
+                      textDecoration: 'none', fontWeight: 600, fontSize: '13px',
+                      pointerEvents: page > 1 ? 'auto' : 'none', transition: 'all 0.2s ease'
+                    }}
+                  >
+                    ← Trước
+                  </Link>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '1px' }}>
+                    TRANG {page} / {totalPages}
+                  </span>
+                  <Link 
+                    href={page < totalPages ? `/dashboard?page=${page + 1}` : '#'}
+                    style={{ 
+                      padding: '8px 16px', borderRadius: '8px', 
+                      background: page < totalPages ? 'var(--bg-secondary)' : 'transparent',
+                      color: page < totalPages ? 'var(--text-primary)' : 'var(--border-subtle)',
+                      border: `1px solid ${page < totalPages ? 'var(--border-subtle)' : 'transparent'}`,
+                      textDecoration: 'none', fontWeight: 600, fontSize: '13px',
+                      pointerEvents: page < totalPages ? 'auto' : 'none', transition: 'all 0.2s ease'
+                    }}
+                  >
+                    Tiếp →
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+
         </div>
         
       </div>

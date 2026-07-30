@@ -15,8 +15,32 @@ export async function GET() {
     .single();
 
   if (!user) {
-     return NextResponse.json({ user: null });
+    return NextResponse.json({ user: null });
   }
 
-  return NextResponse.json({ user });
+  let avatarUrl: string | null = null;
+  let playerInfo: { id: string; name: string; jersey_number?: number | null } | null = null;
+
+  if (user.player_id) {
+    const { data: p } = await supabase
+      .from('players')
+      .select('id, name, jersey_number, avatar_version')
+      .eq('id', user.player_id)
+      .single();
+
+    if (p) {
+      playerInfo = { id: p.id, name: p.name, jersey_number: p.jersey_number };
+      const filename = p.jersey_number != null ? p.jersey_number : p.id;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://udlhudfxwuwbecjqvvhv.supabase.co';
+      avatarUrl = `${supabaseUrl}/storage/v1/object/public/players/${filename}.webp?v=${p.avatar_version || Date.now()}`;
+    }
+  }
+
+  return NextResponse.json({
+    user: {
+      ...user,
+      avatarUrl,
+      playerInfo
+    }
+  });
 }
