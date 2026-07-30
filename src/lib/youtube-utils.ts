@@ -54,7 +54,12 @@ export function formatSecondsToTime(totalSeconds: number): string {
 }
 
 export function formatSecondsToHHMMSS(totalSeconds: number): string {
-  return formatSecondsToTime(totalSeconds);
+  const sec = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
 /**
