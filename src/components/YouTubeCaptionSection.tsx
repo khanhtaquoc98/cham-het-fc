@@ -578,31 +578,29 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                     )}
                   </button>
 
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCaption(cap.id);
-                      }}
-                      style={{
-                        background: '#fff1f2',
-                        border: '1px solid #fecdd3',
-                        color: '#e11d48',
-                        borderRadius: '8px',
-                        padding: '6px 9px',
-                        fontSize: '12px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        transition: 'all 0.15s ease'
-                      }}
-                      title="Xóa ghi chú"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteCaption(cap.id);
+                    }}
+                    style={{
+                      background: '#fff1f2',
+                      border: '1px solid #fecdd3',
+                      color: '#e11d48',
+                      borderRadius: '8px',
+                      padding: '6px 9px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="Xóa ghi chú 2nike"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               </div>
             );
