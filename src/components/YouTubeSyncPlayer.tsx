@@ -133,10 +133,14 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   // Player Ready tracking (Wait for BOTH players before playing)
   const [isPlayer1Ready, setIsPlayer1Ready] = useState(false);
   const [isPlayer2Ready, setIsPlayer2Ready] = useState(false);
+  const [isPlayer1Ended, setIsPlayer1Ended] = useState(false);
+  const [isPlayer2Ended, setIsPlayer2Ended] = useState(false);
 
   useEffect(() => {
     setIsPlayer1Ready(false);
     setIsPlayer2Ready(false);
+    setIsPlayer1Ended(false);
+    setIsPlayer2Ended(false);
   }, [cfg1.youtube_id, cfg2.youtube_id]);
 
   const isBothReady = Boolean(
@@ -361,6 +365,37 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     }
   };
 
+  // ── Handle video end: let the other video keep playing ──
+  const onPlayerEnd1 = () => {
+    setIsPlayer1Ended(true);
+    // If video 2 is still going, let it continue
+    if (player2Ref.current) {
+      try {
+        const state2 = typeof player2Ref.current.getPlayerState === 'function' ? player2Ref.current.getPlayerState() : -1;
+        if (state2 === 1) {
+          // Video 2 still playing, keep isPlaying true
+          return;
+        }
+      } catch {}
+    }
+    setIsPlaying(false);
+  };
+
+  const onPlayerEnd2 = () => {
+    setIsPlayer2Ended(true);
+    // If video 1 is still going, let it continue
+    if (player1Ref.current) {
+      try {
+        const state1 = typeof player1Ref.current.getPlayerState === 'function' ? player1Ref.current.getPlayerState() : -1;
+        if (state1 === 1) {
+          // Video 1 still playing, keep isPlaying true
+          return;
+        }
+      } catch {}
+    }
+    setIsPlaying(false);
+  };
+
   // ── Auto Re-Sync Video 2 when offset configs load from API ──
   useEffect(() => {
     if (!isBothReady) return;
@@ -410,7 +445,9 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           } else {
             const state2 = typeof player2Ref.current.getPlayerState === 'function' ? player2Ref.current.getPlayerState() : -1;
 
-            if (state2 !== 1 && isPlaying) {
+            if (isPlayer2Ended) {
+              // Video 2 has ended, don't force replay it
+            } else if (state2 !== 1 && isPlaying) {
               if (typeof player2Ref.current.seekTo === 'function') player2Ref.current.seekTo(expectedT2, true);
               if (typeof player2Ref.current.playVideo === 'function') player2Ref.current.playVideo();
             } else if (isPlaying && Math.abs(t2 - expectedT2) > 1.5) {
@@ -422,7 +459,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     }, 500);
 
     return () => clearInterval(interval);
-  }, [isPlaying, isBothReady, cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
+  }, [isPlaying, isBothReady, isPlayer2Ended, cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
 
   const handleManualSync = () => {
     if (!isBothReady) return;
@@ -490,6 +527,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           }
         } catch {}
         setIsPlaying(true);
+        setIsPlayer1Ended(false);
+        setIsPlayer2Ended(false);
       }, 300);
     }
   }, [cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
@@ -553,6 +592,12 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
     const nextPlaying = !isPlaying;
     setIsPlaying(nextPlaying);
+
+    // Reset ended states when user manually toggles play
+    if (nextPlaying) {
+      setIsPlayer1Ended(false);
+      setIsPlayer2Ended(false);
+    }
 
     const offset1 = cfg1.start_offset_seconds || 0;
     const offset2 = cfg2.start_offset_seconds || 0;
@@ -967,6 +1012,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     videoId={extractYouTubeId(cfg1.youtube_id)}
                     opts={opts1}
                     onReady={onPlayerReady1}
+                    onEnd={onPlayerEnd1}
                     style={{ width: '100%', height: '100%' }}
                   />
                   {/* Overlay to block any direct user interaction / clicking on Video 1 */}
@@ -1038,6 +1084,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     videoId={extractYouTubeId(cfg2.youtube_id)}
                     opts={opts2}
                     onReady={onPlayerReady2}
+                    onEnd={onPlayerEnd2}
                     onStateChange={onPlayerStateChange2}
                     style={{ width: '100%', height: '100%' }}
                   />
