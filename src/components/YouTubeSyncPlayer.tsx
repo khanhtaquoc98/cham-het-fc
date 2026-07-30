@@ -788,6 +788,15 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
   // ── Add 2nike Modal Handlers ──
   const handleOpenAddCaptionModal = () => {
+    // Auto-pause videos when opening 2nike modal
+    if (isPlaying) {
+      try {
+        if (player1Ref.current && typeof player1Ref.current.pauseVideo === 'function') player1Ref.current.pauseVideo();
+        if (player2Ref.current && typeof player2Ref.current.pauseVideo === 'function') player2Ref.current.pauseVideo();
+      } catch {}
+      setIsPlaying(false);
+    }
+
     let t1 = 0;
     try {
       if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
