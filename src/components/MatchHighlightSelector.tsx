@@ -155,8 +155,6 @@ export const MatchHighlightSelector: React.FC<Props> = ({
       });
 
       // Asynchronously load youtube thumbnails for fetched matches
-      fetchConfigsForMatches(fetchedList);
-
       if (isInitial) {
         const defaultMatchCard: MatchCardInfo = {
           id: 'default_match',
@@ -164,8 +162,10 @@ export const MatchHighlightSelector: React.FC<Props> = ({
           subtitle: 'Góc quay 2 Cam đồng bộ Realtime',
           isLive: true
         };
+        fetchConfigsForMatches([defaultMatchCard, ...fetchedList]);
         setMatches([defaultMatchCard, ...fetchedList]);
       } else {
+        fetchConfigsForMatches(fetchedList);
         setMatches((prev) => {
           const existingIds = new Set(prev.map(item => item.id));
           const uniqueNew = fetchedList.filter(item => !existingIds.has(item.id));
