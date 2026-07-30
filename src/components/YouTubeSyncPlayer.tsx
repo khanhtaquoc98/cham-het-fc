@@ -290,6 +290,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       controls: 0,
       playsinline: 1,
       disablekb: 1,
+      cc_load_policy: 0,
     },
   }), []);
 
@@ -303,6 +304,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       controls: 0,
       playsinline: 1,
       disablekb: 1,
+      cc_load_policy: 0,
     },
   }), []);
 
