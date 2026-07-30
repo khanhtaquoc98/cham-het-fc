@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Film, Play, Trophy, Loader2 } from 'lucide-react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Film, Play, Trophy, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export interface MatchCardInfo {
   id: string;
@@ -35,10 +35,95 @@ interface Props {
   onSelectMatch: (matchId: string, matchInfo?: MatchCardInfo) => void;
 }
 
+const ThumbnailImage = ({ src, alt, ytId }: { src: string; alt?: string; ytId: string }) => {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', background: '#0f172a', overflow: 'hidden' }}>
+      {!loaded && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%)',
+            backgroundSize: '200% 100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1,
+          }}
+        >
+          <Loader2 size={18} className="animate-spin" style={{ color: 'rgba(255,255,255,0.7)' }} />
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt || ''}
+        onLoad={() => setLoaded(true)}
+        onError={(e) => {
+          setLoaded(true);
+          const img = e.currentTarget as HTMLImageElement;
+          if (img && !img.dataset.failed) {
+            img.dataset.failed = 'true';
+            img.src = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
+          }
+        }}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          opacity: loaded ? 1 : 0,
+          transition: 'opacity 0.3s ease',
+        }}
+      />
+    </div>
+  );
+};
+
 export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelectMatch }) => {
   const [recentMatches, setRecentMatches] = useState<MatchCardInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [ytConfigMap, setYtConfigMap] = useState<Record<string, string>>({});
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeftPos, setScrollLeftPos] = useState(0);
+
+  const scrollLeft = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: -270, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollBy({ left: 270, behavior: 'smooth' });
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return;
+    setIsMouseDown(true);
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+    setScrollLeftPos(scrollContainerRef.current.scrollLeft);
+  };
+
+  const handleMouseLeave = () => {
+    setIsMouseDown(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsMouseDown(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isMouseDown || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5;
+    scrollContainerRef.current.scrollLeft = scrollLeftPos - walk;
+  };
 
   // Helper to fetch YouTube thumbnail configs
   const fetchConfigsForMatches = async (matchList: MatchCardInfo[]) => {
@@ -160,7 +245,31 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
       boxSizing: 'border-box'
     }}>
       <style>{`
-        .recent-match-card {
+        .recent-matches-carousel {
+          display: flex;
+          gap: 14px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scroll-behavior: smooth;
+          padding-bottom: 4px;
+          cursor: grab;
+          user-select: none;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .recent-matches-carousel:active {
+          cursor: grabbing;
+        }
+        .recent-matches-carousel::-webkit-scrollbar {
+          display: none;
+          width: 0;
+          height: 0;
+        }
+        .recent-match-card-carousel {
+          flex: 0 0 250px;
+          width: 250px;
+          scroll-snap-align: start;
           background: #ffffff;
           border: 1px solid #e2e8f0;
           border-radius: 12px;
@@ -173,9 +282,9 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
           overflow: hidden;
         }
-        .recent-match-card:hover {
-          border-color: #6366f1;
-          box-shadow: 0 6px 18px rgba(99, 102, 241, 0.15);
+        .recent-match-card-carousel:hover {
+          border-color: #ef4444;
+          box-shadow: 0 6px 18px rgba(239, 68, 68, 0.15);
           transform: translateY(-2px);
         }
         .recent-match-thumbnail {
@@ -195,7 +304,7 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
           object-fit: cover;
           transition: transform 0.3s ease;
         }
-        .recent-match-card:hover .recent-match-thumbnail img {
+        .recent-match-card-carousel:hover .recent-match-thumbnail img {
           transform: scale(1.05);
         }
         .recent-match-thumbnail.empty-thumbnail {
@@ -219,8 +328,8 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
           <div style={{
             padding: '8px',
             borderRadius: '10px',
-            background: '#e0e7ff',
-            color: '#4f46e5',
+            background: '#fee2e2',
+            color: '#dc2626',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
@@ -237,22 +346,68 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
           </div>
         </div>
 
-        <span style={{
-          fontSize: '11.5px',
-          fontWeight: 700,
-          background: '#f1f5f9',
-          color: '#475569',
-          padding: '4px 12px',
-          borderRadius: '9999px'
-        }}>
-          {recentMatches.length} Trận gần đây
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{
+            fontSize: '11.5px',
+            fontWeight: 700,
+            background: '#f1f5f9',
+            color: '#475569',
+            padding: '4px 12px',
+            borderRadius: '9999px'
+          }}>
+            {recentMatches.length} Trận gần đây
+          </span>
+
+          {/* Carousel Left / Right Scroll Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <button
+              type="button"
+              onClick={scrollLeft}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: '#334155',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              title="Cuộn sang trái"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={scrollRight}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: '#334155',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              title="Cuộn sang phải"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Grid of 4 Recent Matches */}
+      {/* Carousel List of Recent Matches */}
       {loading ? (
         <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-          <Loader2 size={16} className="animate-spin" style={{ color: '#4f46e5' }} />
+          <Loader2 size={16} className="animate-spin" style={{ color: '#dc2626' }} />
           Đang tải trận đấu gần nhất...
         </div>
       ) : recentMatches.length === 0 ? (
@@ -260,11 +415,14 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
           Không có trận đấu gần nhất nào khác.
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-          gap: '12px'
-        }}>
+        <div
+          ref={scrollContainerRef}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          className="recent-matches-carousel"
+        >
           {recentMatches.map((item) => {
             const winnerInfo = getWinnerInfo(item);
             const ytId = ytConfigMap[item.id];
@@ -273,17 +431,15 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
               <div
                 key={item.id}
                 onClick={() => handleCardClick(item)}
-                className="recent-match-card"
+                className="recent-match-card-carousel"
               >
                 {/* Thumbnail */}
                 {ytId ? (
-                  <div className="recent-match-thumbnail">
-                    <img
+                  <div className="recent-match-thumbnail" style={{ position: 'relative' }}>
+                    <ThumbnailImage
                       src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
                       alt={item.title}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
-                      }}
+                      ytId={ytId}
                     />
                     <div style={{
                       position: 'absolute',
@@ -291,7 +447,8 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
                       background: 'linear-gradient(to top, rgba(15, 23, 42, 0.6) 0%, transparent 60%)',
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center'
+                      justifyContent: 'center',
+                      pointerEvents: 'none'
                     }}>
                       <div style={{
                         width: '32px',
@@ -304,7 +461,7 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
                         justifyContent: 'center',
                         boxShadow: '0 4px 10px rgba(0,0,0,0.25)'
                       }}>
-                        <Play size={14} style={{ fill: '#4f46e5', color: '#4f46e5', marginLeft: '2px' }} />
+                        <Play size={14} style={{ fill: '#dc2626', color: '#dc2626', marginLeft: '2px' }} />
                       </div>
                     </div>
                   </div>

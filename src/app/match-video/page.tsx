@@ -103,7 +103,6 @@ function MatchVideoContent() {
       const timer = setTimeout(() => {
         if (playerRef.current) {
           playerRef.current.seekTo(slot, timeSec, true);
-          toast.success(`Đã tự động nhảy tới mốc ${timeSec}s trên Video ${slot}`, { icon: '🍿' });
         }
       }, 1200);
 
@@ -171,7 +170,7 @@ function MatchVideoContent() {
                 Quay lại danh sách trận đấu
               </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 800, color: '#4f46e5' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 800, color: '#dc2626' }}>
                 <Film size={18} />
                 <span>Xem Highlight: {selectedMatchLabel || (selectedMatchId === 'default_match' ? 'Trận Trực Tiếp / Mới Nhất' : 'Trận đấu')}</span>
               </div>
@@ -195,7 +194,7 @@ function MatchVideoContent() {
                   width: '40px',
                   height: '40px',
                   border: '4px solid #e2e8f0',
-                  borderTopColor: '#6366f1',
+                  borderTopColor: '#dc2626',
                   borderRadius: '50%',
                   animation: 'spin 0.8s linear infinite'
                 }} />

@@ -19,6 +19,51 @@ export interface MatchCardInfo {
   youtubeId?: string;
 }
 
+const ThumbnailImage = ({ src, alt, ytId }: { src: string; alt?: string; ytId: string }) => {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', background: '#0f172a', overflow: 'hidden' }}>
+      {!loaded && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%)',
+            backgroundSize: '200% 100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1,
+          }}
+        >
+          <Loader2 size={20} className="animate-spin" style={{ color: 'rgba(255,255,255,0.7)' }} />
+        </div>
+      )}
+      <img
+        src={src}
+        alt={alt || ''}
+        onLoad={() => setLoaded(true)}
+        onError={(e) => {
+          setLoaded(true);
+          const img = e.currentTarget as HTMLImageElement;
+          if (img && !img.dataset.failed) {
+            img.dataset.failed = 'true';
+            img.src = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
+          }
+        }}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          opacity: loaded ? 1 : 0,
+          transition: 'opacity 0.3s ease',
+        }}
+      />
+    </div>
+  );
+};
+
 interface RawMatchRecord {
   id: string;
   matchDate?: string;
@@ -261,8 +306,8 @@ export const MatchHighlightSelector: React.FC<Props> = ({
           overflow: hidden;
         }
         .match-card-item:hover {
-          border-color: #6366f1;
-          box-shadow: 0 8px 20px rgba(99, 102, 241, 0.16);
+          border-color: #ef4444;
+          box-shadow: 0 8px 20px rgba(239, 68, 68, 0.16);
           transform: translateY(-2px);
         }
         .match-card-thumbnail {
@@ -306,8 +351,8 @@ export const MatchHighlightSelector: React.FC<Props> = ({
           <div style={{
             padding: '10px',
             borderRadius: '12px',
-            background: '#e0e7ff',
-            color: '#4f46e5',
+            background: '#fee2e2',
+            color: '#dc2626',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
@@ -381,7 +426,7 @@ export const MatchHighlightSelector: React.FC<Props> = ({
       {/* Grid of Match Cards */}
       {loading ? (
         <div style={{ padding: '36px', textAlign: 'center', color: '#94a3b8', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-          <Loader2 size={18} className="animate-spin" style={{ color: '#4f46e5' }} />
+          <Loader2 size={18} className="animate-spin" style={{ color: '#dc2626' }} />
           Đang tải danh sách trận đấu...
         </div>
       ) : filteredMatches.length === 0 ? (
@@ -400,7 +445,7 @@ export const MatchHighlightSelector: React.FC<Props> = ({
             type="button"
             onClick={() => setSearchTerm('')}
             style={{
-              background: '#4f46e5',
+              background: '#dc2626',
               color: '#ffffff',
               border: 'none',
               borderRadius: '8px',
@@ -433,13 +478,11 @@ export const MatchHighlightSelector: React.FC<Props> = ({
                 >
                   {/* YouTube Thumbnail Header or Default Empty Thumbnail Placeholder */}
                   {ytId ? (
-                    <div className="match-card-thumbnail">
-                      <img
+                    <div className="match-card-thumbnail" style={{ position: 'relative' }}>
+                      <ThumbnailImage
                         src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
                         alt={item.title}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
-                        }}
+                        ytId={ytId}
                       />
                       <div style={{
                         position: 'absolute',
@@ -447,7 +490,8 @@ export const MatchHighlightSelector: React.FC<Props> = ({
                         background: 'linear-gradient(to top, rgba(15, 23, 42, 0.7) 0%, transparent 60%)',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        pointerEvents: 'none'
                       }}>
                         <div style={{
                           width: '36px',
@@ -460,7 +504,7 @@ export const MatchHighlightSelector: React.FC<Props> = ({
                           justifyContent: 'center',
                           boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
                         }}>
-                          <Play size={16} style={{ fill: '#4f46e5', color: '#4f46e5', marginLeft: '2px' }} />
+                          <Play size={16} style={{ fill: '#dc2626', color: '#dc2626', marginLeft: '2px' }} />
                         </div>
                       </div>
                     </div>
@@ -545,7 +589,7 @@ export const MatchHighlightSelector: React.FC<Props> = ({
                       marginTop: '2px'
                     }}>
                       <div style={{ fontSize: '11px', fontWeight: 800, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Users size={12} style={{ color: '#6366f1' }} />
+                        <Users size={12} style={{ color: '#dc2626' }} />
                         Đội hình tham gia:
                       </div>
                       {item.teams.map((t, idx) => {
@@ -570,7 +614,7 @@ export const MatchHighlightSelector: React.FC<Props> = ({
           {/* Sentinel Observer Target for Infinite Scroll */}
           <div ref={observerTarget} style={{ height: '40px', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {loadingMore && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6366f1', fontSize: '13px', fontWeight: 700 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#dc2626', fontSize: '13px', fontWeight: 700 }}>
                 <Loader2 size={18} className="animate-spin" />
                 Đang tải thêm danh sách trận đấu...
               </div>

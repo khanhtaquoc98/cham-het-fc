@@ -274,17 +274,15 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
           position: relative;
         }
         .caption-card-item:hover {
-          border-color: #818cf8;
-          box-shadow: 0 6px 18px -2px rgba(99, 102, 241, 0.16);
+          border-color: #f87171;
+          box-shadow: 0 6px 18px -2px rgba(220, 38, 38, 0.16);
           transform: translateY(-1.5px);
         }
         .caption-card-item.is-highlighted {
-          background: linear-gradient(135deg, #f5f3ff 0%, #e0e7ff 100%);
-          border: 2px solid #6366f1;
-          box-shadow: 0 8px 24px -4px rgba(99, 102, 241, 0.25);
+          border-color: #cbd5e1;
         }
         .timestamp-play-btn {
-          background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+          background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
           color: #ffffff;
           border: none;
           border-radius: 8px;
@@ -296,14 +294,14 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          box-shadow: 0 3px 8px rgba(79, 70, 229, 0.28);
+          box-shadow: 0 3px 8px rgba(220, 38, 38, 0.28);
           white-space: nowrap;
           flex-shrink: 0;
           transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
         .timestamp-play-btn:hover {
           transform: scale(1.04);
-          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+          box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
         }
       `}</style>
 
@@ -322,8 +320,8 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
           <div style={{
             padding: '8px',
             borderRadius: '10px',
-            background: '#e0e7ff',
-            color: '#4f46e5',
+            background: '#fee2e2',
+            color: '#dc2626',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
@@ -338,9 +336,9 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                 fontWeight: 700,
                 padding: '2px 8px',
                 borderRadius: '12px',
-                background: '#e0e7ff',
-                color: '#3730a3',
-                border: '1px solid #c7d2fe'
+                background: '#fee2e2',
+                color: '#991b1b',
+                border: '1px solid #fca5a5'
               }}>
                 {captions.length} highlight
               </span>
@@ -446,10 +444,10 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
       </div>
 
       {/* Captions List Timeline Cards */}
-      <div ref={captionListRef} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '480px', overflowY: 'auto', paddingRight: '4px' }}>
+      <div ref={captionListRef} style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '480px', overflowY: 'auto', padding: '6px 8px' }}>
         {loading ? (
           <div style={{ textAlign: 'center', padding: '32px 0', color: '#64748b', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <RefreshCw size={16} className="animate-spin" style={{ color: '#4f46e5' }} />
+            <RefreshCw size={16} className="animate-spin" style={{ color: '#dc2626' }} />
             Đang tải dữ liệu timeline caption...
           </div>
         ) : filteredCaptions.length === 0 ? (
@@ -477,7 +475,6 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                       handleCardClick(cap);
                     }}
                     className="timestamp-play-btn"
-                    title={`Phát Video ${cap.slot} từ mốc ${cap.timestamp_str}`}
                   >
                     <Play size={11} style={{ fill: '#ffffff' }} />
                     {cap.timestamp_str}

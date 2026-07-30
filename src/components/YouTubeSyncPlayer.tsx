@@ -3,7 +3,7 @@ import YouTube, { YouTubeProps } from 'react-youtube';
 import { MatchCaption, YouTubeVideoConfig } from '@/types/youtube';
 import { extractYouTubeId, formatSecondsToHHMMSS, parseTimeToSeconds } from '@/lib/youtube-utils';
 import { supabase } from '@/lib/supabase';
-import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Maximize2, Minimize2 } from 'lucide-react';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface PlayerInstance {
@@ -74,7 +74,6 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const [syncPointModalOpen, setSyncPointModalOpen] = useState(false);
   const [modalTimes, setModalTimes] = useState<{ time1: number; time2: number }>({ time1: 0, time2: 0 });
-  const [isExpanded, setIsExpanded] = useState(false);
 
   const [captionsList, setCaptionsList] = useState<MatchCaption[]>(propsCaptions || []);
   const [currentVideoTime, setCurrentVideoTime] = useState(0);
@@ -281,7 +280,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   };
 
   // Player Options (no native controls, disable iframe kb, playsinline)
-  const opts: YouTubeProps['opts'] = {
+  const opts1: YouTubeProps['opts'] = React.useMemo(() => ({
     height: '100%',
     width: '100%',
     playerVars: {
@@ -292,7 +291,20 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       playsinline: 1,
       disablekb: 1,
     },
-  };
+  }), []);
+
+  const opts2: YouTubeProps['opts'] = React.useMemo(() => ({
+    height: '100%',
+    width: '100%',
+    playerVars: {
+      autoplay: 1,
+      modestbranding: 1,
+      rel: 0,
+      controls: 0,
+      playsinline: 1,
+      disablekb: 1,
+    },
+  }), []);
 
   const onPlayerReady1 = (event: { target: PlayerInstance }) => {
     player1Ref.current = event.target;
@@ -329,9 +341,16 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         const t2 = typeof player2Ref.current.getCurrentTime === 'function' ? (player2Ref.current.getCurrentTime() || 0) : 0;
         const offset1 = cfg1.start_offset_seconds || 0;
         const offset2 = cfg2.start_offset_seconds || 0;
-        const expectedT2 = t1 - offset1 + offset2;
+        const expectedT2 = t1 - offset2 + offset1;
 
-        if (expectedT2 > 0 && Math.abs(t2 - expectedT2) > 1.5) {
+        if (expectedT2 < 0) {
+          if (typeof player2Ref.current.pauseVideo === 'function') {
+            player2Ref.current.pauseVideo();
+          }
+          if (typeof player2Ref.current.seekTo === 'function') {
+            player2Ref.current.seekTo(0, true);
+          }
+        } else if (Math.abs(t2 - expectedT2) > 1.5) {
           if (typeof player2Ref.current.seekTo === 'function') {
             player2Ref.current.seekTo(expectedT2, true);
           }
@@ -354,20 +373,22 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       }
     } catch {}
 
-    const expectedT2 = t1 - offset1 + offset2;
-    if (player2Ref.current && typeof player2Ref.current.seekTo === 'function') {
-      if (expectedT2 < 0) {
-        player2Ref.current.seekTo(0, true);
-        if (typeof player2Ref.current.pauseVideo === 'function') player2Ref.current.pauseVideo();
-      } else {
-        player2Ref.current.seekTo(expectedT2, true);
+    const expectedT2 = t1 - offset2 + offset1;
+    try {
+      if (player2Ref.current && typeof player2Ref.current.seekTo === 'function') {
+        if (expectedT2 < 0) {
+          player2Ref.current.seekTo(0, true);
+          if (typeof player2Ref.current.pauseVideo === 'function') player2Ref.current.pauseVideo();
+        } else {
+          player2Ref.current.seekTo(expectedT2, true);
+        }
       }
-    }
+    } catch {}
   }, [isBothReady, cfg1.start_offset_seconds, cfg2.start_offset_seconds, cfg1.youtube_id, cfg2.youtube_id]);
 
-  // ── Sync Loop: Ensures Video 2 waits at 0s until Video 1 reaches start_offset_seconds ──
+  // ── Sync Loop: Ensures Video 2 waits at 0s until Video 1 reaches offset2 ──
   useEffect(() => {
-    if (!isPlaying || !isBothReady) return;
+    if (!isBothReady) return;
 
     const interval = setInterval(() => {
       try {
@@ -376,30 +397,41 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           const t2 = typeof player2Ref.current.getCurrentTime === 'function' ? (player2Ref.current.getCurrentTime() || 0) : 0;
           const offset1 = cfg1.start_offset_seconds || 0;
           const offset2 = cfg2.start_offset_seconds || 0;
-          const expectedT2 = t1 - offset1 + offset2;
+          const expectedT2 = t1 - offset2 + offset1;
 
           if (expectedT2 < 0) {
             const state2 = typeof player2Ref.current.getPlayerState === 'function' ? player2Ref.current.getPlayerState() : -1;
-            if (state2 === 1) {
+            if (state2 === 1) { // 1 is PLAYING
               if (typeof player2Ref.current.pauseVideo === 'function') player2Ref.current.pauseVideo();
               if (typeof player2Ref.current.seekTo === 'function') player2Ref.current.seekTo(0, true);
             }
           } else {
             const state2 = typeof player2Ref.current.getPlayerState === 'function' ? player2Ref.current.getPlayerState() : -1;
 
-            if (state2 !== 1) {
+            if (state2 !== 1 && isPlaying) {
               if (typeof player2Ref.current.seekTo === 'function') player2Ref.current.seekTo(expectedT2, true);
               if (typeof player2Ref.current.playVideo === 'function') player2Ref.current.playVideo();
-            } else if (Math.abs(t2 - expectedT2) > 1.5) {
+            } else if (isPlaying && Math.abs(t2 - expectedT2) > 1.5) {
               if (typeof player2Ref.current.seekTo === 'function') player2Ref.current.seekTo(expectedT2, true);
             }
           }
         }
       } catch {}
-    }, 1000);
+    }, 500);
 
     return () => clearInterval(interval);
   }, [isPlaying, isBothReady, cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
+
+  const handleManualSync = () => {
+    if (!isBothReady) return;
+    let t1 = 0;
+    try {
+      if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+        t1 = player1Ref.current.getCurrentTime() || 0;
+      }
+    } catch {}
+    doSeek(1, t1, true);
+  };
 
   const pendingSeekRef = useRef<{ slot: 1 | 2; seconds: number; autoPlay: boolean } | null>(null);
 
@@ -411,42 +443,53 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
     if (slot === 1) {
       targetTime1 = seconds;
-      targetTime2 = seconds - offset1 + offset2;
+      targetTime2 = seconds - offset2 + offset1;
     } else {
       targetTime2 = seconds;
-      targetTime1 = seconds - offset2 + offset1;
+      targetTime1 = seconds + offset2 - offset1;
     }
 
-    if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
-      player1Ref.current.seekTo(Math.max(0, targetTime1), true);
-      if (autoPlay && typeof player1Ref.current.playVideo === 'function') {
-        try {
-          player1Ref.current.playVideo();
-        } catch {}
+    // 1. Pause both players first so they buffer target frames in sync
+    try {
+      if (player1Ref.current && typeof player1Ref.current.pauseVideo === 'function') {
+        player1Ref.current.pauseVideo();
       }
-    }
+      if (player2Ref.current && typeof player2Ref.current.pauseVideo === 'function') {
+        player2Ref.current.pauseVideo();
+      }
+    } catch {}
 
-    if (player2Ref.current) {
-      if (targetTime2 < 0) {
-        if (typeof player2Ref.current.seekTo === 'function') {
+    // 2. Seek both players to target timestamps
+    try {
+      if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
+        player1Ref.current.seekTo(Math.max(0, targetTime1), true);
+      }
+    } catch {}
+
+    try {
+      if (player2Ref.current && typeof player2Ref.current.seekTo === 'function') {
+        if (targetTime2 < 0) {
           player2Ref.current.seekTo(0, true);
-        }
-        if (typeof player2Ref.current.pauseVideo === 'function') {
-          player2Ref.current.pauseVideo();
-        }
-      } else {
-        if (typeof player2Ref.current.seekTo === 'function') {
+        } else {
           player2Ref.current.seekTo(targetTime2, true);
         }
-        if (autoPlay && typeof player2Ref.current.playVideo === 'function') {
-          try {
-            player2Ref.current.playVideo();
-          } catch {}
-        }
       }
-    }
+    } catch {}
 
-    if (autoPlay) setIsPlaying(true);
+    // 3. Play both players simultaneously after 300ms frame buffer delay
+    if (autoPlay) {
+      setTimeout(() => {
+        try {
+          if (player1Ref.current && typeof player1Ref.current.playVideo === 'function') {
+            player1Ref.current.playVideo();
+          }
+          if (player2Ref.current && targetTime2 >= 0 && typeof player2Ref.current.playVideo === 'function') {
+            player2Ref.current.playVideo();
+          }
+        } catch {}
+        setIsPlaying(true);
+      }, 300);
+    }
   }, [cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
 
   // Execute pending seek or auto-start once both players are ready
@@ -519,38 +562,42 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       }
     } catch {}
 
-    if (player1Ref.current) {
-      if (nextPlaying) {
-        if (typeof player1Ref.current.playVideo === 'function') player1Ref.current.playVideo();
-      } else {
-        if (typeof player1Ref.current.pauseVideo === 'function') player1Ref.current.pauseVideo();
+    try {
+      if (player1Ref.current) {
+        if (nextPlaying) {
+          if (typeof player1Ref.current.playVideo === 'function') player1Ref.current.playVideo();
+        } else {
+          if (typeof player1Ref.current.pauseVideo === 'function') player1Ref.current.pauseVideo();
+        }
       }
-    }
+    } catch {}
 
-    if (player2Ref.current) {
-      if (nextPlaying) {
-        const targetTime2 = time1 - offset1 + offset2;
-        if (targetTime2 < 0) {
-          if (typeof player2Ref.current.seekTo === 'function') {
-            player2Ref.current.seekTo(0, true);
+    try {
+      if (player2Ref.current) {
+        if (nextPlaying) {
+          const targetTime2 = time1 - offset1 + offset2;
+          if (targetTime2 < 0) {
+            if (typeof player2Ref.current.seekTo === 'function') {
+              player2Ref.current.seekTo(0, true);
+            }
+            if (typeof player2Ref.current.pauseVideo === 'function') {
+              player2Ref.current.pauseVideo();
+            }
+          } else {
+            if (typeof player2Ref.current.seekTo === 'function') {
+              player2Ref.current.seekTo(targetTime2, true);
+            }
+            if (typeof player2Ref.current.playVideo === 'function') {
+              player2Ref.current.playVideo();
+            }
           }
+        } else {
           if (typeof player2Ref.current.pauseVideo === 'function') {
             player2Ref.current.pauseVideo();
           }
-        } else {
-          if (typeof player2Ref.current.seekTo === 'function') {
-            player2Ref.current.seekTo(targetTime2, true);
-          }
-          if (typeof player2Ref.current.playVideo === 'function') {
-            player2Ref.current.playVideo();
-          }
-        }
-      } else {
-        if (typeof player2Ref.current.pauseVideo === 'function') {
-          player2Ref.current.pauseVideo();
         }
       }
-    }
+    } catch {}
   };
 
   // ── Relative Seek (-10s, -5s, +5s, +10s) ──
@@ -779,8 +826,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           <div style={{
             padding: '8px',
             borderRadius: '10px',
-            background: '#e0e7ff',
-            color: '#4f46e5',
+            background: '#fee2e2',
+            color: '#dc2626',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
@@ -796,38 +843,12 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
         {/* Right Actions: Add 2nike Modal Button & Admin Auto calibration */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Single Cam Expand / Stretch Toggle Button (Only when 1 Cam exists) */}
-          {!cfg2.youtube_id && cfg1.youtube_id && (
-            <button
-              type="button"
-              onClick={() => setIsExpanded(prev => !prev)}
-              style={{
-                background: isExpanded ? '#e0e7ff' : '#f8fafc',
-                color: isExpanded ? '#4f46e5' : '#334155',
-                border: isExpanded ? '1px solid #c7d2fe' : '1px solid #cbd5e1',
-                borderRadius: '8px',
-                padding: '8px 13px',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'all 0.15s ease'
-              }}
-              title={isExpanded ? 'Thu nhỏ về kích thước vừa màn hình' : 'Kéo dãn / Mở rộng màn hình Cam 1'}
-            >
-              {isExpanded ? <Minimize2 size={15} style={{ color: '#4f46e5' }} /> : <Maximize2 size={15} style={{ color: '#6366f1' }} />}
-              <span>{isExpanded ? 'Thu nhỏ' : 'Kéo dãn màn hình'}</span>
-            </button>
-          )}
-
           {(cfg1.youtube_id || cfg2.youtube_id) && (
             <button
               type="button"
               onClick={handleOpenAddCaptionModal}
               style={{
-                background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
@@ -838,7 +859,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
                 transition: 'all 0.15s ease'
               }}
             >
@@ -868,37 +889,46 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               }}
               title="Căn mốc đồng bộ tự động"
             >
-              <Sliders size={14} style={{ color: '#4f46e5' }} />
+              <Sliders size={14} style={{ color: '#dc2626' }} />
               Căn Độ Trễ Auto
             </button>
           )}
         </div>
       </div>
 
-      {/* Video Players Grid: 50% / 50% or Single Cam (Normal / Expanded) */}
+      {/* Video Players Grid: Resizable Container (Mặc định vừa 100vh, kéo thả scale width + height theo tỉ lệ 16:9) */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',
         width: '100%'
       }}>
         <div style={{
+          position: 'relative',
           display: 'grid',
           gridTemplateColumns: (cfg1.youtube_id && cfg2.youtube_id) ? 'repeat(auto-fit, minmax(300px, 1fr))' : '1fr',
           gap: '16px',
-          width: '100%',
-          maxWidth: (cfg1.youtube_id && cfg2.youtube_id)
-            ? '100%'
-            : (isExpanded ? '100%' : 'min(860px, 100%)'),
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+          width: (cfg1.youtube_id && cfg2.youtube_id) ? '100%' : 'min(780px, 100%)',
+          maxWidth: '100%',
+          maxHeight: 'calc(100vh - 230px)',
+          resize: 'both',
+          overflow: 'hidden',
+          minWidth: '300px',
+          minHeight: '180px',
+          boxSizing: 'border-box',
+          paddingBottom: '4px',
+          paddingRight: '4px',
+          borderRadius: '14px'
         }}>
           {/* Video Slot 1 */}
           <div style={{
             background: '#0f172a',
             borderRadius: '12px',
             overflow: 'hidden',
-            border: activeTargetSlot === 1 ? '2px solid #6366f1' : '1px solid #cbd5e1',
+            border: activeTargetSlot === 1 ? '2px solid #ef4444' : '1px solid #cbd5e1',
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
+            height: '100%',
+            width: '100%'
           }}>
             <div style={{
               padding: '8px 14px',
@@ -923,18 +953,17 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
             <div style={{
               position: 'relative',
               width: '100%',
+              flex: 1,
               aspectRatio: '16 / 9',
-              maxHeight: (cfg1.youtube_id && cfg2.youtube_id)
-                ? 'none'
-                : (isExpanded ? 'calc(100vh - 180px)' : 'calc(100vh - 280px)'),
-              background: '#000000',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+              maxHeight: 'calc(100vh - 280px)',
+              minHeight: '180px',
+              background: '#000000'
             }}>
               {cfg1.youtube_id ? (
                 <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
                   <YouTube
                     videoId={extractYouTubeId(cfg1.youtube_id)}
-                    opts={opts}
+                    opts={opts1}
                     onReady={onPlayerReady1}
                     style={{ width: '100%', height: '100%' }}
                   />
@@ -967,9 +996,11 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               background: '#0f172a',
               borderRadius: '12px',
               overflow: 'hidden',
-              border: activeTargetSlot === 2 ? '2px solid #6366f1' : '1px solid #cbd5e1',
+              border: activeTargetSlot === 2 ? '2px solid #ef4444' : '1px solid #cbd5e1',
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              height: '100%',
+              width: '100%'
             }}>
               <div style={{
                 padding: '8px 14px',
@@ -983,7 +1014,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 color: '#1e293b'
               }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} />
                   {cfg2.title || 'Cam 2'}
                 </span>
                 <span style={{ fontSize: '11px', color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: '4px' }}>
@@ -994,14 +1025,16 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               <div style={{
                 position: 'relative',
                 width: '100%',
+                flex: 1,
                 aspectRatio: '16 / 9',
-                maxHeight: 'none',
+                maxHeight: 'calc(100vh - 280px)',
+                minHeight: '180px',
                 background: '#000000'
               }}>
                 <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
                   <YouTube
                     videoId={extractYouTubeId(cfg2.youtube_id)}
-                    opts={opts}
+                    opts={opts2}
                     onReady={onPlayerReady2}
                     onStateChange={onPlayerStateChange2}
                     style={{ width: '100%', height: '100%' }}
@@ -1073,7 +1106,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                   boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                 }}
               >
-                <SkipBack size={14} style={{ color: hasPrevNote ? '#4f46e5' : '#94a3b8' }} />
+                <SkipBack size={14} style={{ color: hasPrevNote ? '#dc2626' : '#94a3b8' }} />
                 <span className="hidden sm:inline">2nike trước</span>
               </button>
             </div>
@@ -1205,7 +1238,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 }}
               >
                 <span className="hidden sm:inline">2nike tiếp</span>
-                <SkipForward size={14} style={{ color: hasNextNote ? '#4f46e5' : '#94a3b8' }} />
+                <SkipForward size={14} style={{ color: hasNextNote ? '#dc2626' : '#94a3b8' }} />
               </button>
             </div>
 
@@ -1221,9 +1254,9 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 style={{
                   padding: '7px 12px',
                   borderRadius: '9999px',
-                  border: showVolumePopover ? '1px solid #6366f1' : '1px solid #cbd5e1',
-                  background: showVolumePopover ? '#eef2ff' : '#ffffff',
-                  color: showVolumePopover ? '#4f46e5' : '#334155',
+                  border: showVolumePopover ? '1px solid #ef4444' : '1px solid #cbd5e1',
+                  background: showVolumePopover ? '#fef2f2' : '#ffffff',
+                  color: showVolumePopover ? '#dc2626' : '#334155',
                   fontSize: '11.5px',
                   fontWeight: 700,
                   display: 'flex',
@@ -1238,7 +1271,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 {isMuted1 && isMuted2 ? (
                   <VolumeX size={15} style={{ color: '#ef4444' }} />
                 ) : (
-                  <Volume2 size={15} style={{ color: '#4f46e5' }} />
+                  <Volume2 size={15} style={{ color: '#dc2626' }} />
                 )}
                 <span className="hidden sm:inline">Âm thanh</span>
               </button>
@@ -1265,7 +1298,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
                     <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Volume2 size={15} style={{ color: '#4f46e5' }} />
+                      <Volume2 size={15} style={{ color: '#dc2626' }} />
                       Âm lượng Video
                     </span>
                     <button
@@ -1303,7 +1336,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                           justifyContent: 'center'
                         }}
                       >
-                        {isMuted1 ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#4f46e5' }} />}
+                        {isMuted1 ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#dc2626' }} />}
                       </button>
                       <input
                         type="range"
@@ -1311,7 +1344,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                         max="100"
                         value={isMuted1 ? 0 : vol1}
                         onChange={(e) => handleVol1Change(Number(e.target.value))}
-                        style={{ flex: 1, accentColor: '#4f46e5', cursor: 'pointer' }}
+                        style={{ flex: 1, accentColor: '#dc2626', cursor: 'pointer' }}
                       />
                     </div>
                   </div>
@@ -1321,7 +1354,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
                         <span style={{ color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1' }} />
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
                           Video 2 ({cfg2.title ? (cfg2.title.length > 12 ? cfg2.title.slice(0, 12) + '...' : cfg2.title) : 'Hiệp 2'})
                         </span>
                         <span style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>
@@ -1343,7 +1376,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                             justifyContent: 'center'
                           }}
                         >
-                          {isMuted2 ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#4f46e5' }} />}
+                          {isMuted2 ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#dc2626' }} />}
                         </button>
                         <input
                           type="range"
@@ -1351,7 +1384,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                           max="100"
                           value={isMuted2 ? 0 : vol2}
                           onChange={(e) => handleVol2Change(Number(e.target.value))}
-                          style={{ flex: 1, accentColor: '#6366f1', cursor: 'pointer' }}
+                          style={{ flex: 1, accentColor: '#dc2626', cursor: 'pointer' }}
                         />
                       </div>
                     </div>
@@ -1371,6 +1404,37 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 </div>
               )}
             </div>
+
+            {/* Button 7: Đồng bộ 2 Cam (Icon Only) */}
+            {cfg1.youtube_id && cfg2.youtube_id && (
+              <div style={{ position: 'relative' }}>
+                {renderTooltip('manualSync', 'Tua và đồng bộ thời gian 2 Cam theo chuẩn độ trễ')}
+                <button
+                  type="button"
+                  onClick={handleManualSync}
+                  onMouseEnter={() => setActiveTooltip('manualSync')}
+                  onMouseLeave={() => setActiveTooltip(null)}
+                  disabled={!isBothReady}
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    border: '1px solid #fca5a5',
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: !isBothReady ? 'not-allowed' : 'pointer',
+                    opacity: !isBothReady ? 0.5 : 1,
+                    transition: 'all 0.15s ease',
+                    boxShadow: '0 1px 2px rgba(220, 38, 38, 0.1)'
+                  }}
+                >
+                  <RefreshCw size={14} style={{ color: '#dc2626' }} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1447,12 +1511,12 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                   padding: '8px 16px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                  background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
                   color: '#ffffff',
                   fontWeight: 800,
                   fontSize: '13px',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)'
+                  boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)'
                 }}
               >
                 Tính & Lưu Độ Trễ
@@ -1490,7 +1554,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Sparkles size={18} style={{ color: '#4f46e5' }} />
+                <Sparkles size={18} style={{ color: '#dc2626' }} />
                 Thêm 2nike Mới (Realtime)
               </h3>
               <button
@@ -1536,7 +1600,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                   <button
                     type="button"
                     onClick={handleFetchCurrentTimeForModal}
-                    style={{ background: 'none', border: 'none', color: '#4f46e5', fontSize: '12px', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                    style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '12px', fontWeight: 800, cursor: 'pointer', padding: 0 }}
                   >
                     🎯 Lấy giờ hiện tại video
                   </button>
@@ -1639,12 +1703,12 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     padding: '10px 20px',
                     borderRadius: '10px',
                     border: 'none',
-                    background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                    background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
                     color: '#ffffff',
                     fontWeight: 800,
                     fontSize: '13px',
                     cursor: submittingCap ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
+                    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
                     opacity: submittingCap ? 0.6 : 1,
                     display: 'flex',
                     alignItems: 'center',
