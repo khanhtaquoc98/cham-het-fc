@@ -141,38 +141,58 @@ function MatchVideoContent() {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
+              gap: '10px',
               background: '#ffffff',
-              padding: '12px 18px',
+              padding: '10px 14px',
               borderRadius: '14px',
               border: '1px solid #e2e8f0',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
+              boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+              width: '100%',
+              boxSizing: 'border-box'
             }}>
               <button
                 type="button"
                 onClick={handleBackToList}
+                title="Quay lại danh sách trận đấu"
                 style={{
                   background: '#f1f5f9',
                   border: '1px solid #cbd5e1',
                   borderRadius: '10px',
-                  padding: '8px 16px',
+                  padding: '8px 12px',
                   color: '#334155',
                   fontWeight: 800,
                   fontSize: '13px',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '6px',
                   cursor: 'pointer',
+                  flexShrink: 0,
                   transition: 'all 0.15s ease'
                 }}
               >
-                <ArrowLeft size={16} />
-                Quay lại danh sách trận đấu
+                <ArrowLeft size={18} />
+                <span className="hidden sm:inline">Quay lại</span>
               </button>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 800, color: '#dc2626' }}>
-                <Film size={18} />
-                <span>Xem Highlight: {selectedMatchLabel || (selectedMatchId === 'default_match' ? 'Trận Trực Tiếp / Mới Nhất' : 'Trận đấu')}</span>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '13.5px',
+                fontWeight: 800,
+                color: '#dc2626',
+                flex: 1,
+                minWidth: 0
+              }}>
+                <Film size={18} style={{ flexShrink: 0 }} />
+                <span style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  display: 'block'
+                }}>
+                  {selectedMatchLabel || (selectedMatchId === 'default_match' ? 'Trận Trực Tiếp / Mới Nhất' : 'Trận đấu')}
+                </span>
               </div>
             </div>
 
