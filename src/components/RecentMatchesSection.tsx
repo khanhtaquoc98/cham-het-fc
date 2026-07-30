@@ -84,6 +84,7 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
   const [recentMatches, setRecentMatches] = useState<MatchCardInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [ytConfigMap, setYtConfigMap] = useState<Record<string, string>>({});
+  const [ytConfigLoading, setYtConfigLoading] = useState(true);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [isMouseDown, setIsMouseDown] = useState(false);
@@ -127,6 +128,7 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
 
   // Helper to fetch YouTube thumbnail configs
   const fetchConfigsForMatches = async (matchList: MatchCardInfo[]) => {
+    setYtConfigLoading(true);
     const newMap: Record<string, string> = {};
 
     await Promise.all(
@@ -147,6 +149,7 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
     );
 
     setYtConfigMap((prev) => ({ ...prev, ...newMap }));
+    setYtConfigLoading(false);
   };
 
   const fetchRecent = useCallback(async () => {
@@ -310,6 +313,15 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
           background: #f8fafc;
           border: 1px dashed #cbd5e1;
         }
+        .recent-match-thumbnail.skeleton-thumbnail {
+          background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+          background-size: 200% 100%;
+          animation: shimmer-recent 1.5s infinite ease-in-out;
+        }
+        @keyframes shimmer-recent {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
       `}</style>
 
       {/* Header */}
@@ -464,6 +476,8 @@ export const RecentMatchesSection: React.FC<Props> = ({ currentMatchId, onSelect
                       </div>
                     </div>
                   </div>
+                ) : ytConfigLoading ? (
+                  <div className="recent-match-thumbnail skeleton-thumbnail" />
                 ) : (
                   <div className="recent-match-thumbnail empty-thumbnail">
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', color: '#94a3b8' }}>

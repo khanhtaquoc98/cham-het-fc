@@ -95,12 +95,14 @@ export const MatchHighlightSelector: React.FC<Props> = ({
   const [totalMatches, setTotalMatches] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [ytConfigMap, setYtConfigMap] = useState<Record<string, string>>({});
+  const [ytConfigLoading, setYtConfigLoading] = useState(true);
 
   const observerTarget = useRef<HTMLDivElement>(null);
   const PAGE_SIZE = 12;
 
   // ── Helper to fetch YouTube configs for a list of matches ──
   const fetchConfigsForMatches = async (matchList: MatchCardInfo[]) => {
+    setYtConfigLoading(true);
     const newMap: Record<string, string> = {};
 
     await Promise.all(
@@ -121,6 +123,7 @@ export const MatchHighlightSelector: React.FC<Props> = ({
     );
 
     setYtConfigMap((prev) => ({ ...prev, ...newMap }));
+    setYtConfigLoading(false);
   };
 
   // ── Load Initial Page 1 ──
@@ -333,6 +336,15 @@ export const MatchHighlightSelector: React.FC<Props> = ({
           background: #f8fafc;
           border: 1px dashed #cbd5e1;
         }
+        .match-card-thumbnail.skeleton-thumbnail {
+          background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite ease-in-out;
+        }
+        @keyframes shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
       `}</style>
 
       {/* Header */}
@@ -507,6 +519,8 @@ export const MatchHighlightSelector: React.FC<Props> = ({
                         </div>
                       </div>
                     </div>
+                  ) : ytConfigLoading ? (
+                    <div className="match-card-thumbnail skeleton-thumbnail" />
                   ) : (
                     <div className="match-card-thumbnail empty-thumbnail">
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', color: '#94a3b8' }}>
