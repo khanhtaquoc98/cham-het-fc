@@ -105,7 +105,6 @@ export const MatchHighlightSelector: React.FC<Props> = ({
 
     await Promise.all(
       matchList.map(async (m) => {
-        if (m.id === 'default_match') return;
         try {
           const res = await fetch(`/api/youtube-config?match_id=${m.id}`);
           const data = await res.json();
