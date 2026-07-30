@@ -39,6 +39,9 @@ CREATE POLICY "Allow public insert/update on match_youtube_config" ON public.mat
 CREATE POLICY "Allow public read on match_captions" ON public.match_captions FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/delete on match_captions" ON public.match_captions FOR ALL USING (true);
 
--- 4. Enable Supabase Realtime for realtime caption & config sync
+-- 4. Enable REPLICA IDENTITY FULL for realtime DELETE events (required for payload.old)
+ALTER TABLE public.match_captions REPLICA IDENTITY FULL;
+
+-- 5. Enable Supabase Realtime for realtime caption & config sync
 ALTER PUBLICATION supabase_realtime ADD TABLE public.match_youtube_config;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.match_captions;
