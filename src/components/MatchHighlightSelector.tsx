@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { CalendarDays, Trophy, Users, ChevronRight, Search } from 'lucide-react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { Trophy, Users, ChevronRight, Search, Play, Loader2, Film } from 'lucide-react';
 
 export interface MatchCardInfo {
   id: string;
@@ -16,6 +16,7 @@ export interface MatchCardInfo {
   result?: string;
   teams?: { name: string; players: { name: string; telegramHandle?: string }[] }[];
   isLive?: boolean;
+  youtubeId?: string;
 }
 
 interface RawMatchRecord {
@@ -43,26 +44,58 @@ export const MatchHighlightSelector: React.FC<Props> = ({
 }) => {
   const [matches, setMatches] = useState<MatchCardInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalMatches, setTotalMatches] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
+  const [ytConfigMap, setYtConfigMap] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    async function loadMatches() {
-      try {
-        setLoading(true);
-        const res = await fetch('/api/history?pageSize=50');
-        const data = await res.json();
+  const observerTarget = useRef<HTMLDivElement>(null);
+  const PAGE_SIZE = 12;
 
-        const defaultMatchCard: MatchCardInfo = {
-          id: 'default_match',
-          title: 'Trận Trực Tiếp / Mới Nhất',
-          subtitle: 'Góc quay 2 Cam đồng bộ Realtime',
-          isLive: true
-        };
+  // ── Helper to fetch YouTube configs for a list of matches ──
+  const fetchConfigsForMatches = async (matchList: MatchCardInfo[]) => {
+    const newMap: Record<string, string> = {};
 
-        const fetchedList: MatchCardInfo[] = (data.matches || []).map((m: RawMatchRecord, idx: number) => ({
+    await Promise.all(
+      matchList.map(async (m) => {
+        if (m.id === 'default_match') return;
+        try {
+          const res = await fetch(`/api/youtube-config?match_id=${m.id}`);
+          const data = await res.json();
+          if (data.configs && data.configs.length > 0) {
+            const firstWithId = data.configs.find((c: { youtube_id?: string }) => c.youtube_id && c.youtube_id.trim());
+            if (firstWithId) {
+              newMap[m.id] = firstWithId.youtube_id;
+            }
+          }
+        } catch {
+          // ignore
+        }
+      })
+    );
+
+    setYtConfigMap((prev) => ({ ...prev, ...newMap }));
+  };
+
+  // ── Load Initial Page 1 ──
+  const fetchPage = useCallback(async (pageNum: number, isInitial = false) => {
+    try {
+      if (isInitial) setLoading(true);
+      else setLoadingMore(true);
+
+      const res = await fetch(`/api/history?page=${pageNum}&pageSize=${PAGE_SIZE}`);
+      const data = await res.json();
+
+      const fetchedList: MatchCardInfo[] = (data.matches || []).map((m: RawMatchRecord, idx: number) => {
+        const titleStr = m.matchDate ? `Trận ${m.matchDate}` : `Trận đấu #${(pageNum - 1) * PAGE_SIZE + idx + 1}`;
+        const subtitleStr = [m.matchTime, m.venue || 'Sân bóng FC'].filter(Boolean).join(' • ');
+
+        return {
           id: m.id,
-          title: m.matchDate ? `Trận ${m.matchDate}` : `Trận đấu #${idx + 1}`,
-          subtitle: m.venue || 'Sân bóng FC',
+          title: titleStr,
+          subtitle: subtitleStr,
           matchDate: m.matchDate,
           matchTime: m.matchTime,
           venue: m.venue,
@@ -71,11 +104,34 @@ export const MatchHighlightSelector: React.FC<Props> = ({
           extraScore: m.extraScore,
           result: m.result,
           teams: m.teams || []
-        }));
+        };
+      });
 
+      // Asynchronously load youtube thumbnails for fetched matches
+      fetchConfigsForMatches(fetchedList);
+
+      if (isInitial) {
+        const defaultMatchCard: MatchCardInfo = {
+          id: 'default_match',
+          title: 'Trận Trực Tiếp / Mới Nhất',
+          subtitle: 'Góc quay 2 Cam đồng bộ Realtime',
+          isLive: true
+        };
         setMatches([defaultMatchCard, ...fetchedList]);
-      } catch (err) {
-        console.error('Error fetching match history for selector:', err);
+      } else {
+        setMatches((prev) => {
+          const existingIds = new Set(prev.map(item => item.id));
+          const uniqueNew = fetchedList.filter(item => !existingIds.has(item.id));
+          return [...prev, ...uniqueNew];
+        });
+      }
+
+      setTotalMatches(data.total || fetchedList.length);
+      setHasMore(pageNum < (data.totalPages || 1));
+      setPage(pageNum);
+    } catch (err) {
+      console.error('Error fetching match history:', err);
+      if (isInitial) {
         setMatches([
           {
             id: 'default_match',
@@ -84,13 +140,34 @@ export const MatchHighlightSelector: React.FC<Props> = ({
             isLive: true
           }
         ]);
-      } finally {
-        setLoading(false);
       }
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
     }
-
-    loadMatches();
   }, []);
+
+  useEffect(() => {
+    fetchPage(1, true);
+  }, [fetchPage]);
+
+  // ── Infinite Scroll Listener (Intersection Observer) ──
+  useEffect(() => {
+    const target = observerTarget.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !loading && !searchTerm.trim()) {
+          fetchPage(page + 1, false);
+        }
+      },
+      { threshold: 0.2, rootMargin: '200px' }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loading, page, fetchPage, searchTerm]);
 
   const getWinnerInfo = (item: MatchCardInfo) => {
     if (item.isLive) {
@@ -131,7 +208,6 @@ export const MatchHighlightSelector: React.FC<Props> = ({
       };
     }
 
-    // Fallback if result string not set explicitly
     if (item.homeScore !== undefined && item.awayScore !== undefined) {
       if (item.homeScore > item.awayScore) {
         return { text: `${homeName} thắng`, color: '#047857', bg: '#d1fae5', isTrophy: true };
@@ -182,11 +258,36 @@ export const MatchHighlightSelector: React.FC<Props> = ({
           flex-direction: column;
           gap: 10px;
           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+          overflow: hidden;
         }
         .match-card-item:hover {
           border-color: #6366f1;
           box-shadow: 0 8px 20px rgba(99, 102, 241, 0.16);
           transform: translateY(-2px);
+        }
+        .match-card-thumbnail {
+          width: 100%;
+          height: 140px;
+          border-radius: 10px;
+          overflow: hidden;
+          position: relative;
+          background: #0f172a;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .match-card-thumbnail img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.3s ease;
+        }
+        .match-card-item:hover .match-card-thumbnail img {
+          transform: scale(1.05);
+        }
+        .match-card-thumbnail.empty-thumbnail {
+          background: #f8fafc;
+          border: 1px dashed #cbd5e1;
         }
       `}</style>
 
@@ -231,7 +332,7 @@ export const MatchHighlightSelector: React.FC<Props> = ({
           padding: '6px 14px',
           borderRadius: '9999px'
         }}>
-          {filteredMatches.length} / {matches.length} Trận đấu
+          Đang hiển thị {filteredMatches.length} / {totalMatches + 1} Trận đấu
         </span>
       </div>
 
@@ -279,7 +380,8 @@ export const MatchHighlightSelector: React.FC<Props> = ({
 
       {/* Grid of Match Cards */}
       {loading ? (
-        <div style={{ padding: '36px', textAlign: 'center', color: '#94a3b8', fontSize: '13px', fontWeight: 600 }}>
+        <div style={{ padding: '36px', textAlign: 'center', color: '#94a3b8', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <Loader2 size={18} className="animate-spin" style={{ color: '#4f46e5' }} />
           Đang tải danh sách trận đấu...
         </div>
       ) : filteredMatches.length === 0 ? (
@@ -313,141 +415,173 @@ export const MatchHighlightSelector: React.FC<Props> = ({
           </button>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: '16px'
-        }}>
-          {filteredMatches.map((item) => {
-            const winnerInfo = getWinnerInfo(item);
+        <>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '16px'
+          }}>
+            {filteredMatches.map((item) => {
+              const winnerInfo = getWinnerInfo(item);
+              const ytId = ytConfigMap[item.id];
 
-            return (
-              <div
-                key={item.id}
-                onClick={() => onSelectMatch(item.id, item)}
-                className="match-card-item"
-              >
-                {/* Top Badge Row */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  {item.isLive ? (
-                    <span style={{
-                      fontSize: '10.5px',
-                      fontWeight: 800,
-                      color: '#ffffff',
-                      background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                      padding: '3px 10px',
-                      borderRadius: '9999px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px'
-                    }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ffffff' }} />
-                      LIVE / MỚI NHẤT
-                    </span>
-                  ) : (
-                    <span style={{
-                      fontSize: '11.5px',
-                      fontWeight: 700,
-                      color: '#64748b',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <CalendarDays size={13} />
-                      {item.matchDate || 'Hôm nay'}
-                      {item.matchTime ? ` • ${item.matchTime}` : ''}
-                    </span>
-                  )}
-                </div>
-
-                {/* Match Title */}
-                <div>
-                  <h4 style={{
-                    fontSize: '15px',
-                    fontWeight: 800,
-                    color: '#0f172a',
-                    margin: 0,
-                    lineHeight: '1.3'
-                  }}>
-                    {item.title}
-                  </h4>
-                  {item.subtitle && (
-                    <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
-                      {item.subtitle}
-                    </p>
-                  )}
-                </div>
-
-                {/* Winner Result Badge */}
-                {winnerInfo && (
-                  <div style={{
-                    background: winnerInfo.bg,
-                    border: 'none',
-                    color: winnerInfo.color,
-                    padding: '6px 10px',
-                    borderRadius: '8px',
-                    fontSize: '12.5px',
-                    fontWeight: 800,
-                    textAlign: 'center',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                  }}>
-                    {winnerInfo.isTrophy && <Trophy size={13} style={{ color: winnerInfo.color }} />}
-                    {winnerInfo.text}
-                  </div>
-                )}
-
-                {/* Team Lineup / Đội Hình */}
-                {item.teams && item.teams.length > 0 && (
-                  <div style={{
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '10px',
-                    padding: '8px 10px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px',
-                    marginTop: '2px'
-                  }}>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Users size={12} style={{ color: '#6366f1' }} />
-                      Đội hình tham gia:
-                    </div>
-                    {item.teams.map((t, idx) => {
-                      const isHome = t.name.toUpperCase().includes('HOME');
-                      const isAway = t.name.toUpperCase().includes('AWAY');
-                      const teamColor = isHome ? '#047857' : isAway ? '#1d4ed8' : '#c2410c';
-                      const playerNames = t.players?.map(p => p.name).join(', ') || 'Chưa cập nhật';
-                      return (
-                        <div key={idx} style={{ fontSize: '11.5px', color: '#334155', lineHeight: '1.35' }}>
-                          <strong style={{ color: teamColor }}>{t.name}:</strong> {playerNames}
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => onSelectMatch(item.id, item)}
+                  className="match-card-item"
+                >
+                  {/* YouTube Thumbnail Header or Default Empty Thumbnail Placeholder */}
+                  {ytId ? (
+                    <div className="match-card-thumbnail">
+                      <img
+                        src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+                        alt={item.title}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`;
+                        }}
+                      />
+                      <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(to top, rgba(15, 23, 42, 0.7) 0%, transparent 60%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <div style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '50%',
+                          background: 'rgba(255, 255, 255, 0.85)',
+                          backdropFilter: 'blur(4px)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                        }}>
+                          <Play size={16} style={{ fill: '#4f46e5', color: '#4f46e5', marginLeft: '2px' }} />
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="match-card-thumbnail empty-thumbnail">
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', color: '#94a3b8' }}>
+                        <Film size={26} style={{ color: '#cbd5e1' }} />
+                        <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#94a3b8' }}>Chưa có Video</span>
+                      </div>
+                    </div>
+                  )}
 
-                {/* Bottom Action Bar */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  marginTop: 'auto',
-                  paddingTop: '6px',
-                  fontSize: '12px',
-                  fontWeight: 800,
-                  color: '#6366f1'
-                }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                    {isAdmin ? 'Chọn Cấu Hình' : 'Xem Highlight Trận Này'} <ChevronRight size={14} />
-                  </span>
+                  {/* Top Live Badge (if live match) */}
+                  {item.isLive && (
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <span style={{
+                        fontSize: '10.5px',
+                        fontWeight: 800,
+                        color: '#ffffff',
+                        background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                        padding: '3px 10px',
+                        borderRadius: '9999px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                      }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ffffff' }} />
+                        LIVE / MỚI NHẤT
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Match Title & Subtitle */}
+                  <div>
+                    <h4 style={{
+                      fontSize: '15px',
+                      fontWeight: 800,
+                      color: '#0f172a',
+                      margin: 0,
+                      lineHeight: '1.3'
+                    }}>
+                      {item.title}
+                    </h4>
+                    {item.subtitle && (
+                      <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0 0' }}>
+                        {item.subtitle}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Winner Result Badge */}
+                  {winnerInfo && (
+                    <div style={{
+                      background: winnerInfo.bg,
+                      border: 'none',
+                      color: winnerInfo.color,
+                      padding: '6px 10px',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: 800,
+                      textAlign: 'center',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}>
+                      {winnerInfo.isTrophy && <Trophy size={13} style={{ color: winnerInfo.color }} />}
+                      {winnerInfo.text}
+                    </div>
+                  )}
+
+                  {/* Team Lineup / Đội Hình */}
+                  {item.teams && item.teams.length > 0 && (
+                    <div style={{
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px',
+                      marginTop: '2px'
+                    }}>
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Users size={12} style={{ color: '#6366f1' }} />
+                        Đội hình tham gia:
+                      </div>
+                      {item.teams.map((t, idx) => {
+                        const isHome = t.name.toUpperCase().includes('HOME');
+                        const isAway = t.name.toUpperCase().includes('AWAY');
+                        const teamColor = isHome ? '#047857' : isAway ? '#1d4ed8' : '#c2410c';
+                        const playerNames = t.players?.map(p => p.name).join(', ') || 'Chưa cập nhật';
+                        return (
+                          <div key={idx} style={{ fontSize: '11.5px', color: '#334155', lineHeight: '1.35' }}>
+                            <strong style={{ color: teamColor }}>{t.name}:</strong> {playerNames}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                 </div>
+              );
+            })}
+          </div>
+
+          {/* Sentinel Observer Target for Infinite Scroll */}
+          <div ref={observerTarget} style={{ height: '40px', marginTop: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {loadingMore && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6366f1', fontSize: '13px', fontWeight: 700 }}>
+                <Loader2 size={18} className="animate-spin" />
+                Đang tải thêm danh sách trận đấu...
               </div>
-            );
-          })}
-        </div>
+            )}
+            {!hasMore && matches.length > 1 && !searchTerm && (
+              <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>
+                ✓ Đã hiển thị tất cả trận đấu trong lịch sử
+              </span>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
