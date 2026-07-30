@@ -3,7 +3,7 @@ import YouTube, { YouTubeProps } from 'react-youtube';
 import { MatchCaption, YouTubeVideoConfig } from '@/types/youtube';
 import { extractYouTubeId, formatSecondsToHHMMSS, parseTimeToSeconds } from '@/lib/youtube-utils';
 import { supabase } from '@/lib/supabase';
-import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Maximize2, Minimize2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface PlayerInstance {
@@ -41,7 +41,7 @@ const DEFAULT_CONFIG_1: YouTubeVideoConfig = {
   match_id: '',
   youtube_url: '',
   youtube_id: '',
-  title: 'Slot 1: Hiệp 1 / Cam 1',
+  title: 'Cam 1',
   start_offset_seconds: 0,
 };
 
@@ -50,7 +50,7 @@ const DEFAULT_CONFIG_2: YouTubeVideoConfig = {
   match_id: '',
   youtube_url: '',
   youtube_id: '',
-  title: 'Slot 2: Hiệp 2 / Cam 2',
+  title: 'Cam 2',
   start_offset_seconds: 0,
 };
 
@@ -74,6 +74,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const [syncPointModalOpen, setSyncPointModalOpen] = useState(false);
   const [modalTimes, setModalTimes] = useState<{ time1: number; time2: number }>({ time1: 0, time2: 0 });
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const [captionsList, setCaptionsList] = useState<MatchCaption[]>(propsCaptions || []);
   const [currentVideoTime, setCurrentVideoTime] = useState(0);
@@ -329,16 +330,17 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         if (player1Ref.current && player2Ref.current) {
           const t1 = typeof player1Ref.current.getCurrentTime === 'function' ? (player1Ref.current.getCurrentTime() || 0) : 0;
           const t2 = typeof player2Ref.current.getCurrentTime === 'function' ? (player2Ref.current.getCurrentTime() || 0) : 0;
-          const offset = cfg2.start_offset_seconds || 0;
+          const offset1 = cfg1.start_offset_seconds || 0;
+          const offset2 = cfg2.start_offset_seconds || 0;
+          const expectedT2 = t1 - offset1 + offset2;
 
-          if (t1 < offset) {
+          if (expectedT2 < 0) {
             const state2 = typeof player2Ref.current.getPlayerState === 'function' ? player2Ref.current.getPlayerState() : -1;
             if (state2 === 1) {
               if (typeof player2Ref.current.pauseVideo === 'function') player2Ref.current.pauseVideo();
               if (typeof player2Ref.current.seekTo === 'function') player2Ref.current.seekTo(0, true);
             }
           } else {
-            const expectedT2 = t1 - offset;
             const state2 = typeof player2Ref.current.getPlayerState === 'function' ? player2Ref.current.getPlayerState() : -1;
 
             if (state2 !== 1) {
@@ -353,21 +355,22 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPlaying, isBothReady, cfg2.start_offset_seconds]);
+  }, [isPlaying, isBothReady, cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
 
   const pendingSeekRef = useRef<{ slot: 1 | 2; seconds: number; autoPlay: boolean } | null>(null);
 
   const doSeek = useCallback((slot: 1 | 2, seconds: number, autoPlay: boolean = true) => {
-    const offset = cfg2.start_offset_seconds || 0;
+    const offset1 = cfg1.start_offset_seconds || 0;
+    const offset2 = cfg2.start_offset_seconds || 0;
     let targetTime1 = 0;
     let targetTime2 = 0;
 
     if (slot === 1) {
       targetTime1 = seconds;
-      targetTime2 = seconds - offset;
+      targetTime2 = seconds - offset1 + offset2;
     } else {
       targetTime2 = seconds;
-      targetTime1 = seconds + offset;
+      targetTime1 = seconds - offset2 + offset1;
     }
 
     if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
@@ -400,7 +403,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     }
 
     if (autoPlay) setIsPlaying(true);
-  }, [cfg2.start_offset_seconds]);
+  }, [cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
 
   // Execute pending seek or auto-start once both players are ready
   useEffect(() => {
@@ -462,7 +465,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     const nextPlaying = !isPlaying;
     setIsPlaying(nextPlaying);
 
-    const offset = cfg2.start_offset_seconds || 0;
+    const offset1 = cfg1.start_offset_seconds || 0;
+    const offset2 = cfg2.start_offset_seconds || 0;
 
     let time1 = 0;
     try {
@@ -481,7 +485,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
     if (player2Ref.current) {
       if (nextPlaying) {
-        if (time1 < offset) {
+        const targetTime2 = time1 - offset1 + offset2;
+        if (targetTime2 < 0) {
           if (typeof player2Ref.current.seekTo === 'function') {
             player2Ref.current.seekTo(0, true);
           }
@@ -489,7 +494,6 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
             player2Ref.current.pauseVideo();
           }
         } else {
-          const targetTime2 = time1 - offset;
           if (typeof player2Ref.current.seekTo === 'function') {
             player2Ref.current.seekTo(targetTime2, true);
           }
@@ -748,6 +752,32 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
         {/* Right Actions: Add 2nike Modal Button & Admin Auto calibration */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Single Cam Expand / Stretch Toggle Button (Only when 1 Cam exists) */}
+          {!cfg2.youtube_id && cfg1.youtube_id && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(prev => !prev)}
+              style={{
+                background: isExpanded ? '#e0e7ff' : '#f8fafc',
+                color: isExpanded ? '#4f46e5' : '#334155',
+                border: isExpanded ? '1px solid #c7d2fe' : '1px solid #cbd5e1',
+                borderRadius: '8px',
+                padding: '8px 13px',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+              title={isExpanded ? 'Thu nhỏ về kích thước vừa màn hình' : 'Kéo dãn / Mở rộng màn hình Cam 1'}
+            >
+              {isExpanded ? <Minimize2 size={15} style={{ color: '#4f46e5' }} /> : <Maximize2 size={15} style={{ color: '#6366f1' }} />}
+              <span>{isExpanded ? 'Thu nhỏ' : 'Kéo dãn màn hình'}</span>
+            </button>
+          )}
+
           {(cfg1.youtube_id || cfg2.youtube_id) && (
             <button
               type="button"
@@ -801,80 +831,28 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         </div>
       </div>
 
-      {/* Video Players Grid: 50% / 50% */}
+      {/* Video Players Grid: 50% / 50% or Single Cam (Normal / Expanded) */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: cfg1.youtube_id && cfg2.youtube_id ? 'repeat(auto-fit, minmax(300px, 1fr))' : '1fr',
-        gap: '16px'
+        display: 'flex',
+        justifyContent: 'center',
+        width: '100%'
       }}>
-        {/* Video Slot 1 */}
         <div style={{
-          background: '#0f172a',
-          borderRadius: '12px',
-          overflow: 'hidden',
-          border: activeTargetSlot === 1 ? '2px solid #6366f1' : '1px solid #cbd5e1',
-          display: 'flex',
-          flexDirection: 'column'
+          display: 'grid',
+          gridTemplateColumns: (cfg1.youtube_id && cfg2.youtube_id) ? 'repeat(auto-fit, minmax(300px, 1fr))' : '1fr',
+          gap: '16px',
+          width: '100%',
+          maxWidth: (cfg1.youtube_id && cfg2.youtube_id)
+            ? '100%'
+            : (isExpanded ? '100%' : 'min(860px, 100%)'),
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
         }}>
-          <div style={{
-            padding: '8px 14px',
-            background: '#f8fafc',
-            borderBottom: '1px solid #e2e8f0',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: '12px',
-            fontWeight: 800,
-            color: '#1e293b'
-          }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-              {cfg1.title || 'Slot 1: Hiệp 1 / Cam 1'}
-            </span>
-            <span style={{ fontSize: '11px', color: '#64748b', background: '#e2e8f0', padding: '2px 8px', borderRadius: '4px' }}>
-              Master Standard
-            </span>
-          </div>
-
-          <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', background: '#000000' }}>
-            {cfg1.youtube_id ? (
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-                <YouTube
-                  videoId={extractYouTubeId(cfg1.youtube_id)}
-                  opts={opts}
-                  onReady={onPlayerReady1}
-                  style={{ width: '100%', height: '100%' }}
-                />
-                {/* Overlay to block any direct user interaction / clicking on Video 1 */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    zIndex: 10,
-                    background: 'transparent',
-                    cursor: 'default'
-                  }}
-                />
-              </div>
-            ) : (
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '8px' }}>
-                <Video size={36} style={{ opacity: 0.5 }} />
-                <span style={{ fontSize: '12px', fontWeight: 600 }}>Chưa cấu hình URL Video Slot 1</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Video Slot 2 */}
-        {cfg2.youtube_id && (
+          {/* Video Slot 1 */}
           <div style={{
             background: '#0f172a',
             borderRadius: '12px',
             overflow: 'hidden',
-            border: activeTargetSlot === 2 ? '2px solid #6366f1' : '1px solid #cbd5e1',
+            border: activeTargetSlot === 1 ? '2px solid #6366f1' : '1px solid #cbd5e1',
             display: 'flex',
             flexDirection: 'column'
           }}>
@@ -890,39 +868,117 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               color: '#1e293b'
             }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
-                {cfg2.title || 'Slot 2: Hiệp 2 / Cam 2'}
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                {cfg1.title || 'Cam 1'}
               </span>
-              <span style={{ fontSize: '11px', color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: '4px' }}>
-                Độ trễ: {formatSecondsToHHMMSS(cfg2.start_offset_seconds || 0)}
+              <span style={{ fontSize: '11px', color: '#047857', background: '#d1fae5', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '4px' }}>
+                Độ trễ: {formatSecondsToHHMMSS(cfg1.start_offset_seconds || 0)}
               </span>
             </div>
 
-            <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', background: '#000000' }}>
-              <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
-                <YouTube
-                  videoId={extractYouTubeId(cfg2.youtube_id)}
-                  opts={opts}
-                  onReady={onPlayerReady2}
-                  style={{ width: '100%', height: '100%' }}
-                />
-                {/* Overlay to block any direct user interaction / clicking on Video 2 */}
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    zIndex: 10,
-                    background: 'transparent',
-                    cursor: 'default'
-                  }}
-                />
-              </div>
+            <div style={{
+              position: 'relative',
+              width: '100%',
+              aspectRatio: '16 / 9',
+              maxHeight: (cfg1.youtube_id && cfg2.youtube_id)
+                ? 'none'
+                : (isExpanded ? 'calc(100vh - 180px)' : 'calc(100vh - 280px)'),
+              background: '#000000',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}>
+              {cfg1.youtube_id ? (
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+                  <YouTube
+                    videoId={extractYouTubeId(cfg1.youtube_id)}
+                    opts={opts}
+                    onReady={onPlayerReady1}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                  {/* Overlay to block any direct user interaction / clicking on Video 1 */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      zIndex: 10,
+                      background: 'transparent',
+                      cursor: 'default'
+                    }}
+                  />
+                </div>
+              ) : (
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '8px' }}>
+                  <Video size={36} style={{ opacity: 0.5 }} />
+                  <span style={{ fontSize: '12px', fontWeight: 600 }}>Chưa cấu hình URL Video Slot 1</span>
+                </div>
+              )}
             </div>
           </div>
-        )}
+
+          {/* Video Slot 2 */}
+          {cfg2.youtube_id && (
+            <div style={{
+              background: '#0f172a',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              border: activeTargetSlot === 2 ? '2px solid #6366f1' : '1px solid #cbd5e1',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              <div style={{
+                padding: '8px 14px',
+                background: '#f8fafc',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '12px',
+                fontWeight: 800,
+                color: '#1e293b'
+              }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
+                  {cfg2.title || 'Cam 2'}
+                </span>
+                <span style={{ fontSize: '11px', color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', padding: '2px 8px', borderRadius: '4px' }}>
+                  Độ trễ: {formatSecondsToHHMMSS(cfg2.start_offset_seconds || 0)}
+                </span>
+              </div>
+
+              <div style={{
+                position: 'relative',
+                width: '100%',
+                aspectRatio: '16 / 9',
+                maxHeight: 'none',
+                background: '#000000'
+              }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+                  <YouTube
+                    videoId={extractYouTubeId(cfg2.youtube_id)}
+                    opts={opts}
+                    onReady={onPlayerReady2}
+                    style={{ width: '100%', height: '100%' }}
+                  />
+                  {/* Overlay to block any direct user interaction / clicking on Video 2 */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      zIndex: 10,
+                      background: 'transparent',
+                      cursor: 'default'
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Central Media Control Bar (Sát dưới Video) */}

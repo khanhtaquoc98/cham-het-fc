@@ -87,8 +87,8 @@ export const AdminYouTubeConfigSection: React.FC<Props> = ({ matchId = 'default_
   };
 
   const [configs, setConfigs] = useState<YouTubeVideoConfig[]>([
-    { slot: 1, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Hiệp 1 / Cam 1', start_offset_seconds: 0 },
-    { slot: 2, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Hiệp 2 / Cam 2', start_offset_seconds: 0 },
+    { slot: 1, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Cam 1', start_offset_seconds: 0 },
+    { slot: 2, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Cam 2', start_offset_seconds: 0 },
   ]);
 
   const [loadingConfig, setLoadingConfig] = useState(false);
@@ -102,13 +102,13 @@ export const AdminYouTubeConfigSection: React.FC<Props> = ({ matchId = 'default_
       const res = await fetch(`/api/youtube-config?match_id=${selectedMatchId}`);
       const data = await res.json();
       if (data.configs && data.configs.length > 0) {
-        const slot1 = data.configs.find((c: YouTubeVideoConfig) => c.slot === 1) || { slot: 1, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Hiệp 1 / Cam 1', start_offset_seconds: 0 };
-        const slot2 = data.configs.find((c: YouTubeVideoConfig) => c.slot === 2) || { slot: 2, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Hiệp 2 / Cam 2', start_offset_seconds: 0 };
+        const slot1 = data.configs.find((c: YouTubeVideoConfig) => c.slot === 1) || { slot: 1, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Cam 1', start_offset_seconds: 0 };
+        const slot2 = data.configs.find((c: YouTubeVideoConfig) => c.slot === 2) || { slot: 2, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Cam 2', start_offset_seconds: 0 };
         setConfigs([slot1, slot2]);
       } else {
         setConfigs([
-          { slot: 1, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Hiệp 1 / Cam 1', start_offset_seconds: 0 },
-          { slot: 2, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Hiệp 2 / Cam 2', start_offset_seconds: 0 }
+          { slot: 1, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Cam 1', start_offset_seconds: 0 },
+          { slot: 2, match_id: selectedMatchId, youtube_url: '', youtube_id: '', title: 'Cam 2', start_offset_seconds: 0 }
         ]);
       }
     } catch {
@@ -350,10 +350,19 @@ export const AdminYouTubeConfigSection: React.FC<Props> = ({ matchId = 'default_
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 800 }}>
               <span style={{ color: '#047857', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-                Slot 1 (Video Mốc Chuẩn)
+                Slot 1 (Cam 1)
               </span>
-              <span style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace', marginLeft: 'auto' }}>
-                Master Offset: 0s
+              <span style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                color: '#047857',
+                background: '#d1fae5',
+                padding: '2px 8px',
+                borderRadius: '6px',
+                border: '1px solid #a7f3d0',
+                fontFamily: 'monospace'
+              }}>
+                Delay: {configs[0]?.start_offset_seconds || 0}s
               </span>
             </div>
 
@@ -368,7 +377,7 @@ export const AdminYouTubeConfigSection: React.FC<Props> = ({ matchId = 'default_
                   const val = e.target.value;
                   setConfigs(prev => [ { ...prev[0], title: val }, prev[1] ]);
                 }}
-                placeholder="Hiệp 1 / Cam 1..."
+                placeholder="Cam 1..."
                 style={{
                   width: '100%',
                   background: '#ffffff',
@@ -409,6 +418,34 @@ export const AdminYouTubeConfigSection: React.FC<Props> = ({ matchId = 'default_
                 }}
               />
             </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                Độ trễ giây (Offset Seconds)
+              </label>
+              <input
+                type="number"
+                value={configs[0]?.start_offset_seconds || 0}
+                onChange={(e) => {
+                  const sec = Number(e.target.value) || 0;
+                  setConfigs(prev => [ { ...prev[0], start_offset_seconds: sec }, prev[1] ]);
+                }}
+                placeholder="0"
+                style={{
+                  width: '100%',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: '#047857',
+                  fontWeight: 800,
+                  borderRadius: '10px',
+                  padding: '9px 12px',
+                  fontSize: '13px',
+                  fontFamily: 'monospace',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
           </div>
 
           {/* Slot 2 Input */}
@@ -424,7 +461,7 @@ export const AdminYouTubeConfigSection: React.FC<Props> = ({ matchId = 'default_
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 800 }}>
               <span style={{ color: '#4338ca', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#6366f1' }} />
-                Slot 2 (Video Phụ / Multi-Cam)
+                Slot 2 (Cam 2)
               </span>
               <span style={{
                 fontSize: '11px',
@@ -451,7 +488,7 @@ export const AdminYouTubeConfigSection: React.FC<Props> = ({ matchId = 'default_
                   const val = e.target.value;
                   setConfigs(prev => [ prev[0], { ...prev[1], title: val } ]);
                 }}
-                placeholder="Hiệp 2 / Cam 2..."
+                placeholder="Cam 2..."
                 style={{
                   width: '100%',
                   background: '#ffffff',

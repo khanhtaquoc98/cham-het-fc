@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { YouTubeSyncPlayer, YouTubeSyncPlayerRef } from '@/components/YouTubeSyncPlayer';
 import { YouTubeCaptionSection } from '@/components/YouTubeCaptionSection';
+import { RecentMatchesSection } from '@/components/RecentMatchesSection';
 import { MatchHighlightSelector } from '@/components/MatchHighlightSelector';
 import { YouTubeVideoConfig } from '@/types/youtube';
 import { toast } from 'react-hot-toast';
@@ -222,6 +223,12 @@ function MatchVideoContent() {
                   onSeek={handleSeekFromCaption}
                   getCurrentVideoTime={handleGetCurrentVideoTime}
                   targetCaptionId={targetCaptionId}
+                />
+
+                {/* Recent Matches Section */}
+                <RecentMatchesSection
+                  currentMatchId={selectedMatchId}
+                  onSelectMatch={handleSelectMatch}
                 />
               </>
             )}
