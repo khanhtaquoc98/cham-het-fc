@@ -3,11 +3,12 @@ import YouTube, { YouTubeProps } from 'react-youtube';
 import { MatchCaption, YouTubeVideoConfig } from '@/types/youtube';
 import { extractYouTubeId, formatSecondsToHHMMSS, formatSecondsToTime, parseTimeToSeconds } from '@/lib/youtube-utils';
 import { supabase } from '@/lib/supabase';
-import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Loader2, Settings, Gauge, Monitor } from 'lucide-react';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Loader2, Settings, Gauge, Monitor, MessageSquareText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface PlayerInstance {
   getCurrentTime?: () => number;
+  getDuration?: () => number;
   seekTo?: (seconds: number, allowSeekAhead?: boolean) => void;
   playVideo?: () => void;
   pauseVideo?: () => void;
@@ -21,7 +22,317 @@ interface PlayerInstance {
   getPlaybackRate?: () => number;
   setPlaybackQuality?: (suggestedQuality: string) => void;
   getPlaybackQuality?: () => string;
+  loadModule?: (moduleName: string) => void;
+  unloadModule?: (moduleName: string) => void;
 }
+
+interface PlayerTimelineProps {
+  slot: 1 | 2;
+  youtubeId: string;
+  currentTime: number;
+  duration: number;
+  captions: MatchCaption[];
+  onSeek: (seconds: number) => void;
+}
+
+const PlayerTimeline: React.FC<PlayerTimelineProps> = ({
+  slot,
+  youtubeId,
+  currentTime,
+  duration,
+  captions,
+  onSeek,
+}) => {
+  const [hoverInfo, setHoverInfo] = useState<{ time: number; percent: number; x: number } | null>(null);
+  const [isHovered, setIsHovered] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const cleanId = extractYouTubeId(youtubeId);
+  const playPercent = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
+
+  const calculateTimeFromEvent = useCallback((clientX: number) => {
+    if (!containerRef.current || duration <= 0) return null;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    const percent = (x / rect.width) * 100;
+    const time = (x / rect.width) * duration;
+    return { time, percent, x };
+  }, [duration]);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const info = calculateTimeFromEvent(e.clientX);
+    if (info) {
+      setHoverInfo(info);
+      if (isDragging) {
+        onSeek(info.time);
+      }
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    const info = calculateTimeFromEvent(e.clientX);
+    if (info) {
+      onSeek(info.time);
+    }
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      const info = calculateTimeFromEvent(e.clientX);
+      if (info) {
+        setHoverInfo(info);
+        onSeek(info.time);
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, calculateTimeFromEvent, onSeek]);
+
+  // Find 2nike near hover time (within 6 seconds)
+  const nearbyCaption = React.useMemo(() => {
+    if (!hoverInfo || !captions || captions.length === 0) return null;
+    return captions.find(c => Math.abs(c.timestamp_seconds - hoverInfo.time) <= 6);
+  }, [hoverInfo, captions]);
+
+  // Constrain preview card left percentage so it doesn't get clipped on left/right edges
+  const previewLeftPercent = hoverInfo
+    ? Math.max(18, Math.min(hoverInfo.percent, 82))
+    : 50;
+
+  return (
+    <div style={{
+      background: '#090d16',
+      padding: '8px 12px',
+      borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '6px',
+      userSelect: 'none',
+      position: 'relative',
+      borderBottomLeftRadius: '12px',
+      borderBottomRightRadius: '12px'
+    }}>
+      {/* Mini Preview Box & Seekbar Track */}
+      <div style={{ position: 'relative', width: '100%', paddingTop: '10px', paddingBottom: '4px' }}>
+        
+        {/* YouTube Hover Tooltip Card */}
+        {(isHovered || isDragging) && hoverInfo && (
+          <div style={{
+            position: 'absolute',
+            bottom: 'calc(100% + 10px)',
+            left: `${previewLeftPercent}%`,
+            transform: 'translateX(-50%)',
+            pointerEvents: 'none',
+            zIndex: 100,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            transition: 'left 0.05s ease-out'
+          }}>
+            {nearbyCaption ? (
+              /* Rich 2nike Info Card when hovering near 2nike */
+              <div style={{
+                background: 'rgba(15, 23, 42, 0.96)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid #f59e0b',
+                borderRadius: '10px',
+                padding: '8px 12px',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.7), 0 0 12px rgba(245, 158, 11, 0.3)',
+                maxWidth: '220px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '5px',
+                textAlign: 'center'
+              }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  color: '#ffffff',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  width: '100%',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  boxSizing: 'border-box'
+                }}>
+                  📌 {nearbyCaption.caption}
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, color: '#f8fafc', fontFamily: 'monospace' }}>
+                  <Clock size={12} style={{ color: '#f59e0b' }} />
+                  {nearbyCaption.timestamp_str || formatSecondsToHHMMSS(nearbyCaption.timestamp_seconds)}
+                </div>
+
+                {nearbyCaption.created_by && (
+                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600 }}>
+                    Bởi: {nearbyCaption.created_by}
+                  </span>
+                )}
+              </div>
+            ) : (
+              /* Simple Time Tooltip when hovering normal timeline */
+              <div style={{
+                background: 'rgba(15, 23, 42, 0.94)',
+                backdropFilter: 'blur(8px)',
+                WebkitBackdropFilter: 'blur(8px)',
+                border: '1px solid rgba(255, 255, 255, 0.25)',
+                borderRadius: '8px',
+                padding: '5px 10px',
+                boxShadow: '0 8px 20px rgba(0, 0, 0, 0.5)',
+                color: '#ffffff',
+                fontSize: '12px',
+                fontWeight: 800,
+                fontFamily: 'monospace',
+                letterSpacing: '0.4px',
+                whiteSpace: 'nowrap'
+              }}>
+                {formatSecondsToHHMMSS(Math.floor(hoverInfo.time))}
+              </div>
+            )}
+
+            {/* Downward Pointer Triangle */}
+            <div style={{
+              width: 0,
+              height: 0,
+              borderLeft: '6px solid transparent',
+              borderRight: '6px solid transparent',
+              borderTop: nearbyCaption ? '6px solid rgba(15, 23, 42, 0.96)' : '6px solid rgba(15, 23, 42, 0.94)',
+              marginTop: '-1px'
+            }} />
+          </div>
+        )}
+
+        {/* Progress Bar Track */}
+        <div
+          ref={containerRef}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => {
+            if (!isDragging) {
+              setIsHovered(false);
+              setHoverInfo(null);
+            }
+          }}
+          onMouseMove={handleMouseMove}
+          onMouseDown={handleMouseDown}
+          style={{
+            position: 'relative',
+            width: '100%',
+            height: '10px',
+            background: 'rgba(255, 255, 255, 0.2)',
+            borderRadius: '9999px',
+            cursor: 'pointer'
+          }}
+        >
+          {/* Hover Ghost Bar */}
+          {hoverInfo && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: `${hoverInfo.percent}%`,
+              height: '100%',
+              background: 'rgba(255, 255, 255, 0.35)',
+              borderRadius: '9999px',
+              pointerEvents: 'none'
+            }} />
+          )}
+
+          {/* Played Red Bar (YouTube Style) */}
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: `${playPercent}%`,
+            height: '100%',
+            background: 'linear-gradient(90deg, #ef4444 0%, #f87171 100%)',
+            borderRadius: '9999px',
+            pointerEvents: 'none'
+          }} />
+
+          {/* 2nike Markers on Timeline */}
+          {duration > 0 && captions.map(c => {
+            const capPercent = (c.timestamp_seconds / duration) * 100;
+            if (capPercent < 0 || capPercent > 100) return null;
+            return (
+              <div
+                key={c.id}
+                title={`2nike (${c.timestamp_str}): ${c.caption}`}
+                style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: `${capPercent}%`,
+                  transform: 'translate(-50%, -50%)',
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  background: '#f59e0b',
+                  border: '1.5px solid #ffffff',
+                  zIndex: 5,
+                  boxShadow: '0 0 6px rgba(245, 158, 11, 0.9)',
+                  pointerEvents: 'none'
+                }}
+              />
+            );
+          })}
+
+          {/* Scrubber Knob Handle */}
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: `${playPercent}%`,
+            transform: 'translate(-50%, -50%)',
+            width: '15px',
+            height: '15px',
+            borderRadius: '50%',
+            background: '#ef4444',
+            border: '2.5px solid #ffffff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+            pointerEvents: 'none',
+            zIndex: 6
+          }} />
+        </div>
+      </div>
+
+      {/* Bottom Bar: Timestamp text */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        fontSize: '11px',
+        fontWeight: 700,
+        color: '#94a3b8',
+        fontFamily: 'monospace'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ color: '#f8fafc' }}>
+            {formatSecondsToHHMMSS(Math.floor(currentTime))}
+          </span>
+          <span>/</span>
+          <span>
+            {duration > 0 ? formatSecondsToHHMMSS(Math.floor(duration)) : '--:--'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export interface YouTubeSyncPlayerRef {
   seekTo: (slot: 1 | 2, seconds: number, autoPlay?: boolean) => void;
@@ -167,6 +478,11 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     (cfg2.youtube_id ? isPlayer2Ready : true)
   );
 
+  const [duration1, setDuration1] = useState(0);
+  const [duration2, setDuration2] = useState(0);
+  const [currentTime1, setCurrentTime1] = useState(0);
+  const [currentTime2, setCurrentTime2] = useState(0);
+
   useEffect(() => {
     if (!isBothReady) return;
 
@@ -174,10 +490,23 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       try {
         if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
           const t1 = player1Ref.current.getCurrentTime() || 0;
+          setCurrentTime1(t1);
           setCurrentVideoTime(t1);
+          if (typeof player1Ref.current.getDuration === 'function') {
+            const d1 = player1Ref.current.getDuration() || 0;
+            if (d1 > 0) setDuration1(d1);
+          }
+        }
+        if (player2Ref.current && typeof player2Ref.current.getCurrentTime === 'function') {
+          const t2 = player2Ref.current.getCurrentTime() || 0;
+          setCurrentTime2(t2);
+          if (typeof player2Ref.current.getDuration === 'function') {
+            const d2 = player2Ref.current.getDuration() || 0;
+            if (d2 > 0) setDuration2(d2);
+          }
         }
       } catch {}
-    }, 1000);
+    }, 500);
 
     return () => clearInterval(interval);
   }, [isBothReady]);
@@ -202,8 +531,37 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const [isMuted2, setIsMuted2] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [playbackQuality, setPlaybackQuality] = useState<string>('auto');
+  const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
   const [showSettingsPopover, setShowSettingsPopover] = useState(false);
   const settingsPopoverRef = useRef<HTMLDivElement>(null);
+
+  const currentActiveCaption = React.useMemo(() => {
+    if (!showSubtitles || !captionsList || captionsList.length === 0) return null;
+    return captionsList.find(c => currentVideoTime >= c.timestamp_seconds - 1 && currentVideoTime <= c.timestamp_seconds + 5);
+  }, [showSubtitles, captionsList, currentVideoTime]);
+
+  const handleToggleSubtitles = () => {
+    setShowSubtitles(prev => {
+      const nextState = !prev;
+      try {
+        if (player1Ref.current) {
+          if (nextState) {
+            if (typeof player1Ref.current.loadModule === 'function') player1Ref.current.loadModule('captions');
+          } else {
+            if (typeof player1Ref.current.unloadModule === 'function') player1Ref.current.unloadModule('captions');
+          }
+        }
+        if (player2Ref.current) {
+          if (nextState) {
+            if (typeof player2Ref.current.loadModule === 'function') player2Ref.current.loadModule('captions');
+          } else {
+            if (typeof player2Ref.current.unloadModule === 'function') player2Ref.current.unloadModule('captions');
+          }
+        }
+      } catch {}
+      return nextState;
+    });
+  };
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -355,6 +713,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const onPlayerReady1 = (event: { target: PlayerInstance }) => {
     player1Ref.current = event.target;
     try {
+      if (typeof event.target.getDuration === 'function') {
+        const d1 = event.target.getDuration() || 0;
+        if (d1 > 0) setDuration1(d1);
+      }
       if (typeof event.target.setVolume === 'function') {
         event.target.setVolume(vol1);
       }
@@ -374,6 +736,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const onPlayerReady2 = (event: { target: PlayerInstance }) => {
     player2Ref.current = event.target;
     try {
+      if (typeof event.target.getDuration === 'function') {
+        const d2 = event.target.getDuration() || 0;
+        if (d2 > 0) setDuration2(d2);
+      }
       if (typeof event.target.setVolume === 'function') {
         event.target.setVolume(vol2);
       }
@@ -720,6 +1086,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
   const renderTooltip = (id: string, text: string) => {
     if (activeTooltip !== id) return null;
+    if (id === 'settings' && showSettingsPopover) return null;
     return (
       <div style={{
         position: 'absolute',
@@ -1013,12 +1380,13 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           <div style={{
             background: '#0f172a',
             borderRadius: '12px',
-            overflow: 'hidden',
+            overflow: 'visible',
             border: activeTargetSlot === 1 ? '2px solid #ef4444' : '1px solid #cbd5e1',
             display: 'flex',
             flexDirection: 'column',
             height: '100%',
-            width: '100%'
+            width: '100%',
+            position: 'relative'
           }}>
             <div style={{
               padding: '8px 14px',
@@ -1029,7 +1397,9 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               justifyContent: 'space-between',
               fontSize: '12px',
               fontWeight: 800,
-              color: '#1e293b'
+              color: '#1e293b',
+              borderTopLeftRadius: '12px',
+              borderTopRightRadius: '12px'
             }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
@@ -1071,6 +1441,37 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                       cursor: 'default'
                     }}
                   />
+                  {/* Subtitle / 2nike Caption Overlay on Video 1 */}
+                  {showSubtitles && currentActiveCaption && (currentActiveCaption.slot === 1 || !currentActiveCaption.slot) && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: 'rgba(15, 23, 42, 0.88)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(239, 68, 68, 0.5)',
+                      color: '#ffffff',
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      zIndex: 20,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                      pointerEvents: 'none',
+                      maxWidth: '90%',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      <span style={{ color: '#ef4444' }}>📌</span>
+                      <span>{currentActiveCaption.caption}</span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '8px' }}>
@@ -1079,6 +1480,18 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 </div>
               )}
             </div>
+
+            {/* Custom YouTube Timeline Seekbar */}
+            {cfg1.youtube_id && (
+              <PlayerTimeline
+                slot={1}
+                youtubeId={cfg1.youtube_id}
+                currentTime={currentTime1}
+                duration={duration1}
+                captions={captionsList}
+                onSeek={(targetTime) => doSeek(1, targetTime, isPlaying)}
+              />
+            )}
           </div>
 
           {/* Video Slot 2 */}
@@ -1086,12 +1499,13 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
             <div style={{
               background: '#0f172a',
               borderRadius: '12px',
-              overflow: 'hidden',
+              overflow: 'visible',
               border: activeTargetSlot === 2 ? '2px solid #ef4444' : '1px solid #cbd5e1',
               display: 'flex',
               flexDirection: 'column',
               height: '100%',
-              width: '100%'
+              width: '100%',
+              position: 'relative'
             }}>
               <div style={{
                 padding: '8px 14px',
@@ -1102,7 +1516,9 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 justifyContent: 'space-between',
                 fontSize: '12px',
                 fontWeight: 800,
-                color: '#1e293b'
+                color: '#1e293b',
+                borderTopLeftRadius: '12px',
+                borderTopRightRadius: '12px'
               }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} />
@@ -1144,8 +1560,51 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                       cursor: 'default'
                     }}
                   />
+                  {/* Subtitle / 2nike Caption Overlay on Video 2 */}
+                  {showSubtitles && currentActiveCaption && (currentActiveCaption.slot === 2 || !currentActiveCaption.slot) && (
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '12px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: 'rgba(15, 23, 42, 0.88)',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                      border: '1px solid rgba(239, 68, 68, 0.5)',
+                      color: '#ffffff',
+                      padding: '6px 14px',
+                      borderRadius: '20px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      zIndex: 20,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                      pointerEvents: 'none',
+                      maxWidth: '90%',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      <span style={{ color: '#ef4444' }}>📌</span>
+                      <span>{currentActiveCaption.caption}</span>
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Custom YouTube Timeline Seekbar */}
+              {cfg2.youtube_id && (
+                <PlayerTimeline
+                  slot={2}
+                  youtubeId={cfg2.youtube_id}
+                  currentTime={currentTime2}
+                  duration={duration2}
+                  captions={captionsList}
+                  onSeek={(targetTime) => doSeek(2, targetTime, isPlaying)}
+                />
+              )}
             </div>
           )}
         </div>
@@ -1177,9 +1636,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               {renderTooltip('prevNote', hasPrevNote ? 'Chuyển tới 2nike trước (Phím ↑)' : 'Đã ở mốc 2nike đầu tiên')}
               <button
                 type="button"
-                onClick={handleSeekPrevNote}
+                onClick={(e) => { e.currentTarget.blur(); setActiveTooltip(null); handleSeekPrevNote(); }}
                 onMouseEnter={() => setActiveTooltip('prevNote')}
                 onMouseLeave={() => setActiveTooltip(null)}
+                onFocus={(e) => { e.currentTarget.blur(); setActiveTooltip(null); }}
                 disabled={!isBothReady || !hasPrevNote}
                 style={{
                   padding: '7px 12px',
@@ -1208,9 +1668,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               {renderTooltip('back5', 'Lùi 5s (Phím ←)')}
               <button
                 type="button"
-                onClick={() => handleSeekRelative(-5)}
+                onClick={(e) => { e.currentTarget.blur(); setActiveTooltip(null); handleSeekRelative(-5); }}
                 onMouseEnter={() => setActiveTooltip('back5')}
                 onMouseLeave={() => setActiveTooltip(null)}
+                onFocus={(e) => { e.currentTarget.blur(); setActiveTooltip(null); }}
                 disabled={!isBothReady}
                 style={{
                   padding: '7px 12px',
@@ -1239,9 +1700,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               {renderTooltip('play', isPlaying ? 'Tạm dừng cả 2 video (Phím Space)' : 'Phát đồng bộ cả 2 video (Phím Space)')}
               <button
                 type="button"
-                onClick={togglePlayBoth}
+                onClick={(e) => { e.currentTarget.blur(); setActiveTooltip(null); togglePlayBoth(); }}
                 onMouseEnter={() => setActiveTooltip('play')}
                 onMouseLeave={() => setActiveTooltip(null)}
+                onFocus={(e) => { e.currentTarget.blur(); setActiveTooltip(null); }}
                 disabled={!isBothReady}
                 style={{
                   width: '44px',
@@ -1277,9 +1739,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               {renderTooltip('next5', 'Tới 5s (Phím →)')}
               <button
                 type="button"
-                onClick={() => handleSeekRelative(5)}
+                onClick={(e) => { e.currentTarget.blur(); setActiveTooltip(null); handleSeekRelative(5); }}
                 onMouseEnter={() => setActiveTooltip('next5')}
                 onMouseLeave={() => setActiveTooltip(null)}
+                onFocus={(e) => { e.currentTarget.blur(); setActiveTooltip(null); }}
                 disabled={!isBothReady}
                 style={{
                   padding: '7px 12px',
@@ -1308,9 +1771,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               {renderTooltip('nextNote', hasNextNote ? 'Chuyển tới 2nike tiếp (Phím ↓)' : 'Đã ở mốc 2nike cuối cùng')}
               <button
                 type="button"
-                onClick={handleSeekNextNote}
+                onClick={(e) => { e.currentTarget.blur(); setActiveTooltip(null); handleSeekNextNote(); }}
                 onMouseEnter={() => setActiveTooltip('nextNote')}
                 onMouseLeave={() => setActiveTooltip(null)}
+                onFocus={(e) => { e.currentTarget.blur(); setActiveTooltip(null); }}
                 disabled={!isBothReady || !hasNextNote}
                 style={{
                   padding: '7px 12px',
@@ -1339,9 +1803,16 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               {renderTooltip('settings', 'Cài đặt (Âm thanh, Tốc độ, Độ phân giải)')}
               <button
                 type="button"
-                onClick={() => setShowSettingsPopover(prev => !prev)}
-                onMouseEnter={() => setActiveTooltip('settings')}
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                  setActiveTooltip(null);
+                  setShowSettingsPopover(prev => !prev);
+                }}
+                onMouseEnter={() => {
+                  if (!showSettingsPopover) setActiveTooltip('settings');
+                }}
                 onMouseLeave={() => setActiveTooltip(null)}
+                onFocus={(e) => { e.currentTarget.blur(); setActiveTooltip(null); }}
                 disabled={!isBothReady}
                 title="Cài đặt"
                 style={{
@@ -1554,6 +2025,42 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     </div>
                   </div>
 
+                  {/* 4. Phụ đề (Subtitles) */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <MessageSquareText size={14} style={{ color: '#10b981' }} />
+                        Phụ đề (Subtitles)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleToggleSubtitles}
+                        style={{
+                          padding: '4px 12px',
+                          borderRadius: '9999px',
+                          border: showSubtitles ? '1px solid #10b981' : '1px solid #cbd5e1',
+                          background: showSubtitles ? '#ecfdf5' : '#f8fafc',
+                          color: showSubtitles ? '#047857' : '#64748b',
+                          fontSize: '11.5px',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span style={{
+                          width: '7px',
+                          height: '7px',
+                          borderRadius: '50%',
+                          background: showSubtitles ? '#10b981' : '#94a3b8'
+                        }} />
+                        {showSubtitles ? 'Bật (ON)' : 'Tắt (OFF)'}
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Arrow pointing down to button */}
                   <div style={{
                     position: 'absolute',
@@ -1575,9 +2082,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 {renderTooltip('manualSync', 'Tua và đồng bộ thời gian 2 Cam theo chuẩn độ trễ')}
                 <button
                   type="button"
-                  onClick={handleManualSync}
+                  onClick={(e) => { e.currentTarget.blur(); setActiveTooltip(null); handleManualSync(); }}
                   onMouseEnter={() => setActiveTooltip('manualSync')}
                   onMouseLeave={() => setActiveTooltip(null)}
+                  onFocus={(e) => { e.currentTarget.blur(); setActiveTooltip(null); }}
                   disabled={!isBothReady}
                   style={{
                     width: '32px',

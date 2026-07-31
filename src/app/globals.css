@@ -2897,10 +2897,15 @@ a.venue-link:hover {
    PREMIUM TOAST STYLING (react-hot-toast)
    ========================================================================== */
 
+div:has(> div[role="status"]) {
+  z-index: 9999999 !important;
+}
+
 div[role="status"] {
   backdrop-filter: blur(16px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
   animation: toastEntrance 0.35s cubic-bezier(0.21, 1.02, 0.73, 1) forwards !important;
+  z-index: 9999999 !important;
 }
 
 @keyframes toastEntrance {

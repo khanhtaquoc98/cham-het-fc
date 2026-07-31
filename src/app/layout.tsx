@@ -152,7 +152,7 @@ export default function RootLayout({
         <Toaster
           position="top-center"
           gutter={10}
-          containerStyle={{ top: 24 }}
+          containerStyle={{ top: 24, zIndex: 9999999 }}
           toastOptions={{
             duration: 3500,
             style: {
