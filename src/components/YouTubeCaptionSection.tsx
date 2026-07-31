@@ -19,6 +19,15 @@ interface Props {
   getCurrentVideoTime?: () => { time1: number; time2: number };
 }
 
+function formatDisplayTimestamp(str: string): string {
+  if (!str) return '00:00';
+  let formatted = str.trim();
+  if (formatted.startsWith('00:')) {
+    formatted = formatted.slice(3);
+  }
+  return formatted;
+}
+
 export const YouTubeCaptionSection: React.FC<Props> = ({
   matchId = 'default_match',
   configs = [],
@@ -32,6 +41,22 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
   const [resetting, setResetting] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedSlotFilter, setSelectedSlotFilter] = useState<'all' | 1 | 2>('all');
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; role?: string } | null>(null);
+
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setCurrentUser(data.user);
+          }
+        }
+      } catch {}
+    }
+    checkAuth();
+  }, []);
 
   const captionListRef = useRef<HTMLDivElement>(null);
 
@@ -463,7 +488,7 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                   className="timestamp-play-btn grid-play"
                 >
                   <Play size={11} style={{ fill: '#ffffff' }} />
-                  {cap.timestamp_str}
+                  {formatDisplayTimestamp(cap.timestamp_str)}
                 </button>
 
                 {/* 2. Slot Badge */}
@@ -528,7 +553,7 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                     )}
                   </button>
 
-                  {isAdmin && (
+                  {(isAdmin || !!currentUser) && (
                     <button
                       type="button"
                       onClick={(e) => {
