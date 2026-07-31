@@ -30,14 +30,7 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
   const [captions, setCaptions] = useState<MatchCaption[]>([]);
   const [loading, setLoading] = useState(true);
   const [resetting, setResetting] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  // Form State
-  const [slot, setSlot] = useState<1 | 2>(1);
-  const [timeStr, setTimeStr] = useState('');
-  const [captionText, setCaptionText] = useState('');
-  const [authorName, setAuthorName] = useState('');
   const [selectedSlotFilter, setSelectedSlotFilter] = useState<'all' | 1 | 2>('all');
 
   const captionListRef = useRef<HTMLDivElement>(null);
@@ -111,71 +104,7 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
     }
   }, [targetCaptionId]);
 
-  // ── 3. Helper to Fetch Current Video Time into Form ──
-  const handleFetchCurrentTime = () => {
-    if (!getCurrentVideoTime) return;
-    const times = getCurrentVideoTime();
-    const targetSeconds = slot === 1 ? times.time1 : times.time2;
-    setTimeStr(formatSecondsToTime(targetSeconds));
-    toast.success(`Đã tự lấy mốc thời gian Video ${slot}: ${formatSecondsToTime(targetSeconds)}`);
-  };
 
-  // ── 4. Handle Add New Caption (POST) ──
-  const handleAddCaption = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!timeStr || !timeStr.trim()) {
-      toast.error('Vui lòng nhập mốc thời gian (vd: 15:30)');
-      return;
-    }
-    if (!captionText || !captionText.trim()) {
-      toast.error('Vui lòng nhập nội dung ghi chú');
-      return;
-    }
-
-    const seconds = parseTimeToSeconds(timeStr);
-    const formattedTime = formatSecondsToTime(seconds);
-
-    // YouTube ID from configs
-    const targetConfig = configs.find((c) => c.slot === slot);
-    const youtube_id = targetConfig ? targetConfig.youtube_id : '';
-
-    setSubmitting(true);
-
-    try {
-      const res = await fetch('/api/youtube-captions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          match_id: matchId,
-          slot,
-          youtube_id,
-          timestamp_seconds: seconds,
-          timestamp_str: formattedTime,
-          caption: captionText.trim(),
-          created_by: authorName.trim() || (isAdmin ? 'Admin' : 'Thành viên')
-        })
-      });
-
-      const data = await res.json();
-      if (data.success && data.caption) {
-        toast.success('Đã thêm dòng ghi chú mốc thời gian!');
-        setCaptionText('');
-
-        setCaptions((prev) => {
-          if (prev.some((c) => c.id === data.caption.id)) return prev;
-          const nextList = [...prev, data.caption];
-          return nextList.sort((a, b) => a.timestamp_seconds - b.timestamp_seconds);
-        });
-      } else {
-        toast.error(data.error || 'Thêm ghi chú thất bại');
-      }
-    } catch {
-      toast.error('Lỗi kết nối khi lưu ghi chú');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   // ── 5. Handle Delete Caption (DELETE) ──
   const handleDeleteCaption = async (id: string) => {
@@ -262,11 +191,15 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
           background: #ffffff;
           border: 1px solid #e2e8f0;
           border-radius: 12px;
-          padding: 10px 14px;
-          display: flex;
+          padding: 10px 12px;
+          display: grid;
+          grid-template-columns: auto auto auto 1fr auto;
+          grid-template-areas:
+            "play slot author actions"
+            "title title title title";
           align-items: center;
-          justify-content: space-between;
-          gap: 12px;
+          column-gap: 8px;
+          row-gap: 6px;
           box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           cursor: pointer;
@@ -279,21 +212,63 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
           transform: translateY(-1.5px);
         }
         .caption-card-item.is-highlighted {
-          border-color: #cbd5e1;
+          border-color: #ef4444;
+          background: #fef2f2;
+        }
+        .grid-play { grid-area: play; }
+        .grid-slot { grid-area: slot; }
+        .grid-author { grid-area: author; }
+        .grid-title { grid-area: title; }
+        .grid-actions { grid-area: actions; justify-self: end; }
+
+        .caption-slot-badge {
+          font-size: 11px;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: 8px;
+          white-space: nowrap;
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          line-height: 1;
+        }
+        .caption-author-tag {
+          font-size: 11px;
+          color: #475569;
+          font-weight: 600;
+          white-space: nowrap;
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: #f1f5f9;
+          border: 1px solid #e2e8f0;
+          padding: 3px 8px;
+          border-radius: 6px;
+          line-height: 1;
+        }
+        .caption-title-text {
+          font-size: 13.5px;
+          font-weight: 700;
+          color: #0f172a;
+          line-height: 1.45;
+          word-break: break-word;
+          width: 100%;
         }
         .timestamp-play-btn {
           background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
           color: #ffffff;
           border: none;
           border-radius: 8px;
-          padding: 6px 11px;
+          padding: 5px 10px;
           font-size: 12px;
           font-family: monospace;
           font-weight: 800;
           cursor: pointer;
           display: inline-flex;
           align-items: center;
-          gap: 6px;
+          gap: 5px;
           box-shadow: 0 3px 8px rgba(220, 38, 38, 0.28);
           white-space: nowrap;
           flex-shrink: 0;
@@ -302,6 +277,19 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
         .timestamp-play-btn:hover {
           transform: scale(1.04);
           box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+        }
+        @media (min-width: 640px) {
+          .caption-card-item {
+            grid-template-areas: "play slot author title actions";
+            column-gap: 12px;
+            padding: 10px 14px;
+          }
+          .caption-title-text {
+            width: auto;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
         }
       `}</style>
 
@@ -465,85 +453,50 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                 onClick={() => handleCardClick(cap)}
                 className={`caption-card-item ${isHighlighted ? 'is-highlighted' : ''}`}
               >
-                {/* Left Content (Single Line) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                  {/* Play Button & Time */}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCardClick(cap);
-                    }}
-                    className="timestamp-play-btn"
-                  >
-                    <Play size={11} style={{ fill: '#ffffff' }} />
-                    {cap.timestamp_str}
-                  </button>
+                {/* 1. Play Button & Time */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCardClick(cap);
+                  }}
+                  className="timestamp-play-btn grid-play"
+                >
+                  <Play size={11} style={{ fill: '#ffffff' }} />
+                  {cap.timestamp_str}
+                </button>
 
-                  {/* Slot Badge */}
+                {/* 2. Slot Badge */}
+                <span className="caption-slot-badge grid-slot" style={{
+                  background: cap.slot === 1 ? '#ecfdf5' : '#f5f3ff',
+                  color: cap.slot === 1 ? '#047857' : '#6d28d9',
+                  border: `1px solid ${cap.slot === 1 ? '#a7f3d0' : '#ddd6fe'}`
+                }}>
                   <span style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '3px 9px',
-                    borderRadius: '8px',
-                    background: cap.slot === 1 ? '#ecfdf5' : '#f5f3ff',
-                    color: cap.slot === 1 ? '#047857' : '#6d28d9',
-                    border: `1px solid ${cap.slot === 1 ? '#a7f3d0' : '#ddd6fe'}`,
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}>
-                    <span style={{
-                      width: '5px',
-                      height: '5px',
-                      borderRadius: '50%',
-                      background: cap.slot === 1 ? '#10b981' : '#8b5cf6'
-                    }} />
-                    Cam {cap.slot}
-                  </span>
+                    width: '5px',
+                    height: '5px',
+                    borderRadius: '50%',
+                    background: cap.slot === 1 ? '#10b981' : '#8b5cf6'
+                  }} />
+                  Cam {cap.slot}
+                </span>
 
-                  {/* Caption Title Text */}
-                  <span
-                    style={{
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      color: '#0f172a',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      minWidth: 0,
-                      flexShrink: 1
-                    }}
-                    title={cap.caption}
-                  >
-                    {cap.caption}
+                {/* 3. Author Tag */}
+                {cap.created_by ? (
+                  <span className="caption-author-tag grid-author">
+                    <User size={10} style={{ color: '#64748b', flexShrink: 0 }} />
+                    {cap.created_by}
                   </span>
+                ) : <div className="grid-author" />}
 
-                  {/* Author Tag (if any) */}
-                  {cap.created_by && (
-                    <span style={{
-                      fontSize: '11px',
-                      color: '#64748b',
-                      fontWeight: 600,
-                      whiteSpace: 'nowrap',
-                      flexShrink: 0,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      background: '#f1f5f9',
-                      padding: '2px 8px',
-                      borderRadius: '6px'
-                    }}>
-                      <User size={10} style={{ color: '#64748b' }} />
-                      {cap.created_by}
-                    </span>
-                  )}
+                {/* 4. Title Content Text */}
+                <div className="caption-title-text grid-title" title={cap.caption}>
+                  {cap.caption}
                 </div>
 
-                {/* Right Actions: Share & Delete */}
+                {/* 5. Actions: Share & Delete */}
                 <div
+                  className="grid-actions"
                   style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -558,7 +511,7 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                       border: `1px solid ${copiedId === cap.id ? '#6ee7b7' : '#e2e8f0'}`,
                       color: copiedId === cap.id ? '#047857' : '#475569',
                       borderRadius: '8px',
-                      padding: '6px 9px',
+                      padding: '5px 8px',
                       fontSize: '12px',
                       cursor: 'pointer',
                       display: 'flex',
@@ -575,29 +528,31 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
                     )}
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteCaption(cap.id);
-                    }}
-                    style={{
-                      background: '#fff1f2',
-                      border: '1px solid #fecdd3',
-                      color: '#e11d48',
-                      borderRadius: '8px',
-                      padding: '6px 9px',
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      transition: 'all 0.15s ease'
-                    }}
-                    title="Xóa ghi chú 2nike"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCaption(cap.id);
+                      }}
+                      style={{
+                        background: '#fff1f2',
+                        border: '1px solid #fecdd3',
+                        color: '#e11d48',
+                        borderRadius: '8px',
+                        padding: '5px 8px',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.15s ease'
+                      }}
+                      title="Xóa ghi chú 2nike"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             );

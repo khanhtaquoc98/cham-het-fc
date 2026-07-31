@@ -3,7 +3,7 @@ import YouTube, { YouTubeProps } from 'react-youtube';
 import { MatchCaption, YouTubeVideoConfig } from '@/types/youtube';
 import { extractYouTubeId, formatSecondsToHHMMSS, parseTimeToSeconds } from '@/lib/youtube-utils';
 import { supabase } from '@/lib/supabase';
-import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Loader2, Settings, Gauge, Monitor } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface PlayerInstance {
@@ -17,6 +17,10 @@ interface PlayerInstance {
   getVolume?: () => number;
   setVolume?: (volume: number) => void;
   isMuted?: () => boolean;
+  setPlaybackRate?: (suggestedRate: number) => void;
+  getPlaybackRate?: () => number;
+  setPlaybackQuality?: (suggestedQuality: string) => void;
+  getPlaybackQuality?: () => string;
 }
 
 export interface YouTubeSyncPlayerRef {
@@ -85,6 +89,22 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const [newCapAuthor, setNewCapAuthor] = useState('');
   const [newCapText, setNewCapText] = useState('');
   const [submittingCap, setSubmittingCap] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; name?: string; role?: string } | null>(null);
+
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setCurrentUser(data.user);
+          }
+        }
+      } catch {}
+    }
+    checkAuth();
+  }, []);
 
   const effectiveMatchId = matchId || cfg1.match_id || cfg2.match_id || '';
 
@@ -130,7 +150,6 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     };
   }, [effectiveMatchId]);
 
-  // Player Ready tracking (Wait for BOTH players before playing)
   const [isPlayer1Ready, setIsPlayer1Ready] = useState(false);
   const [isPlayer2Ready, setIsPlayer2Ready] = useState(false);
   const [isPlayer1Ended, setIsPlayer1Ended] = useState(false);
@@ -148,7 +167,6 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     (cfg2.youtube_id ? isPlayer2Ready : true)
   );
 
-  // Track current video time every 1s
   useEffect(() => {
     if (!isBothReady) return;
 
@@ -164,7 +182,6 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     return () => clearInterval(interval);
   }, [isBothReady]);
 
-  // Compute sorted captions & availability of prev/next note
   const sortedCaptions = React.useMemo(() => {
     return [...captionsList].sort((a, b) => a.timestamp_seconds - b.timestamp_seconds);
   }, [captionsList]);
@@ -179,28 +196,52 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     return sortedCaptions.some(c => c.timestamp_seconds > currentVideoTime + 1.5);
   }, [sortedCaptions, currentVideoTime]);
 
-  // Volume States for Video 1 and Video 2
   const [vol1, setVol1] = useState(100);
   const [isMuted1, setIsMuted1] = useState(false);
   const [vol2, setVol2] = useState(100);
-  const [isMuted2, setIsMuted2] = useState(true); // Default Video 2 muted
-  const [showVolumePopover, setShowVolumePopover] = useState(false);
-  const volumePopoverRef = useRef<HTMLDivElement>(null);
+  const [isMuted2, setIsMuted2] = useState(true);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
+  const [playbackQuality, setPlaybackQuality] = useState<string>('auto');
+  const [showSettingsPopover, setShowSettingsPopover] = useState(false);
+  const settingsPopoverRef = useRef<HTMLDivElement>(null);
 
-  // Click outside to close volume popover
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (volumePopoverRef.current && !volumePopoverRef.current.contains(e.target as Node)) {
-        setShowVolumePopover(false);
+      if (settingsPopoverRef.current && !settingsPopoverRef.current.contains(e.target as Node)) {
+        setShowSettingsPopover(false);
       }
     };
-    if (showVolumePopover) {
+    if (showSettingsPopover) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showVolumePopover]);
+  }, [showSettingsPopover]);
+
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    try {
+      if (player1Ref.current && typeof player1Ref.current.setPlaybackRate === 'function') {
+        player1Ref.current.setPlaybackRate(speed);
+      }
+      if (player2Ref.current && typeof player2Ref.current.setPlaybackRate === 'function') {
+        player2Ref.current.setPlaybackRate(speed);
+      }
+    } catch {}
+  };
+
+  const handleQualityChange = (quality: string) => {
+    setPlaybackQuality(quality);
+    try {
+      if (player1Ref.current && typeof player1Ref.current.setPlaybackQuality === 'function') {
+        player1Ref.current.setPlaybackQuality(quality);
+      }
+      if (player2Ref.current && typeof player2Ref.current.setPlaybackQuality === 'function') {
+        player2Ref.current.setPlaybackQuality(quality);
+      }
+    } catch {}
+  };
 
   const handleVol1Change = (newVol: number) => {
     setVol1(newVol);
@@ -283,7 +324,6 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     setSyncPointModalOpen(true);
   };
 
-  // Player Options (no native controls, disable iframe kb, playsinline)
   const opts1: YouTubeProps['opts'] = React.useMemo(() => ({
     height: '100%',
     width: '100%',
@@ -321,13 +361,18 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       if (isMuted1 && typeof event.target.mute === 'function') {
         event.target.mute();
       }
+      if (playbackSpeed !== 1 && typeof event.target.setPlaybackRate === 'function') {
+        event.target.setPlaybackRate(playbackSpeed);
+      }
+      if (playbackQuality !== 'auto' && typeof event.target.setPlaybackQuality === 'function') {
+        event.target.setPlaybackQuality(playbackQuality);
+      }
     } catch {}
     setIsPlayer1Ready(true);
   };
 
   const onPlayerReady2 = (event: { target: PlayerInstance }) => {
     player2Ref.current = event.target;
-    // Mute Video 2 by default so audio doesn't double/echo & browser autoplay succeeds
     try {
       if (typeof event.target.setVolume === 'function') {
         event.target.setVolume(vol2);
@@ -335,12 +380,17 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       if (isMuted2 && typeof event.target.mute === 'function') {
         event.target.mute();
       }
+      if (playbackSpeed !== 1 && typeof event.target.setPlaybackRate === 'function') {
+        event.target.setPlaybackRate(playbackSpeed);
+      }
+      if (playbackQuality !== 'auto' && typeof event.target.setPlaybackQuality === 'function') {
+        event.target.setPlaybackQuality(playbackQuality);
+      }
     } catch {}
     setIsPlayer2Ready(true);
   };
 
   const onPlayerStateChange2 = (event: { data: number }) => {
-    // YouTube state 1 is PLAYING
     if (event.data === 1 && player1Ref.current && player2Ref.current) {
       try {
         const t1 = typeof player1Ref.current.getCurrentTime === 'function' ? (player1Ref.current.getCurrentTime() || 0) : 0;
@@ -488,85 +538,50 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       targetTime1 = seconds + offset2 - offset1;
     }
 
-    // 1. Pause both players first so they buffer target frames in sync
-    try {
-      if (player1Ref.current && typeof player1Ref.current.pauseVideo === 'function') {
-        player1Ref.current.pauseVideo();
-      }
-      if (player2Ref.current && typeof player2Ref.current.pauseVideo === 'function') {
-        player2Ref.current.pauseVideo();
-      }
-    } catch {}
-
-    // 2. Seek both players to target timestamps
     try {
       if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
-        player1Ref.current.seekTo(Math.max(0, targetTime1), true);
+        player1Ref.current.seekTo(targetTime1, true);
+        if (autoPlay && typeof player1Ref.current.playVideo === 'function') {
+          player1Ref.current.playVideo();
+        }
       }
-    } catch {}
 
-    try {
       if (player2Ref.current && typeof player2Ref.current.seekTo === 'function') {
         if (targetTime2 < 0) {
           player2Ref.current.seekTo(0, true);
+          if (typeof player2Ref.current.pauseVideo === 'function') {
+            player2Ref.current.pauseVideo();
+          }
         } else {
           player2Ref.current.seekTo(targetTime2, true);
-        }
-      }
-    } catch {}
-
-    // 3. Play both players simultaneously after 300ms frame buffer delay
-    if (autoPlay) {
-      setTimeout(() => {
-        try {
-          if (player1Ref.current && typeof player1Ref.current.playVideo === 'function') {
-            player1Ref.current.playVideo();
-          }
-          if (player2Ref.current && targetTime2 >= 0 && typeof player2Ref.current.playVideo === 'function') {
+          if (autoPlay && typeof player2Ref.current.playVideo === 'function') {
             player2Ref.current.playVideo();
           }
-        } catch {}
+        }
+      }
+
+      if (autoPlay) {
         setIsPlaying(true);
-        setIsPlayer1Ended(false);
-        setIsPlayer2Ended(false);
-      }, 300);
+      }
+    } catch (e) {
+      console.warn('Seek error:', e);
     }
   }, [cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
 
-  // Execute pending seek or auto-start once both players are ready
-  useEffect(() => {
-    if (!isBothReady) return;
-
-    if (pendingSeekRef.current) {
-      const { slot, seconds, autoPlay } = pendingSeekRef.current;
-      pendingSeekRef.current = null;
-      const timer = setTimeout(() => {
-        doSeek(slot, seconds, autoPlay);
-      }, 300);
-      return () => clearTimeout(timer);
-    } else if (autoPlayOnLoad && (cfg1.youtube_id || cfg2.youtube_id)) {
-      const timer = setTimeout(() => {
-        doSeek(1, 0, true);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [isBothReady, doSeek, autoPlayOnLoad, cfg1.youtube_id, cfg2.youtube_id]);
-
-  // ── Imperative Ref Methods ──
   useImperativeHandle(ref, () => ({
     seekTo: (slot: 1 | 2, seconds: number, autoPlay: boolean = true) => {
-      if (!isBothReady) {
+      if (isBothReady) {
+        doSeek(slot, seconds, autoPlay);
+      } else {
         pendingSeekRef.current = { slot, seconds, autoPlay };
-        return;
       }
-      doSeek(slot, seconds, autoPlay);
     },
     seekBothWithOffset: (masterSeconds: number, autoPlay: boolean = true) => {
-      if (!isBothReady) {
+      if (isBothReady) {
+        doSeek(1, masterSeconds, autoPlay);
+      } else {
         pendingSeekRef.current = { slot: 1, seconds: masterSeconds, autoPlay };
-        return;
       }
-      doSeek(1, masterSeconds, autoPlay);
     },
     getCurrentTimes: () => {
       let t1 = 0;
@@ -579,103 +594,75 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           t2 = player2Ref.current.getCurrentTime() || 0;
         }
       } catch {}
-      return { time1: Math.floor(t1), time2: Math.floor(t2) };
+      return { time1: t1, time2: t2 };
     }
-  }));
+  }), [isBothReady, doSeek]);
 
-  // ── Master Play Both ──
-  const togglePlayBoth = () => {
-    if (!isBothReady) {
-      toast.error('Đang chuẩn bị nạp 2 player... Vui lòng đợi trong giây lát!', { icon: '⏳' });
-      return;
+  useEffect(() => {
+    if (isBothReady && pendingSeekRef.current) {
+      const { slot, seconds, autoPlay } = pendingSeekRef.current;
+      pendingSeekRef.current = null;
+      doSeek(slot, seconds, autoPlay);
     }
+  }, [isBothReady, doSeek]);
 
-    const nextPlaying = !isPlaying;
-    setIsPlaying(nextPlaying);
-
-    // Reset ended states when user manually toggles play
-    if (nextPlaying) {
-      setIsPlayer1Ended(false);
-      setIsPlayer2Ended(false);
-    }
-
-    const offset1 = cfg1.start_offset_seconds || 0;
-    const offset2 = cfg2.start_offset_seconds || 0;
-
-    let time1 = 0;
-    try {
-      if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
-        time1 = player1Ref.current.getCurrentTime() || 0;
-      }
-    } catch {}
-
-    try {
-      if (player1Ref.current) {
-        if (nextPlaying) {
-          if (typeof player1Ref.current.playVideo === 'function') player1Ref.current.playVideo();
-        } else {
-          if (typeof player1Ref.current.pauseVideo === 'function') player1Ref.current.pauseVideo();
-        }
-      }
-    } catch {}
-
-    try {
-      if (player2Ref.current) {
-        if (nextPlaying) {
-          const targetTime2 = time1 - offset1 + offset2;
-          if (targetTime2 < 0) {
-            if (typeof player2Ref.current.seekTo === 'function') {
-              player2Ref.current.seekTo(0, true);
-            }
-            if (typeof player2Ref.current.pauseVideo === 'function') {
-              player2Ref.current.pauseVideo();
-            }
-          } else {
-            if (typeof player2Ref.current.seekTo === 'function') {
-              player2Ref.current.seekTo(targetTime2, true);
-            }
-            if (typeof player2Ref.current.playVideo === 'function') {
-              player2Ref.current.playVideo();
-            }
-          }
-        } else {
-          if (typeof player2Ref.current.pauseVideo === 'function') {
-            player2Ref.current.pauseVideo();
-          }
-        }
-      }
-    } catch {}
-  };
-
-  // ── Relative Seek (-10s, -5s, +5s, +10s) ──
-  const handleSeekRelative = (deltaSeconds: number) => {
+  const togglePlayBoth = useCallback(() => {
     if (!isBothReady) return;
 
-    let time1 = 0;
+    if (isPlaying) {
+      try {
+        if (player1Ref.current && typeof player1Ref.current.pauseVideo === 'function') {
+          player1Ref.current.pauseVideo();
+        }
+        if (player2Ref.current && typeof player2Ref.current.pauseVideo === 'function') {
+          player2Ref.current.pauseVideo();
+        }
+      } catch {}
+      setIsPlaying(false);
+    } else {
+      try {
+        if (player1Ref.current && typeof player1Ref.current.playVideo === 'function') {
+          player1Ref.current.playVideo();
+        }
+
+        if (player2Ref.current && typeof player2Ref.current.playVideo === 'function') {
+          const t1 = typeof player1Ref.current?.getCurrentTime === 'function' ? (player1Ref.current.getCurrentTime() || 0) : 0;
+          const offset1 = cfg1.start_offset_seconds || 0;
+          const offset2 = cfg2.start_offset_seconds || 0;
+          const expectedT2 = t1 - offset2 + offset1;
+
+          if (expectedT2 >= 0) {
+            player2Ref.current.playVideo();
+          }
+        }
+      } catch {}
+      setIsPlaying(true);
+    }
+  }, [isBothReady, isPlaying, cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
+
+  const handleSeekRelative = useCallback((deltaSeconds: number) => {
+    if (!isBothReady) return;
+    let t1 = 0;
     try {
       if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
-        time1 = player1Ref.current.getCurrentTime() || 0;
+        t1 = player1Ref.current.getCurrentTime() || 0;
       }
     } catch {}
+    const newT1 = Math.max(0, t1 + deltaSeconds);
+    doSeek(1, newT1, isPlaying);
+  }, [isBothReady, isPlaying, doSeek]);
 
-    const newTime1 = Math.max(0, time1 + deltaSeconds);
-    doSeek(1, newTime1, isPlaying);
-  };
-
-  // ── Seek to Prev Note / Next Note ──
   const handleSeekPrevNote = useCallback(() => {
     if (!isBothReady || !hasPrevNote || !captionsList || captionsList.length === 0) return;
-
-    let time1 = 0;
+    let t1 = 0;
     try {
       if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
-        time1 = player1Ref.current.getCurrentTime() || 0;
+        t1 = player1Ref.current.getCurrentTime() || 0;
       }
     } catch {}
 
     const sorted = [...captionsList].sort((a, b) => a.timestamp_seconds - b.timestamp_seconds);
-    const prevCap = [...sorted].reverse().find(c => c.timestamp_seconds < time1 - 1.5);
-
+    const prevCap = [...sorted].reverse().find(c => c.timestamp_seconds < t1 - 1.5);
     if (prevCap) {
       doSeek(prevCap.slot, prevCap.timestamp_seconds, isPlaying);
     }
@@ -683,42 +670,43 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
   const handleSeekNextNote = useCallback(() => {
     if (!isBothReady || !hasNextNote || !captionsList || captionsList.length === 0) return;
-
-    let time1 = 0;
+    let t1 = 0;
     try {
       if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
-        time1 = player1Ref.current.getCurrentTime() || 0;
+        t1 = player1Ref.current.getCurrentTime() || 0;
       }
     } catch {}
 
     const sorted = [...captionsList].sort((a, b) => a.timestamp_seconds - b.timestamp_seconds);
-    const nextCap = sorted.find(c => c.timestamp_seconds > time1 + 1.5);
-
+    const nextCap = sorted.find(c => c.timestamp_seconds > t1 + 1.5);
     if (nextCap) {
       doSeek(nextCap.slot, nextCap.timestamp_seconds, isPlaying);
     }
   }, [isBothReady, hasNextNote, captionsList, isPlaying, doSeek]);
 
-  // ── Global Keyboard Shortcuts ──
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName.toLowerCase();
-      const isInput = activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select' || (document.activeElement as HTMLElement)?.isContentEditable;
-      if (isInput) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
 
-      if (e.code === 'Space' || e.key === ' ') {
+      if (e.code === 'Space') {
         e.preventDefault();
         togglePlayBoth();
-      } else if (e.code === 'ArrowLeft' || e.key === 'ArrowLeft') {
+      } else if (e.code === 'ArrowLeft') {
         e.preventDefault();
         handleSeekRelative(-5);
-      } else if (e.code === 'ArrowRight' || e.key === 'ArrowRight') {
+      } else if (e.code === 'ArrowRight') {
         e.preventDefault();
         handleSeekRelative(5);
-      } else if (e.code === 'ArrowUp' || e.key === 'ArrowUp') {
+      } else if (e.code === 'ArrowUp') {
         e.preventDefault();
         handleSeekPrevNote();
-      } else if (e.code === 'ArrowDown' || e.key === 'ArrowDown') {
+      } else if (e.code === 'ArrowDown') {
         e.preventDefault();
         handleSeekNextNote();
       }
@@ -750,7 +738,6 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         zIndex: 50
       }}>
         {text}
-        {/* Tooltip Arrow pointing UP */}
         <div style={{
           position: 'absolute',
           bottom: '100%',
@@ -766,7 +753,6 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     );
   };
 
-  // ── Auto Sync Point Tool Logic ──
   const handleAutoCalculateSyncPoint = () => {
     let time1 = 0;
     let time2 = 0;
@@ -787,7 +773,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   };
 
   // ── Add 2nike Modal Handlers ──
-  const handleOpenAddCaptionModal = () => {
+  const handleOpenAddCaptionModal = async () => {
     // Auto-pause videos when opening 2nike modal
     if (isPlaying) {
       try {
@@ -797,6 +783,43 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       setIsPlaying(false);
     }
 
+    if (isAdmin) {
+      let t1 = 0;
+      try {
+        if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
+          t1 = player1Ref.current.getCurrentTime() || 0;
+        }
+      } catch {}
+      setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t1)));
+      if (!newCapAuthor) setNewCapAuthor('Admin');
+      setAddCaptionModalOpen(true);
+      return;
+    }
+
+    let user = currentUser;
+    if (!user) {
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            user = data.user;
+            setCurrentUser(data.user);
+          }
+        }
+      } catch {}
+    }
+
+    if (!user) {
+      toast.error('Vui lòng đăng nhập để sử dụng tính năng lưu 2nike!');
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+      }, 1000);
+      return;
+    }
+
     let t1 = 0;
     try {
       if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
@@ -804,6 +827,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       }
     } catch {}
     setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t1)));
+    setNewCapAuthor(user.username);
     setAddCaptionModalOpen(true);
   };
 
@@ -820,12 +844,22 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
   const handleSaveCaptionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isAdmin && !currentUser) {
+      toast.error('Vui lòng đăng nhập để sử dụng tính năng lưu 2nike!');
+      return;
+    }
+
     if (!newCapText.trim()) {
       toast.error('Vui lòng nhập Title');
       return;
     }
 
     const sec = parseTimeToSeconds(newCapTimeStr);
+    const authorToSave = !isAdmin
+      ? (currentUser?.username || 'Thành viên')
+      : (newCapAuthor.trim() || 'Admin');
+
     try {
       setSubmittingCap(true);
       const res = await fetch('/api/youtube-captions', {
@@ -837,7 +871,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           timestamp_seconds: sec,
           timestamp_str: newCapTimeStr || formatSecondsToHHMMSS(sec),
           caption: newCapText.trim(),
-          created_by: newCapAuthor.trim() || (isAdmin ? 'Admin' : 'Khán giả')
+          created_by: authorToSave
         })
       });
       const data = await res.json();
@@ -1300,49 +1334,45 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               </button>
             </div>
 
-            {/* Button 6: Âm thanh / Volume Popup */}
+            {/* Button 6: Cài đặt / Settings Popup */}
             <div style={{ position: 'relative' }}>
-              {renderTooltip('volume', 'Chỉnh âm lượng video 1 & 2')}
+              {renderTooltip('settings', 'Cài đặt (Âm thanh, Tốc độ, Độ phân giải)')}
               <button
                 type="button"
-                onClick={() => setShowVolumePopover(prev => !prev)}
-                onMouseEnter={() => setActiveTooltip('volume')}
+                onClick={() => setShowSettingsPopover(prev => !prev)}
+                onMouseEnter={() => setActiveTooltip('settings')}
                 onMouseLeave={() => setActiveTooltip(null)}
                 disabled={!isBothReady}
+                title="Cài đặt"
                 style={{
-                  padding: '7px 12px',
+                  padding: '7px 10px',
                   borderRadius: '9999px',
-                  border: showVolumePopover ? '1px solid #ef4444' : '1px solid #cbd5e1',
-                  background: showVolumePopover ? '#fef2f2' : '#ffffff',
-                  color: showVolumePopover ? '#dc2626' : '#334155',
+                  border: showSettingsPopover ? '1px solid #ef4444' : '1px solid #cbd5e1',
+                  background: showSettingsPopover ? '#fef2f2' : '#ffffff',
+                  color: showSettingsPopover ? '#dc2626' : '#334155',
                   fontSize: '11.5px',
                   fontWeight: 700,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '5px',
+                  justifyContent: 'center',
                   cursor: !isBothReady ? 'not-allowed' : 'pointer',
                   opacity: !isBothReady ? 0.5 : 1,
                   transition: 'all 0.15s ease',
                   boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                 }}
               >
-                {isMuted1 && isMuted2 ? (
-                  <VolumeX size={15} style={{ color: '#ef4444' }} />
-                ) : (
-                  <Volume2 size={15} style={{ color: '#dc2626' }} />
-                )}
-                <span className="hidden sm:inline">Âm thanh</span>
+                <Settings size={16} style={{ color: showSettingsPopover ? '#dc2626' : '#475569' }} />
               </button>
 
-              {/* Volume Popover Panel */}
-              {showVolumePopover && (
+              {/* Settings Popover Panel */}
+              {showSettingsPopover && (
                 <div
-                  ref={volumePopoverRef}
+                  ref={settingsPopoverRef}
                   style={{
                     position: 'absolute',
                     bottom: 'calc(100% + 12px)',
                     right: 0,
-                    width: '260px',
+                    width: '280px',
                     background: '#ffffff',
                     border: '1px solid #e2e8f0',
                     borderRadius: '16px',
@@ -1351,80 +1381,47 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     zIndex: 60,
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px'
+                    gap: '14px'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
                     <span style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Volume2 size={15} style={{ color: '#dc2626' }} />
-                      Âm lượng Video
+                      <Settings size={15} style={{ color: '#dc2626' }} />
+                      Cài đặt Video
                     </span>
                     <button
                       type="button"
-                      onClick={() => setShowVolumePopover(false)}
+                      onClick={() => setShowSettingsPopover(false)}
                       style={{ border: 'none', background: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '14px', padding: '2px 4px' }}
                     >
                       ✕
                     </button>
                   </div>
 
-                  {/* Video 1 Volume */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
-                      <span style={{ color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                        Video 1 ({cfg1.title ? (cfg1.title.length > 12 ? cfg1.title.slice(0, 12) + '...' : cfg1.title) : 'Hiệp 1'})
-                      </span>
-                      <span style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>
-                        {isMuted1 ? 'Tắt âm' : `${vol1}%`}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={toggleMute1}
-                        style={{
-                          background: isMuted1 ? '#fee2e2' : '#f1f5f9',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '5px 7px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        {isMuted1 ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#dc2626' }} />}
-                      </button>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={isMuted1 ? 0 : vol1}
-                        onChange={(e) => handleVol1Change(Number(e.target.value))}
-                        style={{ flex: 1, accentColor: '#dc2626', cursor: 'pointer' }}
-                      />
-                    </div>
-                  </div>
+                  {/* 1. Âm thanh */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Volume2 size={14} style={{ color: '#dc2626' }} />
+                      Âm thanh
+                    </span>
 
-                  {/* Video 2 Volume */}
-                  {cfg2.youtube_id && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700 }}>
+                    {/* Video 1 Volume */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', fontWeight: 700 }}>
                         <span style={{ color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
-                          Video 2 ({cfg2.title ? (cfg2.title.length > 12 ? cfg2.title.slice(0, 12) + '...' : cfg2.title) : 'Hiệp 2'})
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                          Video 1 ({cfg1.title ? (cfg1.title.length > 12 ? cfg1.title.slice(0, 12) + '...' : cfg1.title) : 'Hiệp 1'})
                         </span>
                         <span style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>
-                          {isMuted2 ? 'Tắt âm' : `${vol2}%`}
+                          {isMuted1 ? 'Tắt âm' : `${vol1}%`}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button
                           type="button"
-                          onClick={toggleMute2}
+                          onClick={toggleMute1}
                           style={{
-                            background: isMuted2 ? '#fee2e2' : '#f1f5f9',
+                            background: isMuted1 ? '#fee2e2' : '#f1f5f9',
                             border: 'none',
                             borderRadius: '6px',
                             padding: '5px 7px',
@@ -1434,25 +1431,134 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                             justifyContent: 'center'
                           }}
                         >
-                          {isMuted2 ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#dc2626' }} />}
+                          {isMuted1 ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#dc2626' }} />}
                         </button>
                         <input
                           type="range"
                           min="0"
                           max="100"
-                          value={isMuted2 ? 0 : vol2}
-                          onChange={(e) => handleVol2Change(Number(e.target.value))}
+                          value={isMuted1 ? 0 : vol1}
+                          onChange={(e) => handleVol1Change(Number(e.target.value))}
                           style={{ flex: 1, accentColor: '#dc2626', cursor: 'pointer' }}
                         />
                       </div>
                     </div>
-                  )}
 
-                  {/* Down arrow pointing to button */}
+                    {/* Video 2 Volume */}
+                    {cfg2.youtube_id && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px dashed #e2e8f0', paddingTop: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', fontWeight: 700 }}>
+                          <span style={{ color: '#1e293b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444' }} />
+                            Video 2 ({cfg2.title ? (cfg2.title.length > 12 ? cfg2.title.slice(0, 12) + '...' : cfg2.title) : 'Hiệp 2'})
+                          </span>
+                          <span style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>
+                            {isMuted2 ? 'Tắt âm' : `${vol2}%`}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={toggleMute2}
+                            style={{
+                              background: isMuted2 ? '#fee2e2' : '#f1f5f9',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '5px 7px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            {isMuted2 ? <VolumeX size={14} style={{ color: '#ef4444' }} /> : <Volume2 size={14} style={{ color: '#dc2626' }} />}
+                          </button>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={isMuted2 ? 0 : vol2}
+                            onChange={(e) => handleVol2Change(Number(e.target.value))}
+                            style={{ flex: 1, accentColor: '#dc2626', cursor: 'pointer' }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Độ phân giải */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Monitor size={14} style={{ color: '#2563eb' }} />
+                        Độ phân giải
+                      </span>
+                    </div>
+                    <select
+                      value={playbackQuality}
+                      onChange={(e) => handleQualityChange(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        background: '#f8fafc',
+                        color: '#0f172a',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="auto">Auto (Tự động - Mặc định)</option>
+                      <option value="hd1080">1080p (HD)</option>
+                      <option value="hd720">720p (HD)</option>
+                      <option value="large">480p</option>
+                      <option value="medium">360p</option>
+                      <option value="small">240p</option>
+                    </select>
+                  </div>
+
+                  {/* 3. Speed của video */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Gauge size={14} style={{ color: '#d97706' }} />
+                        Tốc độ video
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                        {playbackSpeed === 1 ? 'Mặc định (1x)' : `${playbackSpeed}x`}
+                      </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
+                      {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((spd) => (
+                        <button
+                          key={spd}
+                          type="button"
+                          onClick={() => handleSpeedChange(spd)}
+                          style={{
+                            padding: '6px 0',
+                            borderRadius: '8px',
+                            border: playbackSpeed === spd ? '1.5px solid #dc2626' : '1px solid #e2e8f0',
+                            background: playbackSpeed === spd ? '#fef2f2' : '#f8fafc',
+                            color: playbackSpeed === spd ? '#dc2626' : '#334155',
+                            fontSize: '11.5px',
+                            fontWeight: playbackSpeed === spd ? 800 : 600,
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {spd === 1 ? '1x' : `${spd}x`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Arrow pointing down to button */}
                   <div style={{
                     position: 'absolute',
                     top: '100%',
-                    right: '20px',
+                    right: '12px',
                     width: 0,
                     height: 0,
                     borderLeft: '6px solid transparent',
@@ -1690,21 +1796,24 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               {/* Author Name */}
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
-                  Người tạo (Tùy chọn)
+                  Người tạo {!isAdmin && <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>(Cố định theo tài khoản)</span>}
                 </label>
                 <input
                   type="text"
-                  placeholder={isAdmin ? 'Admin' : 'Tên bạn...'}
-                  value={newCapAuthor}
+                  placeholder={isAdmin ? 'Admin' : (currentUser?.username || 'Tên người dùng')}
+                  value={isAdmin ? newCapAuthor : (currentUser?.username || '')}
                   onChange={(e) => setNewCapAuthor(e.target.value)}
+                  disabled={!isAdmin}
                   style={{
                     width: '100%',
-                    background: '#f8fafc',
+                    background: !isAdmin ? '#f1f5f9' : '#f8fafc',
                     border: '1px solid #cbd5e1',
-                    color: '#0f172a',
+                    color: !isAdmin ? '#475569' : '#0f172a',
                     borderRadius: '10px',
                     padding: '10px 12px',
                     fontSize: '13px',
+                    fontWeight: !isAdmin ? 700 : 400,
+                    cursor: !isAdmin ? 'not-allowed' : 'text',
                     outline: 'none',
                     boxSizing: 'border-box'
                   }}
