@@ -49,11 +49,13 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
         const res = await fetch('/api/auth/me', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
-          if (data.user) {
-            setCurrentUser(data.user);
-          }
+          setCurrentUser(data.user || null);
+        } else {
+          setCurrentUser(null);
         }
-      } catch {}
+      } catch {
+        setCurrentUser(null);
+      }
     }
     checkAuth();
   }, []);
@@ -133,6 +135,10 @@ export const YouTubeCaptionSection: React.FC<Props> = ({
 
   // ── 5. Handle Delete Caption (DELETE) ──
   const handleDeleteCaption = async (id: string) => {
+    if (!isAdmin && !currentUser) {
+      toast.error('Vui lòng đăng nhập để thực hiện xóa 2nike!');
+      return;
+    }
     if (!confirm('Bạn có chắc chắn muốn xóa ghi chú này?')) return;
 
     try {
