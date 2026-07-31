@@ -21,11 +21,18 @@ interface Props {
 
 function formatDisplayTimestamp(str: string): string {
   if (!str) return '00:00';
-  let formatted = str.trim();
-  if (formatted.startsWith('00:')) {
-    formatted = formatted.slice(3);
+  const clean = str.trim();
+  const parts = clean.split(':');
+
+  if (parts.length === 3) {
+    const hh = parseInt(parts[0], 10);
+    if (isNaN(hh) || hh === 0) {
+      return `${parts[1]}:${parts[2]}`;
+    }
+    return `${String(hh).padStart(2, '0')}:${parts[1]}:${parts[2]}`;
   }
-  return formatted;
+
+  return clean;
 }
 
 export const YouTubeCaptionSection: React.FC<Props> = ({

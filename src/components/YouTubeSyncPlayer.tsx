@@ -790,7 +790,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           t1 = player1Ref.current.getCurrentTime() || 0;
         }
       } catch {}
-      setNewCapTimeStr(formatSecondsToTime(Math.floor(t1)));
+      setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t1)));
       if (!newCapAuthor) setNewCapAuthor('Admin');
       setAddCaptionModalOpen(true);
       return;
@@ -826,7 +826,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         t1 = player1Ref.current.getCurrentTime() || 0;
       }
     } catch {}
-    setNewCapTimeStr(formatSecondsToTime(Math.floor(t1)));
+    setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t1)));
     setNewCapAuthor(user.username);
     setAddCaptionModalOpen(true);
   };
@@ -839,7 +839,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         t = p.getCurrentTime() || 0;
       }
     } catch {}
-    setNewCapTimeStr(formatSecondsToTime(Math.floor(t)));
+    setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t)));
   };
 
   const handleSaveCaptionSubmit = async (e: React.FormEvent) => {
@@ -869,7 +869,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           match_id: effectiveMatchId || 'default_match',
           slot: newCapSlot,
           timestamp_seconds: sec,
-          timestamp_str: newCapTimeStr || formatSecondsToTime(sec),
+          timestamp_str: newCapTimeStr || formatSecondsToHHMMSS(sec),
           caption: newCapText.trim(),
           created_by: authorToSave
         })
