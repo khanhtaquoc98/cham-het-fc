@@ -112,7 +112,7 @@ export async function POST(request: Request) {
     // Create session
     const session = await encrypt({ id: loggedInUser.id, username: loggedInUser.username, role: loggedInUser.role });
     const cookieStore = await cookies();
-    cookieStore.set("session", session, { httpOnly: true, secure: true, maxAge: 7 * 24 * 60 * 60 });
+    cookieStore.set("session", session, { httpOnly: true, secure: true, maxAge: 10 * 365 * 24 * 60 * 60 });
 
     return NextResponse.json({ success: true, user: loggedInUser });
   } catch (error: any) {

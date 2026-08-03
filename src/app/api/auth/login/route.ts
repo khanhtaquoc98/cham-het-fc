@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     // Create session
     const session = await encrypt({ id: user.id, username: user.username, role: user.role });
     const cookieStore = await cookies();
-    cookieStore.set("session", session, { httpOnly: true, secure: true, maxAge: 7 * 24 * 60 * 60 });
+    cookieStore.set("session", session, { httpOnly: true, secure: true, maxAge: 10 * 365 * 24 * 60 * 60 });
 
     return NextResponse.json({ success: true, user: { id: user.id, username: user.username, role: user.role, balance: user.balance, player_id: user.player_id } });
   } catch (error: any) {

@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     // Create session
     const session = await encrypt({ id: newUser.id, username: newUser.username, role: newUser.role });
     const cookieStore = await cookies();
-    cookieStore.set("session", session, { httpOnly: true, secure: true, maxAge: 7 * 24 * 60 * 60 });
+    cookieStore.set("session", session, { httpOnly: true, secure: true, maxAge: 10 * 365 * 24 * 60 * 60 });
 
     // Notify admin via Telegram (fire-and-forget)
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
