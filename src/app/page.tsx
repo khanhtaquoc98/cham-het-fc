@@ -1102,7 +1102,7 @@ export default function Home() {
                           background: 'var(--bg-primary, #ffffff)',
                           border: '1px solid var(--border-subtle, #e2e8f0)',
                           borderRadius: '10px',
-                          boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
                           maxHeight: '220px',
                           overflowY: 'auto',
                           zIndex: 100
@@ -1123,8 +1123,11 @@ export default function Home() {
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 gap: '8px',
-                                color: 'var(--text-primary, #1e293b)'
+                                color: 'var(--text-primary, #1e293b)',
+                                transition: 'background 0.15s ease',
                               }}
+                              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary, #f8fafc)')}
+                              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                             >
                               <span style={{ fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>👤 {item.name}</span>
                               {item.subNames && item.subNames.length > 0 && (

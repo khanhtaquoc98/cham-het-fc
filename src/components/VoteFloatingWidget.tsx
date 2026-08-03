@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { TeleVoteConfig, MatchData, Player } from '@/types/match';
 import { Vote, X, MapPin, Calendar, Clock, Users, ExternalLink, Sparkles, Send, Loader2, Plus, Trash2, Smartphone, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -21,6 +21,38 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
   const [thirdPartyVoters, setThirdPartyVoters] = useState<string[]>([]);
   const [inputName, setInputName] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [playerConfigs, setPlayerConfigs] = useState<{ id?: string; name: string; subNames?: string[] }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+
+  const filteredWidgetSuggestions = useMemo(() => {
+    const query = inputName.trim().toLowerCase();
+    if (!query) return [];
+
+    const list: { name: string; subNames?: string[] }[] = [];
+    const seen = new Set<string>();
+
+    (playerConfigs || []).forEach(p => {
+      if (p.name && !seen.has(p.name.toLowerCase())) {
+        seen.add(p.name.toLowerCase());
+        list.push({ name: p.name, subNames: p.subNames });
+      }
+    });
+
+    (matchData?.teams || []).forEach(t => {
+      t.players.forEach(p => {
+        if (p.name && !seen.has(p.name.toLowerCase())) {
+          seen.add(p.name.toLowerCase());
+          list.push({ name: p.name });
+        }
+      });
+    });
+
+    return list.filter(item => {
+      const matchName = item.name.toLowerCase().includes(query);
+      const matchSub = item.subNames?.some(s => s.toLowerCase().includes(query));
+      return matchName || matchSub;
+    }).slice(0, 8);
+  }, [inputName, playerConfigs, matchData]);
 
   useEffect(() => {
     let isMounted = true;
@@ -37,6 +69,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
         const matchRes = await fetch('/api/match', { cache: 'no-store' });
         const matchJson = await matchRes.json();
         if (isMounted && matchJson?.matchData) setMatchData(matchJson.matchData);
+        if (isMounted && matchJson?.players) setPlayerConfigs(matchJson.players || []);
 
         const provider = cfg?.provider || voteConfig?.provider;
         if (provider === 'third_party') {
@@ -317,22 +350,99 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
             </div>
 
             {/* Input form to add name on App */}
-            <form onSubmit={handleAddAppPlayer} style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
-              <input
-                type="text"
-                placeholder="Nhập tên điểm danh..."
-                value={inputName}
-                onChange={(e) => setInputName(e.target.value)}
-                disabled={isSubmitting}
-                style={{
-                  flex: 1,
-                  padding: '9px 12px',
-                  borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
-                  fontSize: '13px',
-                  outline: 'none',
-                }}
-              />
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setShowSuggestions(false);
+                handleAddAppPlayer(e);
+              }}
+              style={{ display: 'flex', gap: '6px', marginBottom: '14px', position: 'relative', zIndex: 50 }}
+            >
+              <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
+                <input
+                  type="text"
+                  placeholder="Nhập tên điểm danh..."
+                  value={inputName}
+                  onChange={(e) => {
+                    setInputName(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                  disabled={isSubmitting}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    outline: 'none',
+                    background: '#ffffff',
+                    color: '#0f172a',
+                  }}
+                />
+                {showSuggestions && filteredWidgetSuggestions.length > 0 && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      marginTop: '4px',
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                      maxHeight: '180px',
+                      overflowY: 'auto',
+                      zIndex: 100,
+                    }}
+                  >
+                    {filteredWidgetSuggestions.map((item, idx) => (
+                      <div
+                        key={idx}
+                        onMouseDown={() => {
+                          setInputName(item.name);
+                          setShowSuggestions(false);
+                        }}
+                        style={{
+                          padding: '9px 12px',
+                          fontSize: '12.5px',
+                          cursor: 'pointer',
+                          borderBottom: idx < filteredWidgetSuggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                          color: '#0f172a',
+                          background: '#ffffff',
+                          transition: 'background 0.15s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
+                      >
+                        <span style={{ fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>👤 {item.name}</span>
+                        {item.subNames && item.subNames.length > 0 && (
+                          <span
+                            title={item.subNames.join(', ')}
+                            style={{
+                              fontSize: '11px',
+                              color: '#64748b',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              textAlign: 'right',
+                              minWidth: 0,
+                            }}
+                          >
+                            ({item.subNames.join(', ')})
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 type="submit"
                 disabled={isSubmitting || !inputName.trim()}
