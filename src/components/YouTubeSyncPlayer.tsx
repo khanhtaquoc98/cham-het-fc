@@ -101,11 +101,25 @@ const PlayerTimeline: React.FC<PlayerTimelineProps> = ({
     };
   }, [isDragging, calculateTimeFromEvent, onSeek]);
 
+  // Filter captions to only show nodes belonging to this specific video / slot
+  const videoCaptions = React.useMemo(() => {
+    if (!captions || captions.length === 0) return [];
+    return captions.filter(c => {
+      if (c.youtube_id && cleanId && extractYouTubeId(c.youtube_id) === cleanId) {
+        return true;
+      }
+      if (c.slot) {
+        return Number(c.slot) === Number(slot);
+      }
+      return Number(slot) === 1;
+    });
+  }, [captions, slot, cleanId]);
+
   // Find 2nike near hover time (within 6 seconds)
   const nearbyCaption = React.useMemo(() => {
-    if (!hoverInfo || !captions || captions.length === 0) return null;
-    return captions.find(c => Math.abs(c.timestamp_seconds - hoverInfo.time) <= 6);
-  }, [hoverInfo, captions]);
+    if (!hoverInfo || !videoCaptions || videoCaptions.length === 0) return null;
+    return videoCaptions.find(c => Math.abs(c.timestamp_seconds - hoverInfo.time) <= 6);
+  }, [hoverInfo, videoCaptions]);
 
   // Constrain preview card left percentage so it doesn't get clipped on left/right edges
   const previewLeftPercent = hoverInfo
@@ -267,7 +281,7 @@ const PlayerTimeline: React.FC<PlayerTimelineProps> = ({
           }} />
 
           {/* 2nike Markers on Timeline */}
-          {duration > 0 && captions.map(c => {
+          {duration > 0 && videoCaptions.map(c => {
             const capPercent = (c.timestamp_seconds / duration) * 100;
             if (capPercent < 0 || capPercent > 100) return null;
             return (
@@ -535,10 +549,25 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const [showSettingsPopover, setShowSettingsPopover] = useState(false);
   const settingsPopoverRef = useRef<HTMLDivElement>(null);
 
-  const currentActiveCaption = React.useMemo(() => {
+  const currentActiveCaption1 = React.useMemo(() => {
     if (!showSubtitles || !captionsList || captionsList.length === 0) return null;
-    return captionsList.find(c => currentVideoTime >= c.timestamp_seconds - 1 && currentVideoTime <= c.timestamp_seconds + 5);
-  }, [showSubtitles, captionsList, currentVideoTime]);
+    return captionsList.find(c => {
+      const isForSlot1 = c.youtube_id && cfg1.youtube_id
+        ? extractYouTubeId(c.youtube_id) === extractYouTubeId(cfg1.youtube_id)
+        : (!c.slot || Number(c.slot) === 1);
+      return isForSlot1 && currentTime1 >= c.timestamp_seconds - 1 && currentTime1 <= c.timestamp_seconds + 5;
+    });
+  }, [showSubtitles, captionsList, currentTime1, cfg1.youtube_id]);
+
+  const currentActiveCaption2 = React.useMemo(() => {
+    if (!showSubtitles || !captionsList || captionsList.length === 0) return null;
+    return captionsList.find(c => {
+      const isForSlot2 = c.youtube_id && cfg2.youtube_id
+        ? extractYouTubeId(c.youtube_id) === extractYouTubeId(cfg2.youtube_id)
+        : Number(c.slot) === 2;
+      return isForSlot2 && currentTime2 >= c.timestamp_seconds - 1 && currentTime2 <= c.timestamp_seconds + 5;
+    });
+  }, [showSubtitles, captionsList, currentTime2, cfg2.youtube_id]);
 
   const handleToggleSubtitles = () => {
     setShowSubtitles(prev => {
@@ -1235,6 +1264,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         body: JSON.stringify({
           match_id: effectiveMatchId || 'default_match',
           slot: newCapSlot,
+          youtube_id: newCapSlot === 2 ? (cfg2.youtube_id || '') : (cfg1.youtube_id || ''),
           timestamp_seconds: sec,
           timestamp_str: newCapTimeStr || formatSecondsToHHMMSS(sec),
           caption: newCapText.trim(),
@@ -1442,7 +1472,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     }}
                   />
                   {/* Subtitle / 2nike Caption Overlay on Video 1 */}
-                  {showSubtitles && currentActiveCaption && (currentActiveCaption.slot === 1 || !currentActiveCaption.slot) && (
+                  {showSubtitles && currentActiveCaption1 && (
                     <div style={{
                       position: 'absolute',
                       bottom: '12px',
@@ -1469,7 +1499,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                       textOverflow: 'ellipsis'
                     }}>
                       <span style={{ color: '#ef4444' }}>📌</span>
-                      <span>{currentActiveCaption.caption}</span>
+                      <span>{currentActiveCaption1.caption}</span>
                     </div>
                   )}
                 </div>
@@ -1561,7 +1591,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     }}
                   />
                   {/* Subtitle / 2nike Caption Overlay on Video 2 */}
-                  {showSubtitles && currentActiveCaption && (currentActiveCaption.slot === 2 || !currentActiveCaption.slot) && (
+                  {showSubtitles && currentActiveCaption2 && (
                     <div style={{
                       position: 'absolute',
                       bottom: '12px',
@@ -1588,7 +1618,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                       textOverflow: 'ellipsis'
                     }}>
                       <span style={{ color: '#ef4444' }}>📌</span>
-                      <span>{currentActiveCaption.caption}</span>
+                      <span>{currentActiveCaption2.caption}</span>
                     </div>
                   )}
                 </div>
