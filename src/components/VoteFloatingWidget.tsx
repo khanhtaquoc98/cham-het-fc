@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { TeleVoteConfig, MatchData, Player } from '@/types/match';
+import { isDuplicateWithTeleVoters } from '@/lib/players';
 import { Vote, X, MapPin, Calendar, Clock, Users, ExternalLink, Sparkles, Send, Loader2, Plus, Trash2, Smartphone, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -210,10 +211,12 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     }
   };
 
-  const handleDeleteAppPlayer = async (indexToDelete: number) => {
+  const handleDeleteAppPlayer = async (playerToDelete: Player) => {
     const currentBench = matchData?.bench || [];
-    const playerToDelete = currentBench[indexToDelete];
-    if (!playerToDelete) return;
+    const indexToDelete = currentBench.findIndex(
+      item => item.name === playerToDelete.name && (item.playerId === playerToDelete.playerId || !playerToDelete.playerId)
+    );
+    if (indexToDelete === -1) return;
 
     setIsSubmitting(true);
     try {
@@ -241,7 +244,13 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     }
   };
 
-  const benchCount = matchData?.bench?.length || 0;
+  const filteredAppBench = useMemo(() => {
+    const bench = matchData?.bench || [];
+    if (!thirdPartyVoters || thirdPartyVoters.length === 0) return bench;
+    return bench.filter(p => !isDuplicateWithTeleVoters(p, thirdPartyVoters, playerConfigs as any));
+  }, [matchData?.bench, thirdPartyVoters, playerConfigs]);
+
+  const benchCount = filteredAppBench.length;
   const pollTitle = voteConfig?.title || 'Điểm danh trận đấu';
   const teleCount = typeof voteConfig?.total_voters === 'number' ? voteConfig.total_voters : thirdPartyVoters.length;
 
@@ -536,9 +545,9 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
                   <div style={{ padding: '8px 0', fontSize: '12px', color: '#64748b', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Loader2 size={14} className="vote-spin-icon" color="#0284c7" /> Đang tải danh sách...
                   </div>
-                ) : (matchData?.bench || []).length > 0 ? (
+                ) : filteredAppBench.length > 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', maxHeight: '140px', overflowY: 'auto', padding: '2px' }}>
-                    {(matchData?.bench || []).map((p, idx) => (
+                    {filteredAppBench.map((p, idx) => (
                       <div
                         key={idx}
                         style={{
@@ -557,7 +566,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
                         <span>⚽ {p.name}</span>
                         <button
                           type="button"
-                          onClick={() => handleDeleteAppPlayer(idx)}
+                          onClick={() => handleDeleteAppPlayer(p)}
                           disabled={isSubmitting}
                           title={`Xoá ${p.name}`}
                           style={{

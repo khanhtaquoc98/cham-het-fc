@@ -212,3 +212,89 @@ export async function findPlayerByName(name: string, telegramHandle?: string): P
   }
   return null;
 }
+
+export function findMatchingPlayer(
+  playerName: string,
+  telegramHandle?: string,
+  playerId?: string,
+  playerConfigs: PlayerConfig[] = []
+): PlayerConfig | null {
+  if (!playerConfigs || playerConfigs.length === 0) return null;
+
+  // Priority 0: Explicit playerId match if linked
+  if (playerId) {
+    const idMatch = playerConfigs.find(c => c.id === playerId);
+    if (idMatch) return idMatch;
+  }
+
+  // Priority 1: Match by telegramHandle if provided
+  if (telegramHandle) {
+    const normalizedHandle = telegramHandle.trim().toLowerCase().replace(/^@/, '');
+    for (const config of playerConfigs) {
+      if (config.telegramHandle) {
+        const configHandle = config.telegramHandle.trim().toLowerCase().replace(/^@/, '');
+        if (configHandle === normalizedHandle) return config;
+      }
+    }
+  }
+
+  // Priority 2: Exact MAIN NAME match
+  const normalized = playerName.trim().toLowerCase();
+  const exactNameMatch = playerConfigs.find(c => c.name.trim().toLowerCase() === normalized);
+  if (exactNameMatch) return exactNameMatch;
+
+  // Priority 3: match by subNames
+  for (const config of playerConfigs) {
+    if (config.subNames) {
+      for (const sub of config.subNames) {
+        if (sub.trim().toLowerCase() === normalized) return config;
+      }
+    }
+  }
+  return null;
+}
+
+export function isDuplicateWithTeleVoters(
+  player: { name: string; telegramHandle?: string; playerId?: string },
+  teleVoters: string[],
+  playerConfigs: PlayerConfig[] = []
+): boolean {
+  if (!player || !teleVoters || teleVoters.length === 0) return false;
+
+  const rawPName = player.name ? player.name.trim() : '';
+  const normPName = rawPName.toLowerCase().replace(/^@/, '');
+  const normPHandle = player.telegramHandle ? player.telegramHandle.trim().toLowerCase().replace(/^@/, '') : '';
+
+  let pConfig: PlayerConfig | null = null;
+  if (playerConfigs && playerConfigs.length > 0 && rawPName) {
+    pConfig = findMatchingPlayer(rawPName, player.telegramHandle, player.playerId, playerConfigs);
+  }
+
+  for (const rawTeleVoter of teleVoters) {
+    if (!rawTeleVoter) continue;
+    // Strip trailing index if any (e.g. "Phúc em 1" -> "Phúc em")
+    const teleVoter = rawTeleVoter.replace(/\s+\d+$/, '').trim();
+    const normTele = teleVoter.toLowerCase().replace(/^@/, '');
+
+    if (!normTele) continue;
+
+    // 1. Direct name match
+    if (normPName && normPName === normTele) return true;
+
+    // 2. Handle match
+    if (normPHandle && normPHandle === normTele) return true;
+
+    // 3. Match via playerConfigs
+    if (playerConfigs && playerConfigs.length > 0) {
+      const teleConfig = findMatchingPlayer(teleVoter, undefined, undefined, playerConfigs);
+      if (teleConfig && pConfig) {
+        if (teleConfig.id === pConfig.id || teleConfig.name.toLowerCase() === pConfig.name.toLowerCase()) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+

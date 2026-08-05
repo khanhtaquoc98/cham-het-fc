@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { Trophy, Handshake, XCircle, RefreshCw, Megaphone, Timer, CupSoda, Coins, Dices, CircleDot, ClipboardList, CalendarDays, Clock, MapPin, Ghost, Users, CreditCard, Armchair, Hand, Bell, CheckCircle, Flame, Plus, Trash2, X } from 'lucide-react';
 import { PlayerCardCarousel, PlayerHoverCard, PlayerCardData } from '@/components/PlayerCard';
+import { isDuplicateWithTeleVoters } from '@/lib/players';
 import VoteFloatingWidget from '@/components/VoteFloatingWidget';
 import TrafficCameraWidget from '@/components/TrafficCameraWidget';
 
@@ -695,6 +696,29 @@ export default function Home() {
     } finally {
       setStatsLoading(false);
     }
+
+    // Fetch Telegram voters
+    fetch(`/api/tele-vote-config?action=voters&provider=third_party&t=${Date.now()}`, { cache: 'no-store' })
+      .then(res => res.json())
+      .then(vData => {
+        const votersList = vData.voters || [];
+        const names: string[] = [];
+        votersList.forEach((v: { user_name: string; option_ids: number[] | string }) => {
+          let optionIds: number[] = [];
+          if (Array.isArray(v.option_ids)) optionIds = v.option_ids;
+          else if (typeof v.option_ids === 'string') {
+            try { optionIds = JSON.parse(v.option_ids); } catch (e) {}
+          }
+          const mainOptIndex = optionIds[0] ?? 1;
+          if (mainOptIndex === 0) return;
+          const count = mainOptIndex > 0 ? mainOptIndex : 1;
+          for (let i = 0; i < count; i++) {
+            names.push(i === 0 ? v.user_name : `${v.user_name} ${i}`);
+          }
+        });
+        setThirdPartyVoters(names);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -704,6 +728,7 @@ export default function Home() {
   const [benchSaving, setBenchSaving] = useState(false);
   const [customBenchName, setCustomBenchName] = useState('');
   const [showBenchSuggestions, setShowBenchSuggestions] = useState(false);
+  const [thirdPartyVoters, setThirdPartyVoters] = useState<string[]>([]);
 
   const filteredBenchSuggestions = useMemo(() => {
     const query = customBenchName.trim().toLowerCase();
@@ -821,6 +846,12 @@ export default function Home() {
     }
     if (!matchData) return;
 
+    // Check duplicate with Telegram voters
+    if (isDuplicateWithTeleVoters({ name: trimmed }, thirdPartyVoters, playerConfigs)) {
+      toast.error(`Cầu thủ "${trimmed}" đã vote trên Telegram!`);
+      return;
+    }
+
     // Check if current date is before match date
     const isBeforeMatchDay = isCurrentDateBeforeMatchDate(matchData.venue?.date);
     if (isBeforeMatchDay) {
@@ -862,14 +893,14 @@ export default function Home() {
     }
   };
 
-  const handleDeletePlayerFromBenchIndex = async (indexToDelete: number) => {
+  const handleDeletePlayerFromBench = async (playerToDelete: { name: string; playerId?: string }) => {
     if (!matchData || !matchData.bench) return;
-    const playerToDelete = matchData.bench[indexToDelete];
-    if (!playerToDelete) return;
 
     setBenchSaving(true);
     try {
-      const newBench = matchData.bench.filter((_, idx) => idx !== indexToDelete);
+      const newBench = matchData.bench.filter(
+        p => !(p.name === playerToDelete.name && (p.playerId === playerToDelete.playerId || !playerToDelete.playerId))
+      );
       const res = await fetch('/api/match/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -995,6 +1026,12 @@ export default function Home() {
   const totalPlayers = matchData?.teams?.reduce((sum, t) => sum + t.players.length, 0) || 0;
   const teamCount = matchData?.teams?.length || 0;
   const isInBench = currentUser && matchData?.bench?.some(p => isCurrentUserPlayer(p));
+
+  const displayBench = useMemo(() => {
+    const bench = matchData?.bench || [];
+    if (!thirdPartyVoters || thirdPartyVoters.length === 0) return bench;
+    return bench.filter(p => !isDuplicateWithTeleVoters(p, thirdPartyVoters, playerConfigs));
+  }, [matchData?.bench, thirdPartyVoters, playerConfigs]);
   const isInTeam = currentUser && matchData?.teams?.some(t => t.players.some(p => isCurrentUserPlayer(p)));
 
   return (
@@ -1065,187 +1102,7 @@ export default function Home() {
             {/* Traffic Camera Section */}
             <TrafficCameraWidget />
 
-            {/* Bench Section */}
-            {matchData.bench !== undefined && !(paymentSummary?.matchPayment?.fieldCost > 0 && paymentSummary?.matchPayment?.losingTeams?.length > 0) && (
-              <div className="bench-section content-appear stagger-1">
-                
-                <h3 className="bench-title">
-                  <Armchair size={18} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
-                  ĐIỂM DANH DỰ BỊ / EXTRA TRÊN APP ({matchData.bench.length})
-                </h3>
 
-                {/* Input box open to EVERYONE to add player name */}
-                <div className="bench-form-container">
-                  <form onSubmit={(e) => { e.preventDefault(); setShowBenchSuggestions(false); handleAddPlayerToBench(customBenchName); }} className="bench-form">
-                    <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
-                      <input
-                        type="text"
-                        placeholder="Nhập tên điểm danh vào App..."
-                        value={customBenchName}
-                        onChange={(e) => {
-                          setCustomBenchName(e.target.value);
-                          setShowBenchSuggestions(true);
-                        }}
-                        onFocus={() => setShowBenchSuggestions(true)}
-                        onBlur={() => setTimeout(() => setShowBenchSuggestions(false), 200)}
-                        disabled={benchSaving}
-                        className="bench-input"
-                        style={{ width: '100%' }}
-                      />
-                      {showBenchSuggestions && filteredBenchSuggestions.length > 0 && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          right: 0,
-                          marginTop: '4px',
-                          background: 'var(--bg-primary, #ffffff)',
-                          border: '1px solid var(--border-subtle, #e2e8f0)',
-                          borderRadius: '10px',
-                          boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
-                          maxHeight: '220px',
-                          overflowY: 'auto',
-                          zIndex: 100
-                        }}>
-                          {filteredBenchSuggestions.map((item: { name: string; subNames?: string[] }, idx: number) => (
-                            <div
-                              key={idx}
-                              onMouseDown={() => {
-                                setCustomBenchName(item.name);
-                                setShowBenchSuggestions(false);
-                              }}
-                              style={{
-                                padding: '9px 14px',
-                                fontSize: '13px',
-                                cursor: 'pointer',
-                                borderBottom: idx < filteredBenchSuggestions.length - 1 ? '1px solid var(--border-subtle, #f1f5f9)' : 'none',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: '8px',
-                                color: 'var(--text-primary, #1e293b)',
-                                transition: 'background 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary, #f8fafc)')}
-                              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                            >
-                              <span style={{ fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>👤 {item.name}</span>
-                              {item.subNames && item.subNames.length > 0 && (
-                                <span
-                                  title={item.subNames.join(', ')}
-                                  style={{
-                                    fontSize: '11px',
-                                    color: 'var(--text-muted, #64748b)',
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    textAlign: 'right',
-                                    minWidth: 0
-                                  }}
-                                >
-                                  ({item.subNames.join(', ')})
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={benchSaving || !customBenchName.trim()}
-                      className="bench-button"
-                    >
-                      <Plus size={16} /> Điểm danh
-                    </button>
-                  </form>
-
-                  {/* Quick self check-in button for logged in user */}
-                  {currentUser && !isInTeam && !isInBench && (
-                    <div className="bench-quick-container">
-                      <button
-                        onClick={handleJoinBench}
-                        disabled={benchSaving}
-                        className="bench-quick-btn"
-                      >
-                        ⚡ Quick Điểm danh cho tôi ({currentUser.name || currentUser.username})
-                      </button>
-                    </div>
-                  )}
-
-                  {currentUser && isInBench && (
-                    <div className="bench-quick-container">
-                      <button
-                        onClick={handleLeaveBench}
-                        disabled={benchSaving}
-                        className="bench-quick-btn bench-quick-btn-leave"
-                      >
-                        Rời khỏi Bench (Tài khoản tôi)
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {matchData.bench.length > 0 ? (
-                  <div className="bench-list">
-                    {matchData.bench.map((player, idx) => {
-                      const matched = findMatchingPlayer(player.name, player.telegramHandle, player.playerId, playerConfigs);
-                      const stat = findPlayerStat(player.name, player.telegramHandle, player.playerId, playerConfigs, playerStats);
-                      const cardData: PlayerCardData = {
-                        playerName: player.name,
-                        playerId: player.playerId || matched?.id || null,
-                        wins: stat?.wins || 0,
-                        draws: stat?.draws || 0,
-                        losses: stat?.losses || 0,
-                        totalMatches: stat?.totalMatches || 0,
-                        winRate: stat?.winRate || 0,
-                        jerseyNumber: matched?.jerseyNumber ?? null,
-                        telegramHandle: player.telegramHandle || matched?.telegramHandle || null,
-                        updatedAt: matched?.updatedAt || null,
-                        avatarVersion: matched?.avatarVersion || null,
-                        avatarUrl: matched?.avatarUrl || null,
-                      };
-                      return (
-                        <PlayerHoverCard key={idx} player={cardData}>
-                          <div className="bench-chip">
-                            <span>{player.name}</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeletePlayerFromBenchIndex(idx);
-                              }}
-                              disabled={benchSaving}
-                              title={`Xoá ${player.name}`}
-                              style={{
-                                background: 'rgba(239, 68, 68, 0.12)',
-                                color: '#ef4444',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '22px',
-                                height: '22px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                padding: 0,
-                                transition: 'all 0.2s ease',
-                                flexShrink: 0,
-                              }}
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        </PlayerHoverCard>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
-                    Chưa có ai điểm danh vào App
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Stats & Rules (Only show when there are teams, teamCount > 0) */}
             {teamCount > 0 && (
