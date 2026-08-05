@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import './admin-responsive.css';
-import { Landmark, Bell, User, BarChart3, Coins, Users, ArrowLeft, Video } from 'lucide-react';
+import { Landmark, Bell, User, BarChart3, Coins, Users, ArrowLeft, Video, LayoutGrid } from 'lucide-react';
 
 const navItems = [
   { href: '/admin-111', label: 'Sân bóng', icon: <Landmark size={16} /> },
+  { href: '/admin-111/tactical', label: 'Bảng chiến thuật', icon: <LayoutGrid size={16} /> },
   { href: '/admin-111/highlight', label: 'Highlight', icon: <Video size={16} /> },
   { href: '/admin-111/notifications', label: 'Thông báo', icon: <Bell size={16} /> },
   { href: '/admin-111/players', label: 'Cầu thủ', icon: <User size={16} /> },

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { Settings, Coins, LogOut, Video } from 'lucide-react';
+import { Settings, Coins, LogOut, Video, LayoutGrid } from 'lucide-react';
 
 interface User {
   username: string;
@@ -130,6 +130,7 @@ export default function Header() {
 
         {/* Right Section: Highlight Button + User Menu / Login */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10 }}>
+
           {/* Highlight Button */}
           <Link
             href="/match-video"
