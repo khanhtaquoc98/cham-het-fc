@@ -3,18 +3,21 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SavedTactic, TacticStep, UserRole } from './types';
 import { TacticalPitch } from './TacticalPitch';
-import { Play, Pause, RotateCcw, SkipBack, SkipForward, X, Sparkles, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, RotateCcw, SkipBack, SkipForward, X, Sparkles, Volume2, VolumeX, Share2 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface TacticPlayerModalProps {
   tactic: SavedTactic;
   role: UserRole;
   onClose: () => void;
+  isSharedView?: boolean;
 }
 
 export const TacticPlayerModal: React.FC<TacticPlayerModalProps> = ({
   tactic,
   role,
   onClose,
+  isSharedView = false,
 }) => {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -25,6 +28,35 @@ export const TacticPlayerModal: React.FC<TacticPlayerModalProps> = ({
 
   const totalSteps = tactic.steps.length;
   const currentStep: TacticStep = tactic.steps[currentStepIdx] || tactic.steps[0];
+
+  const handleCopyShareLink = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/tactical-board?tacticId=${tactic.id}`;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(shareUrl)
+        .then(() => toast.success(`Đã sao chép link chia sẻ "${tactic.name}"! 🔗`))
+        .catch(() => fallbackCopy(shareUrl));
+    } else {
+      fallbackCopy(shareUrl);
+    }
+  };
+
+  const fallbackCopy = (text: string) => {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      toast.success(`Đã sao chép link chia sẻ "${tactic.name}"! 🔗`);
+    } catch {
+      toast.error('Vui lòng copy thủ công: ' + text);
+    }
+    document.body.removeChild(textArea);
+  };
 
   // Advance to next step smoothly
   const handleNextStep = useCallback(() => {
@@ -98,6 +130,24 @@ export const TacticPlayerModal: React.FC<TacticPlayerModalProps> = ({
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
         border: '1px solid rgba(255,255,255,0.2)',
       }}>
+        {/* Shared Banner */}
+        {isSharedView && (
+          <div style={{
+            background: 'linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%)',
+            color: '#ffffff',
+            padding: '7px 16px',
+            fontSize: '12.5px',
+            fontWeight: 800,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            letterSpacing: '0.2px',
+          }}>
+            <Sparkles size={14} style={{ color: '#ffd700' }} /> 🔗 Đang xem chiến thuật được chia sẻ: "{tactic.name}"
+          </div>
+        )}
+
         {/* Header Bar */}
         <div style={{
           display: 'flex',
@@ -127,24 +177,47 @@ export const TacticPlayerModal: React.FC<TacticPlayerModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            style={{
-              background: 'rgba(255,255,255,0.1)',
-              border: 'none',
-              color: '#ffffff',
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'background 0.2s',
-            }}
-          >
-            <X size={18} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={handleCopyShareLink}
+              title="Sao chép đường dẫn chia sẻ chiến thuật"
+              style={{
+                padding: '6px 14px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.1)',
+                color: '#ffffff',
+                fontWeight: 800,
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'background 0.2s',
+              }}
+            >
+              <Share2 size={14} style={{ color: '#60a5fa' }} /> Chia sẻ
+            </button>
+
+            <button
+              onClick={onClose}
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                border: 'none',
+                color: '#ffffff',
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Tactical Pitch Container */}

@@ -128,8 +128,32 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Right Section: Highlight Button + User Menu / Login */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', zIndex: 10 }}>
+        {/* Right Section: Sa Bàn Button + Highlight Button + User Menu / Login */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', zIndex: 10 }}>
+
+          {/* Tactical Board Button */}
+          <Link
+            href="/tactical-board"
+            style={{
+              background: 'rgba(255,255,255,0.18)',
+              backdropFilter: 'blur(8px)',
+              color: '#ffffff',
+              padding: '7px 12px',
+              borderRadius: '20px',
+              fontSize: '12px',
+              fontWeight: 800,
+              textDecoration: 'none',
+              border: '1px solid rgba(255,255,255,0.3)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              transition: 'all 0.2s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <LayoutGrid size={15} /> Chiến Thuật
+          </Link>
 
           {/* Highlight Button */}
           <Link
@@ -137,9 +161,9 @@ export default function Header() {
             style={{
               background: 'linear-gradient(135deg, #ffd700, #ff9800)',
               color: '#1a1a2e',
-              padding: '8px 16px',
+              padding: '7px 12px',
               borderRadius: '20px',
-              fontSize: '13px',
+              fontSize: '12px',
               fontWeight: 800,
               textDecoration: 'none',
               border: '1px solid rgba(255,255,255,0.4)',
@@ -147,10 +171,11 @@ export default function Header() {
               transition: 'all 0.2s ease',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '4px',
+              whiteSpace: 'nowrap',
             }}
           >
-            <Video size={16} /> Highlight
+            <Video size={15} /> Highlight
           </Link>
 
           {statsLoading ? (
@@ -211,7 +236,10 @@ export default function Header() {
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Số bóng</div>
                     <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--accent)' }}>{user.balance.toLocaleString()} Bóng</div>
                   </div>
-                  <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px' }}>
+                  <Link href="/tactical-board" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px' }}>
+                    <LayoutGrid size={16} /> Chiến thuật
+                  </Link>
+                  <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}>
                     <Settings size={16} /> Tài khoản
                   </Link>
                   <Link href="/dashboard/deposit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}>

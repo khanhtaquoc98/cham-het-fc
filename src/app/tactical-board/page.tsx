@@ -8,6 +8,7 @@ import { TacticalPitch } from '@/components/TacticalBoard/TacticalPitch';
 import { LiveChat, ChatMessage } from '@/components/TacticalBoard/LiveChat';
 import { TacticsList } from '@/components/TacticalBoard/TacticsList';
 import { TacticCreator } from '@/components/TacticalBoard/TacticCreator';
+import { TacticPlayerModal } from '@/components/TacticalBoard/TacticPlayerModal';
 import { TacticalBoardState, PitchType, UserRole, TacticalArrow, SavedTactic } from '@/components/TacticalBoard/types';
 import { generateDefaultPlayers, FORMATION_PRESETS } from '@/components/TacticalBoard/formations';
 import { toast } from 'react-hot-toast';
@@ -39,6 +40,31 @@ export default function TacticalBoardPage() {
   // View Mode: 'live' = Option 1 (Live realtime board), 'list' = Option 2 (Tactics List), 'create' = Tactic Creator
   const [viewMode, setViewMode] = useState<'live' | 'list' | 'create'>('live');
   const [editingTactic, setEditingTactic] = useState<SavedTactic | null>(null);
+  const [sharedTactic, setSharedTactic] = useState<SavedTactic | null>(null);
+
+  // Check for shared tactic link query param ?tacticId=...
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const searchParams = new URLSearchParams(window.location.search);
+    const sharedId = searchParams.get('tacticId');
+
+    if (sharedId) {
+      fetch('/api/tactical-board/tactics', { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && Array.isArray(data.tactics)) {
+            const found = data.tactics.find((t: SavedTactic) => t.id === sharedId);
+            if (found) {
+              setSharedTactic(found);
+              toast.success(`Đang mở chiến thuật được chia sẻ: "${found.name}" 🔗`, { duration: 4000 });
+            } else {
+              toast.error('Chiến thuật được chia sẻ không tồn tại hoặc đã bị xóa.');
+            }
+          }
+        })
+        .catch((err) => console.error('Error loading shared tactic:', err));
+    }
+  }, []);
 
   // Board State
   const [boardState, setBoardState] = useState<TacticalBoardState>(INITIAL_BOARD_STATE);
@@ -643,6 +669,16 @@ export default function TacticalBoardPage() {
               }}
             />
           </div>
+        )}
+
+        {/* Modal for Shared Tactic Link View */}
+        {sharedTactic && (
+          <TacticPlayerModal
+            tactic={sharedTactic}
+            role={role || 'player'}
+            isSharedView={true}
+            onClose={() => setSharedTactic(null)}
+          />
         )}
       </div>
     </div>

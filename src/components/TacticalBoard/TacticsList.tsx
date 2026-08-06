@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { SavedTactic, PitchType, UserRole } from './types';
 import { TacticPlayerModal } from './TacticPlayerModal';
-import { Play, Plus, Trash2, Search, Calendar, Layers, Shield, Eye, RefreshCw, Sparkles, LayoutGrid, Edit3 } from 'lucide-react';
+import { Play, Plus, Trash2, Search, Calendar, Layers, Shield, Eye, RefreshCw, Sparkles, LayoutGrid, Edit3, Share2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface TacticsListProps {
@@ -26,6 +26,36 @@ export const TacticsList: React.FC<TacticsListProps> = ({
 
   // Selected tactic for playback modal
   const [selectedTactic, setSelectedTactic] = useState<SavedTactic | null>(null);
+
+  const handleCopyShareLink = (tacticId: string, tacticName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/tactical-board?tacticId=${tacticId}`;
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(shareUrl)
+        .then(() => toast.success(`Đã sao chép link chia sẻ "${tacticName}"! 🔗`))
+        .catch(() => fallbackCopy(shareUrl, tacticName));
+    } else {
+      fallbackCopy(shareUrl, tacticName);
+    }
+  };
+
+  const fallbackCopy = (text: string, tacticName: string) => {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      toast.success(`Đã sao chép link chia sẻ "${tacticName}"! 🔗`);
+    } catch {
+      toast.error('Vui lòng copy thủ công: ' + text);
+    }
+    document.body.removeChild(textArea);
+  };
 
   // Fetch tactics from API
   const fetchTactics = async () => {
@@ -87,37 +117,6 @@ export const TacticsList: React.FC<TacticsListProps> = ({
       boxSizing: 'border-box',
       overflowY: 'auto',
     }}>
-      {/* Top Action Bar (Create Tactic Button for HLV) */}
-      {isHlv && (
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'flex-end',
-          marginBottom: '16px',
-        }}>
-          <button
-            onClick={onCreateNewTactic}
-            style={{
-              padding: '10px 20px',
-              borderRadius: '12px',
-              border: 'none',
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: '#ffffff',
-              fontWeight: 900,
-              fontSize: '13.5px',
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 16px rgba(239, 68, 68, 0.35)',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-            }}
-          >
-            <Plus size={18} /> Tạo chiến thuật mới
-          </button>
-        </div>
-      )}
-
       {/* Filter & Search Toolbar */}
       <div style={{
         background: '#ffffff',
@@ -131,72 +130,100 @@ export const TacticsList: React.FC<TacticsListProps> = ({
         flexWrap: 'wrap',
         gap: '12px',
       }}>
-        {/* Search Input */}
-        <div style={{
-          position: 'relative',
-          flex: '1 1 260px',
-          maxWidth: '400px',
-        }}>
-          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm kiếm chiến thuật theo tên..."
-            style={{
-              width: '100%',
-              padding: '9px 12px 9px 36px',
-              borderRadius: '10px',
-              border: '1px solid #cbd5e1',
-              fontSize: '13px',
-              fontWeight: 600,
-              outline: 'none',
-              boxSizing: 'border-box',
-              background: '#f8fafc',
-            }}
-          />
-        </div>
-
-        {/* Filter Pitch Size */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>LỌC SÂN:</span>
-          {(['all', 5, 7, 11] as const).map((p) => (
-            <button
-              key={String(p)}
-              onClick={() => setFilterPitch(p)}
+        {/* Left Side: Search & Filter Pitch Size */}
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px', flex: '1 1 auto' }}>
+          {/* Search Input */}
+          <div style={{
+            position: 'relative',
+            width: '260px',
+            maxWidth: '100%',
+          }}>
+            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm kiếm chiến thuật theo tên..."
               style={{
-                padding: '6px 12px',
+                width: '100%',
+                padding: '9px 12px 9px 36px',
+                borderRadius: '10px',
+                border: '1px solid #cbd5e1',
+                fontSize: '13px',
+                fontWeight: 600,
+                outline: 'none',
+                boxSizing: 'border-box',
+                background: '#f8fafc',
+              }}
+            />
+          </div>
+
+          {/* Filter Pitch Size */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 800, color: '#475569' }}>LỌC SÂN:</span>
+            {(['all', 5, 7, 11] as const).map((p) => (
+              <button
+                key={String(p)}
+                onClick={() => setFilterPitch(p)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: filterPitch === p ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                  background: filterPitch === p ? '#ef4444' : '#ffffff',
+                  color: filterPitch === p ? '#ffffff' : '#334155',
+                  fontWeight: 800,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {p === 'all' ? 'Tất cả' : `Sân ${p}`}
+              </button>
+            ))}
+
+            <button
+              onClick={fetchTactics}
+              title="Tải lại danh sách"
+              style={{
+                padding: '6px 10px',
                 borderRadius: '8px',
-                border: filterPitch === p ? '2px solid #ef4444' : '1px solid #cbd5e1',
-                background: filterPitch === p ? '#ef4444' : '#ffffff',
-                color: filterPitch === p ? '#ffffff' : '#334155',
-                fontWeight: 800,
-                fontSize: '12px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: '#334155',
                 cursor: 'pointer',
-                transition: 'all 0.2s',
+                display: 'inline-flex',
+                alignItems: 'center',
               }}
             >
-              {p === 'all' ? 'Tất cả' : `Sân ${p}`}
+              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
             </button>
-          ))}
+          </div>
+        </div>
 
+        {/* Right Side: Create Tactic Button (for HLV) */}
+        {isHlv && (
           <button
-            onClick={fetchTactics}
-            title="Tải lại danh sách"
+            onClick={onCreateNewTactic}
             style={{
-              padding: '6px 10px',
-              borderRadius: '8px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: '#334155',
+              padding: '9px 18px',
+              borderRadius: '10px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              color: '#ffffff',
+              fontWeight: 900,
+              fontSize: '13px',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              marginLeft: 'auto',
             }}
           >
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <Plus size={16} /> Tạo chiến thuật mới
           </button>
-        </div>
+        )}
       </div>
 
       {/* Grid of Tactics Cards */}
@@ -357,29 +384,53 @@ export const TacticsList: React.FC<TacticsListProps> = ({
                   paddingTop: '12px',
                   borderTop: '1px solid #f1f5f9',
                   marginTop: '12px',
+                  gap: '8px',
                 }}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedTactic(tactic);
-                    }}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                      color: '#ffffff',
-                      fontWeight: 800,
-                      fontSize: '12px',
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      boxShadow: '0 2px 6px rgba(15, 23, 42, 0.2)',
-                    }}
-                  >
-                    <Play size={14} style={{ color: '#ef4444' }} /> Play Xem Replay
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedTactic(tactic);
+                      }}
+                      style={{
+                        padding: '7px 12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                        color: '#ffffff',
+                        fontWeight: 800,
+                        fontSize: '11.5px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        boxShadow: '0 2px 6px rgba(15, 23, 42, 0.2)',
+                      }}
+                    >
+                      <Play size={13} style={{ color: '#ef4444' }} /> Play
+                    </button>
+
+                    <button
+                      onClick={(e) => handleCopyShareLink(tactic.id, tactic.name, e)}
+                      title="Chia sẻ đường dẫn chiến thuật này"
+                      style={{
+                        padding: '7px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        background: '#ffffff',
+                        color: '#334155',
+                        fontWeight: 800,
+                        fontSize: '11.5px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <Share2 size={13} style={{ color: '#2563eb' }} /> Chia sẻ
+                    </button>
+                  </div>
 
                   {/* Action Buttons (HLV: Edit & Delete) */}
                   {isHlv && (
