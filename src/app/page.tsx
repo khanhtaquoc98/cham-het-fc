@@ -11,6 +11,7 @@ import { PlayerCardCarousel, PlayerHoverCard, PlayerCardData } from '@/component
 import { isDuplicateWithTeleVoters } from '@/lib/players';
 import VoteFloatingWidget from '@/components/VoteFloatingWidget';
 import TrafficCameraWidget from '@/components/TrafficCameraWidget';
+import FloatingSticker from '@/components/FloatingSticker';
 
 interface PlayerStatsSummary {
   playerName: string;
@@ -1228,6 +1229,7 @@ export default function Home() {
 
 
       <VoteFloatingWidget initialMatchData={matchData} />
+      <FloatingSticker imageSrc="/sticker.webp" />
 
       <footer className="app-footer">
         {siteTheme === 'worldcup2026' ? 'Powered by Chấm Hết FC ⚽ World Cup 2026' : 'Powered by Chấm Hết FC'}
