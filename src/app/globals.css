@@ -2930,3 +2930,25 @@ div[role="status"] {
   border-color: rgba(255, 255, 255, 0.12) !important;
   box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.3) !important;
 }
+
+/* ==========================================================================
+   HEADER RESPONSIVE NAVIGATION
+   ========================================================================== */
+
+.header-desktop-nav {
+  display: flex !important;
+}
+
+.header-mobile-toggle {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .header-desktop-nav {
+    display: none !important;
+  }
+
+  .header-mobile-toggle {
+    display: flex !important;
+  }
+}
