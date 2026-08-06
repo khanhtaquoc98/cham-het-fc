@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PitchType, UserRole, TacticalBoardState, TacticalPlayer, TacticalBall, TacticalArrow, SavedTactic, TacticStep } from './types';
 import { generateDefaultPlayers, FORMATION_PRESETS } from './formations';
 import { TacticalPitch } from './TacticalPitch';
@@ -101,7 +101,7 @@ export const TacticCreator: React.FC<TacticCreatorProps> = ({
   const currentStep = steps[currentStepIdx] || steps[0];
 
   // Helper to update active step properties
-  const updateCurrentStep = (updater: (prevStep: TacticStep) => TacticStep) => {
+  const updateCurrentStep = useCallback((updater: (prevStep: TacticStep) => TacticStep) => {
     setSteps((prevSteps) => {
       const copy = [...prevSteps];
       if (copy[currentStepIdx]) {
@@ -109,7 +109,7 @@ export const TacticCreator: React.FC<TacticCreatorProps> = ({
       }
       return copy;
     });
-  };
+  }, [currentStepIdx]);
 
   // Player & Ball Position Updaters for active step
   const handleUpdatePlayerPos = (id: string, x: number, y: number) => {
@@ -133,12 +133,41 @@ export const TacticCreator: React.FC<TacticCreatorProps> = ({
     }));
   };
 
-  const handleUndoLastArrow = () => {
+  const handleUndoLastArrow = useCallback(() => {
     updateCurrentStep((step) => ({
       ...step,
       arrows: step.arrows.slice(0, -1),
     }));
-  };
+  }, [updateCurrentStep]);
+
+  // Keyboard shortcuts for HLV (Ctrl+Z / Cmd+Z for Undo, Backspace / Delete for deleting last arrow)
+  useEffect(() => {
+    if (role !== 'hlv') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        handleUndoLastArrow();
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        handleUndoLastArrow();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [role, handleUndoLastArrow]);
 
   const handleClearAllArrows = () => {
     updateCurrentStep((step) => ({
