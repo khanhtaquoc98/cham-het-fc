@@ -87,36 +87,24 @@ export const TacticsList: React.FC<TacticsListProps> = ({
       boxSizing: 'border-box',
       overflowY: 'auto',
     }}>
-      {/* Top Header & Search Bar */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px',
-        marginBottom: '20px',
-      }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <LayoutGrid size={24} style={{ color: '#ef4444' }} /> DANH SÁCH CHIẾN THUẬT
-          </h1>
-          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
-            Quản lý và xem lại hình ảnh chuyển động mô phỏng chiến thuật của đội bóng
-          </p>
-        </div>
-
-        {/* Create Tactic Button (for HLV) */}
-        {isHlv && (
+      {/* Top Action Bar (Create Tactic Button for HLV) */}
+      {isHlv && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          marginBottom: '16px',
+        }}>
           <button
             onClick={onCreateNewTactic}
             style={{
-              padding: '12px 22px',
+              padding: '10px 20px',
               borderRadius: '12px',
               border: 'none',
               background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
               color: '#ffffff',
               fontWeight: 900,
-              fontSize: '14px',
+              fontSize: '13.5px',
               cursor: 'pointer',
               display: 'inline-flex',
               alignItems: 'center',
@@ -127,8 +115,8 @@ export const TacticsList: React.FC<TacticsListProps> = ({
           >
             <Plus size={18} /> Tạo chiến thuật mới
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Filter & Search Toolbar */}
       <div style={{
