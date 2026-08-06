@@ -333,9 +333,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
 
             {/* Drawing & Actions Tools */}
             <div style={{ background: '#f8fafc', padding: '10px 12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '8px' }}>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#475569', marginBottom: '4px' }}>
                 ✏️ VẼ MŨI TÊN & RESET
               </label>
+              <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, marginBottom: '8px', lineHeight: '1.3' }}>
+                💡 Hover vào cầu thủ hoặc bóng trên sân ➔ Nhấn icon mũi tên & kéo ra để vẽ nhanh!
+              </div>
 
               {/* Row 1: Draw Toggle & Color Circle Pickers */}
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>

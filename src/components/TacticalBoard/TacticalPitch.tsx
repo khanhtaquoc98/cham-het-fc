@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useEffect } from 'react';
 import { TacticalPlayer, TacticalArrow, TacticalBall, UserRole } from './types';
-import { Edit2, X, Check } from 'lucide-react';
+import { Edit2, X, Check, TrendingUp } from 'lucide-react';
 
 interface TacticalPitchProps {
   role: UserRole;
@@ -50,6 +50,10 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
   const [drawingStart, setDrawingStart] = useState<{ x: number; y: number } | null>(null);
   const [currentArrowEnd, setCurrentArrowEnd] = useState<{ x: number; y: number } | null>(null);
 
+  // Hover & Arrow handle state
+  const [hoveredEntityId, setHoveredEntityId] = useState<string | null>(null);
+  const [drawingFromEntityId, setDrawingFromEntityId] = useState<string | null>(null);
+
   // Player details modal state (for HLV)
   const [editingPlayer, setEditingPlayer] = useState<TacticalPlayer | null>(null);
   const [editNum, setEditNum] = useState<string>('');
@@ -85,7 +89,24 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
     setDraggingId(id);
   };
 
-  // Start arrow drawing or deselect arrow
+  // Start arrow drawing directly from player or ball on hover button click
+  const handleStartPlayerArrowDraw = (
+    entityX: number,
+    entityY: number,
+    entityId: string,
+    e: React.MouseEvent | React.TouchEvent
+  ) => {
+    if (!isHlv) return;
+    e.stopPropagation();
+    setSelectedArrowId(null);
+    setDrawingStart({ x: entityX, y: entityY });
+    setDrawingFromEntityId(entityId);
+
+    const coords = getRelativeCoords(e);
+    setCurrentArrowEnd(coords);
+  };
+
+  // Start pitch-wide arrow drawing or deselect arrow
   const handlePitchMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isHlv) return;
     if (isDrawingMode) {
@@ -136,6 +157,7 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
         }
         setDrawingStart(null);
         setCurrentArrowEnd(null);
+        setDrawingFromEntityId(null);
       }
     };
 
@@ -427,10 +449,13 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
           const textColor = (circleBg.toLowerCase() === '#ffffff' || circleBg.toLowerCase() === '#fff') ? '#000000' : '#ffffff';
 
           const isDraggingThis = draggingId === p.id;
+          const isHovered = hoveredEntityId === p.id || drawingFromEntityId === p.id;
 
           return (
             <div
               key={p.id}
+              onMouseEnter={() => setHoveredEntityId(p.id)}
+              onMouseLeave={() => setHoveredEntityId(null)}
               onMouseDown={(e) => handleStartDrag(p.id, e)}
               onTouchStart={(e) => handleStartDrag(p.id, e)}
               style={{
@@ -438,7 +463,7 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
                 left: `${p.x}%`,
                 top: `${p.y}%`,
                 transform: 'translate(-50%, -50%)',
-                zIndex: isDraggingThis ? 40 : 20,
+                zIndex: isDraggingThis ? 40 : isHovered ? 35 : 20,
                 cursor: isHlv && !isDrawingMode ? 'grab' : 'default',
                 transition: isDraggingThis ? 'none' : isAnimating ? 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.15s ease-out',
                 display: 'flex',
@@ -457,6 +482,8 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
                   border: `2px solid ${p.team === 'A' ? '#ffffff' : '#111827'}`,
                   boxShadow: isDraggingThis
                     ? '0 10px 24px rgba(0,0,0,0.5), 0 0 0 4px rgba(255,255,255,0.4)'
+                    : isHovered
+                    ? '0 6px 16px rgba(0,0,0,0.4), 0 0 0 2px #ffd700'
                     : '0 4px 10px rgba(0,0,0,0.3)',
                   display: 'flex',
                   alignItems: 'center',
@@ -466,7 +493,8 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
                   letterSpacing: '-0.3px',
                   userSelect: 'none',
                   position: 'relative',
-                  transform: isDraggingThis ? 'scale(1.2)' : 'scale(1)',
+                  transform: isDraggingThis ? 'scale(1.2)' : isHovered ? 'scale(1.08)' : 'scale(1)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                 }}
               >
                 {p.number}
@@ -485,6 +513,34 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
                   }}>
                     GK
                   </span>
+                )}
+
+                {/* Hover Arrow Trigger Handle */}
+                {isHlv && isHovered && (
+                  <div
+                    onMouseDown={(e) => handleStartPlayerArrowDraw(p.x, p.y, p.id, e)}
+                    onTouchStart={(e) => handleStartPlayerArrowDraw(p.x, p.y, p.id, e)}
+                    title="Nhấn và kéo ra để vẽ mũi tên di chuyển"
+                    style={{
+                      position: 'absolute',
+                      top: '-10px',
+                      right: p.isGk ? '12px' : '-10px',
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '50%',
+                      background: arrowColor || '#ef4444',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.6), 0 0 0 2px #ffffff',
+                      cursor: 'crosshair',
+                      zIndex: 50,
+                      animation: 'arrowHandlePop 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    }}
+                  >
+                    <TrendingUp size={13} />
+                  </div>
                 )}
               </div>
 
@@ -517,50 +573,89 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
         })}
 
         {/* Soccer Ball Layer (WC 2026 Ball) */}
-        <div
-          onMouseDown={(e) => handleStartDrag('ball', e)}
-          onTouchStart={(e) => handleStartDrag('ball', e)}
-          style={{
-            position: 'absolute',
-            left: `${ball.x}%`,
-            top: `${ball.y}%`,
-            transform: 'translate(-50%, -50%)',
-            zIndex: draggingId === 'ball' ? 50 : 30,
-            cursor: isHlv && !isDrawingMode ? 'grab' : 'default',
-            transition: draggingId === 'ball' ? 'none' : isAnimating ? 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.15s ease-out',
-          }}
-        >
-          <div style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '50%',
-            boxShadow: draggingId === 'ball'
-              ? '0 12px 28px rgba(0,0,0,0.8), 0 0 20px #ffd700'
-              : '0 6px 16px rgba(0,0,0,0.65), 0 0 12px rgba(255,255,255,0.95)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            userSelect: 'none',
-            transform: draggingId === 'ball' ? 'scale(1.25)' : 'scale(1)',
-            overflow: 'hidden',
-            background: 'transparent',
-            border: 'none',
-            transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-          }}>
-            <img
-              src="/wc2026-ball.png"
-              alt="World Cup 2026 Ball"
+        {(() => {
+          const isHoveredBall = hoveredEntityId === 'ball' || drawingFromEntityId === 'ball';
+          return (
+            <div
+              onMouseEnter={() => setHoveredEntityId('ball')}
+              onMouseLeave={() => setHoveredEntityId(null)}
+              onMouseDown={(e) => handleStartDrag('ball', e)}
+              onTouchStart={(e) => handleStartDrag('ball', e)}
               style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-                pointerEvents: 'none',
-                transform: 'scale(1.06)',
+                position: 'absolute',
+                left: `${ball.x}%`,
+                top: `${ball.y}%`,
+                transform: 'translate(-50%, -50%)',
+                zIndex: draggingId === 'ball' ? 50 : isHoveredBall ? 45 : 30,
+                cursor: isHlv && !isDrawingMode ? 'grab' : 'default',
+                transition: draggingId === 'ball' ? 'none' : isAnimating ? 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.15s ease-out',
               }}
-            />
-          </div>
-        </div>
+            >
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                boxShadow: draggingId === 'ball'
+                  ? '0 12px 28px rgba(0,0,0,0.8), 0 0 20px #ffd700'
+                  : isHoveredBall
+                  ? '0 6px 16px rgba(0,0,0,0.65), 0 0 0 2px #ffd700'
+                  : '0 6px 16px rgba(0,0,0,0.65), 0 0 12px rgba(255,255,255,0.95)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                userSelect: 'none',
+                transform: draggingId === 'ball' ? 'scale(1.25)' : isHoveredBall ? 'scale(1.08)' : 'scale(1)',
+                overflow: 'visible',
+                background: 'transparent',
+                border: 'none',
+                position: 'relative',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+              }}>
+                <img
+                  src="/wc2026-ball.png"
+                  alt="World Cup 2026 Ball"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    display: 'block',
+                    pointerEvents: 'none',
+                    transform: 'scale(1.06)',
+                  }}
+                />
+
+                {/* Hover Arrow Trigger Handle for Ball */}
+                {isHlv && isHoveredBall && (
+                  <div
+                    onMouseDown={(e) => handleStartPlayerArrowDraw(ball.x, ball.y, 'ball', e)}
+                    onTouchStart={(e) => handleStartPlayerArrowDraw(ball.x, ball.y, 'ball', e)}
+                    title="Nhấn và kéo ra để vẽ mũi tên chuyền bóng"
+                    style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      right: '-8px',
+                      width: '22px',
+                      height: '22px',
+                      borderRadius: '50%',
+                      background: arrowColor || '#ef4444',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.6), 0 0 0 2px #ffffff',
+                      cursor: 'crosshair',
+                      zIndex: 50,
+                      animation: 'arrowHandlePop 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    }}
+                  >
+                    <TrendingUp size={13} />
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Edit Player Name / Number Modal */}
@@ -640,6 +735,10 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
         @keyframes pitchLivePulse {
           0%, 100% { opacity: 1; transform: scale(1); }
           50% { opacity: 0.45; transform: scale(0.88); }
+        }
+        @keyframes arrowHandlePop {
+          0% { transform: scale(0); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
     </div>
