@@ -6,11 +6,13 @@ import { LoginModal } from '@/components/TacticalBoard/LoginModal';
 import { ControlPanel } from '@/components/TacticalBoard/ControlPanel';
 import { TacticalPitch } from '@/components/TacticalBoard/TacticalPitch';
 import { LiveChat, ChatMessage } from '@/components/TacticalBoard/LiveChat';
-import { TacticalBoardState, PitchType, UserRole, TacticalArrow } from '@/components/TacticalBoard/types';
+import { TacticsList } from '@/components/TacticalBoard/TacticsList';
+import { TacticCreator } from '@/components/TacticalBoard/TacticCreator';
+import { TacticalBoardState, PitchType, UserRole, TacticalArrow, SavedTactic } from '@/components/TacticalBoard/types';
 import { generateDefaultPlayers, FORMATION_PRESETS } from '@/components/TacticalBoard/formations';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
-import { ArrowLeft, RefreshCw, LayoutGrid, ShieldAlert, LogOut } from 'lucide-react';
+import { ArrowLeft, RefreshCw, LayoutGrid, ShieldAlert, LogOut, Radio, List, Plus, Shield, Eye } from 'lucide-react';
 
 const LOCAL_ROLE_KEY = 'chamhet_tactical_role';
 
@@ -33,6 +35,10 @@ export default function TacticalBoardPage() {
   const [role, setRole] = useState<UserRole | null>(null);
   const [isDisabledByAdmin, setIsDisabledByAdmin] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
+
+  // View Mode: 'live' = Option 1 (Live realtime board), 'list' = Option 2 (Tactics List), 'create' = Tactic Creator
+  const [viewMode, setViewMode] = useState<'live' | 'list' | 'create'>('live');
+  const [editingTactic, setEditingTactic] = useState<SavedTactic | null>(null);
 
   // Board State
   const [boardState, setBoardState] = useState<TacticalBoardState>(INITIAL_BOARD_STATE);
@@ -275,7 +281,6 @@ export default function TacticalBoardPage() {
     if (role !== 'hlv') return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept shortcuts when user is typing inside text inputs, textareas, or dropdowns
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -287,7 +292,6 @@ export default function TacticalBoardPage() {
         return;
       }
 
-      // Ctrl + Z (Windows) or Cmd + Z (Mac) for Undo
       const isUndo = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey;
       if (isUndo) {
         e.preventDefault();
@@ -295,7 +299,6 @@ export default function TacticalBoardPage() {
         return;
       }
 
-      // Backspace (Win/Mac) or Delete (Win/Mac) to delete last arrow
       if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
         handleUndoLastArrow();
@@ -369,79 +372,278 @@ export default function TacticalBoardPage() {
       padding: '6px 12px 10px 12px',
       boxSizing: 'border-box',
       display: 'flex',
-      gap: '12px',
-      alignItems: 'stretch',
+      flexDirection: 'column',
+      gap: '8px',
     }}>
-      {/* LEFT COLUMN: Control Panel (Only for HLV) */}
-      {role === 'hlv' && (
-        <div style={{ flex: '0 0 310px', width: '310px', height: '100%', overflowY: 'auto' }}>
-          <ControlPanel
-            role={role}
-            pitchType={boardState.pitchType}
-            formationA={boardState.formationA}
-            formationB={boardState.formationB}
-            teamAColor={boardState.teamAColor}
-            teamBColor={boardState.teamBColor}
-            gkColor={boardState.gkColor}
-            arrowColor={boardState.arrowColor}
-            isDrawingMode={isDrawingMode}
-            arrowCount={boardState.arrows.length}
-            onChangePitchType={handlePitchTypeChange}
-            onChangeFormationA={handleFormationAChange}
-            onChangeFormationB={handleFormationBChange}
-            onChangeTeamAColor={(c) => updateBoardState((prev) => ({ ...prev, teamAColor: c }))}
-            onChangeTeamBColor={(c) => updateBoardState((prev) => ({ ...prev, teamBColor: c }))}
-            onChangeGkColor={(c) => updateBoardState((prev) => ({ ...prev, gkColor: c }))}
-            onChangeArrowColor={(c) => updateBoardState((prev) => ({ ...prev, arrowColor: c }))}
-            onToggleDrawingMode={() => setIsDrawingMode(!isDrawingMode)}
-            onUndoLastArrow={handleUndoLastArrow}
-            onClearAllArrows={handleClearAllArrows}
-            onResetFormation={handleResetFormation}
-            onLogout={handleLogout}
-          />
-        </div>
-      )}
-
-      {/* MIDDLE COLUMN: Tactical Pitch Canvas */}
+      {/* Top Header Mode Switcher Bar */}
       <div style={{
-        flex: 1,
-        minWidth: 0,
-        height: '100%',
+        background: '#ffffff',
+        borderRadius: '14px',
+        padding: '6px 14px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+        border: '1px solid #e2e8f0',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-        position: 'relative',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '8px',
+        flexShrink: 0,
       }}>
+        {/* Left: Home link & Role Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Link href="/" style={{
+            color: '#475569',
+            textDecoration: 'none',
+            background: '#f1f5f9',
+            padding: '5px 10px',
+            borderRadius: '8px',
+            fontSize: '12px',
+            fontWeight: 700,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}>
+            <ArrowLeft size={14} /> Trang chủ
+          </Link>
 
+          {role === 'hlv' ? (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
+              color: 'white',
+              padding: '5px 10px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 800,
+            }}>
+              <Shield size={14} style={{ color: '#ef4444' }} /> HLV
+            </div>
+          ) : (
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#f8fafc',
+              color: '#334155',
+              padding: '5px 10px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 700,
+              border: '1px solid #e2e8f0',
+            }}>
+              <Eye size={14} style={{ color: '#3b82f6' }} /> Cầu Thủ
+            </div>
+          )}
+        </div>
 
-        <TacticalPitch
-          role={role}
-          players={boardState.players}
-          ball={boardState.ball}
-          arrows={boardState.arrows}
-          teamAColor={boardState.teamAColor}
-          teamBColor={boardState.teamBColor}
-          gkColor={boardState.gkColor}
-          arrowColor={boardState.arrowColor}
-          isDrawingMode={isDrawingMode}
-          onUpdatePlayerPos={handleUpdatePlayerPos}
-          onUpdateBallPos={handleUpdateBallPos}
-          onAddArrow={handleAddArrow}
-          onDeleteSingleArrow={handleDeleteSingleArrow}
-          onUpdatePlayerDetails={handleUpdatePlayerDetails}
-        />
+        {/* Center: Mode Tabs Toggle (Option 1: Live, Option 2: Danh sách chiến thuật) */}
+        <div style={{
+          display: 'flex',
+          background: '#f1f5f9',
+          borderRadius: '10px',
+          padding: '3px',
+          gap: '4px',
+        }}>
+          <button
+            onClick={() => setViewMode('live')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: viewMode === 'live' ? '#ef4444' : 'transparent',
+              color: viewMode === 'live' ? '#ffffff' : '#475569',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: viewMode === 'live' ? '0 2px 6px rgba(239,68,68,0.3)' : 'none',
+              transition: 'all 0.2s',
+            }}
+          >
+            <Radio size={14} className={viewMode === 'live' ? 'animate-pulse' : ''} /> 1. Live Chiến Thuật
+          </button>
+
+          <button
+            onClick={() => {
+              setEditingTactic(null);
+              setViewMode('list');
+            }}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: viewMode === 'list' || viewMode === 'create' ? '#ef4444' : 'transparent',
+              color: viewMode === 'list' || viewMode === 'create' ? '#ffffff' : '#475569',
+              fontWeight: 800,
+              fontSize: '12.5px',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: viewMode === 'list' || viewMode === 'create' ? '0 2px 6px rgba(239,68,68,0.3)' : 'none',
+              transition: 'all 0.2s',
+            }}
+          >
+            <List size={14} /> 2. Danh Sách Chiến Thuật
+          </button>
+        </div>
+
+        {/* Right: Logout Button */}
+        <button
+          onClick={handleLogout}
+          title="Đăng xuất"
+          style={{
+            background: '#fff1f2',
+            border: '1px solid #fecdd3',
+            color: '#be123c',
+            padding: '5px 10px',
+            borderRadius: '8px',
+            fontSize: '12px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}
+        >
+          <LogOut size={14} /> Đăng xuất
+        </button>
       </div>
 
-      {/* RIGHT COLUMN: Live Chat Box */}
-      <div style={{ flex: '0 0 360px', width: '360px', height: '100%' }}>
-        <LiveChat
-          role={role || 'player'}
-          messages={chatMessages}
-          onSendMessage={handleSendMessage}
-          onLogout={handleLogout}
-        />
+      {/* Main View Area */}
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        gap: '12px',
+        alignItems: 'stretch',
+        overflow: 'hidden',
+      }}>
+        {/* OPTION 1: LIVE TACTICS MODE */}
+        {viewMode === 'live' && (
+          <>
+            {/* LEFT COLUMN: Control Panel (HLV) */}
+            {role === 'hlv' && (
+              <div style={{ flex: '0 0 310px', width: '310px', height: '100%', overflowY: 'auto' }}>
+                <ControlPanel
+                  role={role}
+                  pitchType={boardState.pitchType}
+                  formationA={boardState.formationA}
+                  formationB={boardState.formationB}
+                  teamAColor={boardState.teamAColor}
+                  teamBColor={boardState.teamBColor}
+                  gkColor={boardState.gkColor}
+                  arrowColor={boardState.arrowColor}
+                  isDrawingMode={isDrawingMode}
+                  arrowCount={boardState.arrows.length}
+                  onChangePitchType={handlePitchTypeChange}
+                  onChangeFormationA={handleFormationAChange}
+                  onChangeFormationB={handleFormationBChange}
+                  onChangeTeamAColor={(c) => updateBoardState((prev) => ({ ...prev, teamAColor: c }))}
+                  onChangeTeamBColor={(c) => updateBoardState((prev) => ({ ...prev, teamBColor: c }))}
+                  onChangeGkColor={(c) => updateBoardState((prev) => ({ ...prev, gkColor: c }))}
+                  onChangeArrowColor={(c) => updateBoardState((prev) => ({ ...prev, arrowColor: c }))}
+                  onToggleDrawingMode={() => setIsDrawingMode(!isDrawingMode)}
+                  onUndoLastArrow={handleUndoLastArrow}
+                  onClearAllArrows={handleClearAllArrows}
+                  onResetFormation={handleResetFormation}
+                  onLogout={handleLogout}
+                />
+              </div>
+            )}
+
+            {/* MIDDLE COLUMN: Tactical Pitch Canvas */}
+            <div style={{
+              flex: 1,
+              minWidth: 0,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              overflow: 'hidden',
+              position: 'relative',
+            }}>
+              <TacticalPitch
+                role={role}
+                players={boardState.players}
+                ball={boardState.ball}
+                arrows={boardState.arrows}
+                teamAColor={boardState.teamAColor}
+                teamBColor={boardState.teamBColor}
+                gkColor={boardState.gkColor}
+                arrowColor={boardState.arrowColor}
+                isDrawingMode={isDrawingMode}
+                onUpdatePlayerPos={handleUpdatePlayerPos}
+                onUpdateBallPos={handleUpdateBallPos}
+                onAddArrow={handleAddArrow}
+                onDeleteSingleArrow={handleDeleteSingleArrow}
+                onUpdatePlayerDetails={handleUpdatePlayerDetails}
+              />
+            </div>
+
+            {/* RIGHT COLUMN: Live Chat Box */}
+            <div style={{ flex: '0 0 340px', width: '340px', height: '100%' }}>
+              <LiveChat
+                role={role || 'player'}
+                messages={chatMessages}
+                onSendMessage={handleSendMessage}
+                onLogout={handleLogout}
+              />
+            </div>
+          </>
+        )}
+
+        {/* OPTION 2: TACTICS LIST MODE */}
+        {viewMode === 'list' && (
+          <>
+            <div style={{ flex: 1, height: '100%', overflow: 'hidden', borderRadius: '16px', border: '1px solid #e2e8f0', background: '#ffffff' }}>
+              <TacticsList
+                role={role}
+                onCreateNewTactic={() => {
+                  setEditingTactic(null);
+                  setViewMode('create');
+                }}
+                onEditTactic={(tactic) => {
+                  setEditingTactic(tactic);
+                  setViewMode('create');
+                }}
+              />
+            </div>
+
+            {/* RIGHT COLUMN: Live Chat Box preserved */}
+            <div style={{ flex: '0 0 340px', width: '340px', height: '100%' }}>
+              <LiveChat
+                role={role || 'player'}
+                messages={chatMessages}
+                onSendMessage={handleSendMessage}
+                onLogout={handleLogout}
+              />
+            </div>
+          </>
+        )}
+
+        {/* OPTION 2 - SUBVIEW: CREATE / EDIT TACTIC MODE */}
+        {viewMode === 'create' && (
+          <div style={{ flex: 1, height: '100%', overflow: 'hidden', borderRadius: '16px', border: '1px solid #e2e8f0', background: '#ffffff' }}>
+            <TacticCreator
+              role={role}
+              initialTactic={editingTactic}
+              onBackToList={() => {
+                setEditingTactic(null);
+                setViewMode('list');
+              }}
+              onTacticSaved={() => {
+                setEditingTactic(null);
+                setViewMode('list');
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

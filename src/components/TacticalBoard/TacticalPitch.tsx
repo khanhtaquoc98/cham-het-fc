@@ -14,6 +14,7 @@ interface TacticalPitchProps {
   gkColor: string;
   arrowColor: string;
   isDrawingMode: boolean;
+  isAnimating?: boolean;
   onUpdatePlayerPos: (id: string, x: number, y: number) => void;
   onUpdateBallPos: (x: number, y: number) => void;
   onAddArrow: (arrow: TacticalArrow) => void;
@@ -31,6 +32,7 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
   gkColor,
   arrowColor,
   isDrawingMode,
+  isAnimating = false,
   onUpdatePlayerPos,
   onUpdateBallPos,
   onAddArrow,
@@ -187,9 +189,9 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
         style={{
           position: 'relative',
           width: '100%',
-          maxWidth: 'calc((100vh - 140px) * 1.38)',
-          maxHeight: 'calc(100vh - 140px)',
-          aspectRatio: '1.38 / 1',
+          maxWidth: '820px',
+          maxHeight: '100%',
+          aspectRatio: '1.42 / 1',
           margin: 'auto',
           background: 'linear-gradient(180deg, #1b432c 0%, #143622 50%, #0f2a1a 100%)',
           borderRadius: '20px',
@@ -438,7 +440,7 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
                 transform: 'translate(-50%, -50%)',
                 zIndex: isDraggingThis ? 40 : 20,
                 cursor: isHlv && !isDrawingMode ? 'grab' : 'default',
-                transition: isDraggingThis ? 'none' : 'all 0.15s ease-out',
+                transition: isDraggingThis ? 'none' : isAnimating ? 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.15s ease-out',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -525,7 +527,7 @@ export const TacticalPitch: React.FC<TacticalPitchProps> = ({
             transform: 'translate(-50%, -50%)',
             zIndex: draggingId === 'ball' ? 50 : 30,
             cursor: isHlv && !isDrawingMode ? 'grab' : 'default',
-            transition: draggingId === 'ball' ? 'none' : 'all 0.15s ease-out',
+            transition: draggingId === 'ball' ? 'none' : isAnimating ? 'all 0.8s cubic-bezier(0.4, 0, 0.2, 1)' : 'all 0.15s ease-out',
           }}
         >
           <div style={{

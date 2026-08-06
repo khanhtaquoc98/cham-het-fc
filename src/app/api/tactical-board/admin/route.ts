@@ -1,7 +1,20 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
+
+// Helper to check admin authorization
+async function isAuthorizedAdmin() {
+  try {
+    const session = await getSession();
+    // Allow if session role is admin (or in dev/single-user setup if no session system enabled)
+    if (!session) return true; // Graceful fallback for non-session admin tools
+    return session.role === 'admin';
+  } catch {
+    return true;
+  }
+}
 
 // GET: Admin retrieves tactical board configuration
 export async function GET() {
@@ -16,17 +29,20 @@ export async function GET() {
       settingsMap[item.key] = item.value;
     });
 
+    const defaultHlvPass = process.env.TACTICAL_BOARD_HLV_PASS || 'coach';
+    const defaultPlayerPass = process.env.TACTICAL_BOARD_PLAYER_PASS || 'chamhet';
+
     return NextResponse.json({
       enabled: settingsMap['tactical_board_enabled'] !== 'false',
-      hlvPass: settingsMap['tactical_board_hlv_pass'] || 'coach',
-      playerPass: settingsMap['tactical_board_player_pass'] || 'chamhet',
+      hlvPass: settingsMap['tactical_board_hlv_pass'] || defaultHlvPass,
+      playerPass: settingsMap['tactical_board_player_pass'] || defaultPlayerPass,
     });
   } catch (error) {
     console.error('Error getting admin tactical board settings:', error);
     return NextResponse.json({
       enabled: true,
-      hlvPass: 'coach',
-      playerPass: 'chamhet',
+      hlvPass: process.env.TACTICAL_BOARD_HLV_PASS || 'coach',
+      playerPass: process.env.TACTICAL_BOARD_PLAYER_PASS || 'chamhet',
     });
   }
 }
@@ -37,10 +53,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { enabled, hlvPass, playerPass } = body;
 
+    const defaultHlvPass = process.env.TACTICAL_BOARD_HLV_PASS || 'coach';
+    const defaultPlayerPass = process.env.TACTICAL_BOARD_PLAYER_PASS || 'chamhet';
+
     const updates = [
       { key: 'tactical_board_enabled', value: enabled ? 'true' : 'false', updated_at: new Date().toISOString() },
-      { key: 'tactical_board_hlv_pass', value: String(hlvPass || 'coach').trim(), updated_at: new Date().toISOString() },
-      { key: 'tactical_board_player_pass', value: String(playerPass || 'chamhet').trim(), updated_at: new Date().toISOString() },
+      { key: 'tactical_board_hlv_pass', value: String(hlvPass || defaultHlvPass).trim(), updated_at: new Date().toISOString() },
+      { key: 'tactical_board_player_pass', value: String(playerPass || defaultPlayerPass).trim(), updated_at: new Date().toISOString() },
     ];
 
     for (const item of updates) {

@@ -2,7 +2,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 
-const secretKey = "football-secret-key-super-secure";
+const secretKey = process.env.JWT_SECRET || process.env.SESSION_SECRET || "football-secret-key-super-secure";
 const key = new TextEncoder().encode(secretKey);
 
 export async function encrypt(payload: any) {

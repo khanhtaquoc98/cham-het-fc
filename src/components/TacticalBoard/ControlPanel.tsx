@@ -1,17 +1,13 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { PitchType, UserRole } from './types';
 import { FORMATION_PRESETS, getRequiredOutfieldCount } from './formations';
 import {
   RotateCcw,
   Trash2,
   TrendingUp,
-  Shield,
-  Eye,
   Palette,
-  ArrowLeft,
   Undo2,
 } from 'lucide-react';
 
@@ -87,67 +83,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
       border: '1px solid rgba(255,255,255,0.1)',
     }}>
-      {/* Top Header Bar: Home + Role Info + LIVE Badge + Logout Icon */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '8px',
-        paddingBottom: isHlv ? '8px' : '0px',
-        borderBottom: isHlv ? '1px solid #f1f5f9' : 'none',
-        marginBottom: isHlv ? '10px' : '0px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <Link href="/" style={{
-            color: '#475569',
-            textDecoration: 'none',
-            background: '#f1f5f9',
-            padding: '4px 10px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontWeight: 700,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            transition: 'all 0.2s',
-          }}>
-            <ArrowLeft size={14} /> Trang chủ
-          </Link>
 
-          {isHlv ? (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
-              color: 'white',
-              padding: '4px 10px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: 800,
-              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
-            }}>
-              <Shield size={14} style={{ color: '#ef4444' }} /> Quyền: HLV
-            </div>
-          ) : (
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: '#f8fafc',
-              color: '#334155',
-              padding: '4px 10px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: 700,
-              border: '1px solid #e2e8f0',
-            }}>
-              <Eye size={14} style={{ color: '#3b82f6' }} /> Quyền: Cầu Thủ (Chỉ Xem)
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* HLV Toolbar Controls (Stacked Single Column for Left Sidebar) */}
       {isHlv ? (

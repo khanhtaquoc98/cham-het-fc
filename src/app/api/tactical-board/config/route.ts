@@ -45,8 +45,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: 'Bảng chiến thuật hiện đang bị tắt bởi Admin.' }, { status: 403 });
     }
 
-    const hlvPass = settingsMap['tactical_board_hlv_pass'] || 'coach';
-    const playerPass = settingsMap['tactical_board_player_pass'] || 'chamhet';
+    const hlvPass = settingsMap['tactical_board_hlv_pass'] || process.env.TACTICAL_BOARD_HLV_PASS || 'coach';
+    const playerPass = settingsMap['tactical_board_player_pass'] || process.env.TACTICAL_BOARD_PLAYER_PASS || 'chamhet';
 
     if (inputPass === hlvPass) {
       return NextResponse.json({ ok: true, role: 'hlv' });

@@ -41,3 +41,27 @@ export interface TacticalBoardState {
   arrowColor: string; // Active drawing arrow color
   updatedAt?: string;
 }
+
+export interface TacticStep {
+  id: string;
+  stepNumber: number;
+  title?: string;
+  players: TacticalPlayer[];
+  ball: TacticalBall;
+  arrows: TacticalArrow[];
+}
+
+export interface SavedTactic {
+  id: string;
+  name: string;
+  pitchType: PitchType;
+  formationA: string;
+  formationB: string;
+  teamAColor: string;
+  teamBColor: string;
+  gkColor: string;
+  steps: TacticStep[];
+  createdAt: string;
+  updatedAt: string;
+}
+

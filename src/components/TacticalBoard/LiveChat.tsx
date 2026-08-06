@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { UserRole } from './types';
-import { Send, MessageSquare, Shield, User, LogOut } from 'lucide-react';
+import { Send, MessageSquare, Shield, User } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export interface ChatMessage {
@@ -96,29 +96,7 @@ export const LiveChat: React.FC<LiveChatProps> = ({
           <MessageSquare size={16} style={{ color: '#ef4444' }} /> Khung Chat Realtime
         </div>
 
-        {/* LogOut Icon Button */}
-        {onLogout && (
-          <button
-            type="button"
-            onClick={onLogout}
-            title="Đổi quyền / Đăng xuất"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '28px',
-              height: '28px',
-              borderRadius: '8px',
-              background: '#fff1f2',
-              color: '#be123c',
-              border: '1px solid #fecdd3',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          >
-            <LogOut size={14} />
-          </button>
-        )}
+
       </div>
 
       {/* Message List */}
