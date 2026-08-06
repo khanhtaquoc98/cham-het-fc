@@ -144,7 +144,7 @@ export const TacticPlayerModal: React.FC<TacticPlayerModalProps> = ({
             gap: '6px',
             letterSpacing: '0.2px',
           }}>
-            <Sparkles size={14} style={{ color: '#ffd700' }} /> 🔗 Đang xem chiến thuật được chia sẻ: "{tactic.name}"
+            <Sparkles size={14} style={{ color: '#ffd700' }} /> 🔗 Đang xem chiến thuật được chia sẻ: &quot;{tactic.name}&quot;
           </div>
         )}
 
