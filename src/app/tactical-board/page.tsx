@@ -256,12 +256,12 @@ export default function TacticalBoardPage() {
     }));
   };
 
-  const handleUndoLastArrow = () => {
+  const handleUndoLastArrow = useCallback(() => {
     updateBoardState((prev) => ({
       ...prev,
       arrows: prev.arrows.slice(0, -1),
     }));
-  };
+  }, [updateBoardState]);
 
   const handleClearAllArrows = () => {
     updateBoardState((prev) => ({
@@ -269,6 +269,45 @@ export default function TacticalBoardPage() {
       arrows: [],
     }));
   };
+
+  // Keyboard shortcuts for HLV (Ctrl+Z / Cmd+Z for Undo, Backspace / Delete for deleting last arrow)
+  useEffect(() => {
+    if (role !== 'hlv') return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept shortcuts when user is typing inside text inputs, textareas, or dropdowns
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // Ctrl + Z (Windows) or Cmd + Z (Mac) for Undo
+      const isUndo = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey;
+      if (isUndo) {
+        e.preventDefault();
+        handleUndoLastArrow();
+        return;
+      }
+
+      // Backspace (Win/Mac) or Delete (Win/Mac) to delete last arrow
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        handleUndoLastArrow();
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [role, handleUndoLastArrow]);
 
   const handleDeleteSingleArrow = (id: string) => {
     updateBoardState((prev) => ({
