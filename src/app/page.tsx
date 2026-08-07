@@ -1229,8 +1229,7 @@ export default function Home() {
 
 
       <VoteFloatingWidget initialMatchData={matchData} />
-      <FloatingSticker imageSrc="/sticker.webp" initialSpeed={2.4} />
-      <FloatingSticker imageSrc="/sticker2.png" initialSpeed={2.2} />
+      <FloatingSticker ballSrc="/ball.png" ballSize={70} sticker2Src="/sticker2.png" />
 
       <footer className="app-footer">
         {siteTheme === 'worldcup2026' ? 'Powered by Chấm Hết FC ⚽ World Cup 2026' : 'Powered by Chấm Hết FC'}
