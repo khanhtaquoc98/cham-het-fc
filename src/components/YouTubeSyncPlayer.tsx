@@ -121,10 +121,15 @@ const PlayerTimeline: React.FC<PlayerTimelineProps> = ({
     return videoCaptions.find(c => Math.abs(c.timestamp_seconds - hoverInfo.time) <= 6);
   }, [hoverInfo, videoCaptions]);
 
-  // Constrain preview card left percentage so it doesn't get clipped on left/right edges
-  const previewLeftPercent = hoverInfo
-    ? Math.max(18, Math.min(hoverInfo.percent, 82))
-    : 50;
+  // Dynamic translateX percentage so tooltip follows mouse cursor across 100% of seekbar without clipping edges
+  let translateXPercent = -50;
+  if (hoverInfo) {
+    if (hoverInfo.percent < 15) {
+      translateXPercent = -10 - (hoverInfo.percent / 15) * 40;
+    } else if (hoverInfo.percent > 85) {
+      translateXPercent = -50 - ((hoverInfo.percent - 85) / 15) * 40;
+    }
+  }
 
   return (
     <div style={{
@@ -147,14 +152,13 @@ const PlayerTimeline: React.FC<PlayerTimelineProps> = ({
           <div style={{
             position: 'absolute',
             bottom: 'calc(100% + 10px)',
-            left: `${previewLeftPercent}%`,
-            transform: 'translateX(-50%)',
+            left: `${hoverInfo.percent}%`,
+            transform: `translateX(${translateXPercent}%)`,
             pointerEvents: 'none',
             zIndex: 100,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            transition: 'left 0.05s ease-out'
           }}>
             {nearbyCaption ? (
               /* Rich 2nike Info Card when hovering near 2nike */

@@ -218,7 +218,8 @@ export default function Header() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                   background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
                   padding: '3px', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.3)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)', transition: 'all 0.2s ease'
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)', transition: 'all 0.2s ease',
+                  width: '38px', height: '38px', flexShrink: 0
                 }}
               >
                 {user.avatarUrl ? (
@@ -229,12 +230,12 @@ export default function Header() {
                       width: '32px',
                       height: '32px',
                       borderRadius: '50%',
-                      objectFit: 'scale-down',
+                      objectFit: 'cover',
                       border: '1px solid rgba(255,255,255,0.4)',
                       flexShrink: 0
                     }}
                     onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=c62828&color=ffffff&bold=true`;
                     }}
                   />
                 ) : (
@@ -421,7 +422,7 @@ export default function Header() {
                         flexShrink: 0
                       }}
                       onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=c62828&color=ffffff&bold=true`;
                       }}
                     />
                   ) : (
