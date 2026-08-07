@@ -3,7 +3,7 @@ import YouTube, { YouTubeProps } from 'react-youtube';
 import { MatchCaption, YouTubeVideoConfig } from '@/types/youtube';
 import { extractYouTubeId, formatSecondsToHHMMSS, formatSecondsToTime, parseTimeToSeconds, parseYouTubeTimestamp } from '@/lib/youtube-utils';
 import { supabase } from '@/lib/supabase';
-import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Loader2, Settings, Gauge, Monitor, MessageSquareText, Link as LinkIcon, AlertCircle } from 'lucide-react';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Loader2, Settings, Gauge, Monitor, MessageSquareText, Link as LinkIcon, AlertCircle, Copy, Check } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface PlayerInstance {
@@ -134,7 +134,7 @@ const PlayerTimeline: React.FC<PlayerTimelineProps> = ({
   return (
     <div style={{
       background: '#090d16',
-      padding: '8px 12px',
+      padding: '10px 14px',
       borderTop: '1px solid rgba(255, 255, 255, 0.1)',
       display: 'flex',
       flexDirection: 'column',
@@ -421,6 +421,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const [newCapUrl, setNewCapUrl] = useState('');
   const [urlError, setUrlError] = useState<string | null>(null);
   const [submittingCap, setSubmittingCap] = useState(false);
+  const [createdShareLink, setCreatedShareLink] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string; name?: string; role?: string } | null>(null);
 
   useEffect(() => {
@@ -1257,6 +1259,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const handleOpenAddCaptionModal = async () => {
     setNewCapUrl('');
     setUrlError(null);
+    setCreatedShareLink(null);
+    setIsCopied(false);
 
     // Auto-pause videos when opening 2nike modal
     if (isPlaying) {
@@ -1403,11 +1407,12 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       });
       const data = await res.json();
       if (res.ok && data.caption) {
-        toast.success('Đã lưu 2nike mới!');
-        setNewCapText('');
-        setNewCapUrl('');
-        setUrlError(null);
-        setAddCaptionModalOpen(false);
+        const origin = typeof window !== 'undefined' ? window.location.origin : 'https://cham-het-fc-team.vercel.app';
+        const shareUrl = `${origin}/match-video?match_id=${effectiveMatchId || 'default_match'}&slot=${newCapSlot}&time=${sec}&caption_id=${data.caption.id}`;
+        
+        setCreatedShareLink(shareUrl);
+        setIsCopied(false);
+        toast.success('Đã lưu 2nike mới! Bạn có thể sao chép link bên dưới.');
       } else {
         toast.error(data.error || 'Lỗi khi lưu 2nike');
       }
@@ -1515,7 +1520,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         </div>
       </div>
 
-      {/* Video Players Grid: Resizable Container (Mặc định vừa 100vh, kéo thả scale width + height theo tỉ lệ 16:9) */}
+      {/* Video Players Grid: Resizable Container */}
       <div style={{
         display: 'flex',
         justifyContent: 'center',
@@ -1528,25 +1533,16 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           gap: '16px',
           width: (cfg1.youtube_id && cfg2.youtube_id) ? '100%' : 'min(780px, 100%)',
           maxWidth: '100%',
-          maxHeight: 'calc(100vh - 230px)',
-          resize: 'both',
-          overflow: 'hidden',
-          minWidth: '300px',
-          minHeight: '180px',
-          boxSizing: 'border-box',
-          paddingBottom: '4px',
-          paddingRight: '4px',
-          borderRadius: '14px'
+          boxSizing: 'border-box'
         }}>
           {/* Video Slot 1 */}
           <div style={{
             background: '#0f172a',
             borderRadius: '12px',
-            overflow: 'visible',
+            overflow: 'hidden',
             border: activeTargetSlot === 1 ? '2px solid #ef4444' : '1px solid #cbd5e1',
             display: 'flex',
             flexDirection: 'column',
-            height: '100%',
             width: '100%',
             position: 'relative'
           }}>
@@ -1575,9 +1571,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
             <div style={{
               position: 'relative',
               width: '100%',
-              flex: 1,
               aspectRatio: '16 / 9',
-              maxHeight: 'calc(100vh - 280px)',
+              maxHeight: 'calc(100vh - 380px)',
               minHeight: '180px',
               background: '#000000'
             }}>
@@ -1644,7 +1639,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               )}
             </div>
 
-            {/* Custom YouTube Timeline Seekbar */}
+            {/* Dedicated PlayerTimeline Section Below Video Slot 1 */}
             {cfg1.youtube_id && (
               <PlayerTimeline
                 slot={1}
@@ -1662,11 +1657,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
             <div style={{
               background: '#0f172a',
               borderRadius: '12px',
-              overflow: 'visible',
+              overflow: 'hidden',
               border: activeTargetSlot === 2 ? '2px solid #ef4444' : '1px solid #cbd5e1',
               display: 'flex',
               flexDirection: 'column',
-              height: '100%',
               width: '100%',
               position: 'relative'
             }}>
@@ -1695,9 +1689,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               <div style={{
                 position: 'relative',
                 width: '100%',
-                flex: 1,
                 aspectRatio: '16 / 9',
-                maxHeight: 'calc(100vh - 280px)',
+                maxHeight: 'calc(100vh - 380px)',
                 minHeight: '180px',
                 background: '#000000'
               }}>
@@ -1757,7 +1750,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 </div>
               </div>
 
-              {/* Custom YouTube Timeline Seekbar */}
+              {/* Dedicated PlayerTimeline Section Below Video Slot 2 */}
               {cfg2.youtube_id && (
                 <PlayerTimeline
                   slot={2}
@@ -2478,210 +2471,345 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 800, margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Sparkles size={18} style={{ color: '#dc2626' }} />
-                Thêm 2nike Mới (Realtime)
+                {createdShareLink ? 'Link Chia Sẻ 2nike' : 'Thêm 2nike Mới (Realtime)'}
               </h3>
               <button
                 type="button"
-                onClick={() => setAddCaptionModalOpen(false)}
+                onClick={() => {
+                  setAddCaptionModalOpen(false);
+                  setCreatedShareLink(null);
+                }}
                 style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '18px', fontWeight: 700, cursor: 'pointer', padding: '4px' }}
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSaveCaptionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* Link YouTube Input */}
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
-                  Tạo từ Link YouTube <span style={{ fontSize: '11px', fontWeight: 500, color: '#94a3b8' }}>(Có ?t=... để tự chọn video &amp; thời gian)</span>
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    placeholder="https://youtu.be/LiUsPl_UVdw?t=983"
-                    value={newCapUrl}
-                    onChange={(e) => handleUrlInputChange(e.target.value)}
-                    style={{
-                      width: '100%',
-                      background: '#f8fafc',
-                      border: urlError ? '1px solid #ef4444' : '1px solid #cbd5e1',
-                      color: '#0f172a',
-                      borderRadius: '10px',
-                      padding: '10px 12px 10px 34px',
-                      fontSize: '13px',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                  <LinkIcon size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+            {createdShareLink ? (
+              /* Share Link Box after successful 2nike creation */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%)',
+                  border: '1px solid #10b981',
+                  borderRadius: '12px',
+                  padding: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <CheckCircle2 size={24} style={{ color: '#10b981', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '14px', color: '#065f46' }}>
+                      Đã tạo 2nike thành công! 🎉
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#047857', marginTop: '2px' }}>
+                      Bạn có thể copy đường dẫn dưới đây để chia sẻ nhanh cho đồng đội.
+                    </div>
+                  </div>
                 </div>
-                {urlError ? (
-                  <div style={{ color: '#ef4444', fontSize: '11px', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <AlertCircle size={13} /> {urlError}
-                  </div>
-                ) : (
-                  <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
-                    Tự nhận diện góc video (1/2) và thời gian t=... từ đường dẫn YouTube.
-                  </div>
-                )}
-              </div>
 
-              {/* Target Video Slot */}
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
-                  Góc Video
-                </label>
-                <select
-                  value={newCapSlot}
-                  onChange={(e) => setNewCapSlot(Number(e.target.value) as 1 | 2)}
-                  style={{
-                    width: '100%',
-                    background: '#f8fafc',
-                    border: '1px solid #cbd5e1',
-                    color: '#0f172a',
-                    borderRadius: '10px',
-                    padding: '10px 12px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value={1}>Video 1: {cfg1.title || 'Hiệp 1 / Cam 1'}</option>
-                  <option value={2}>Video 2: {cfg2.title || 'Hiệp 2 / Cam 2'}</option>
-                </select>
-              </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                    Đường dẫn chia sẻ trực tiếp (Deep Link)
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <input
+                        type="text"
+                        readOnly
+                        value={createdShareLink}
+                        onClick={(e) => (e.target as HTMLInputElement).select()}
+                        style={{
+                          width: '100%',
+                          background: '#f8fafc',
+                          border: '1px solid #cbd5e1',
+                          color: '#0f172a',
+                          borderRadius: '10px',
+                          padding: '10px 12px 10px 34px',
+                          fontSize: '12.5px',
+                          fontFamily: 'monospace',
+                          fontWeight: 600,
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      <LinkIcon size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#64748b' }} />
+                    </div>
 
-              {/* Timestamp Input + Button Lấy Giờ */}
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Thời gian (HH:MM:SS)</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (createdShareLink) {
+                          navigator.clipboard.writeText(createdShareLink);
+                          setIsCopied(true);
+                          toast.success('📋 Đã sao chép link 2nike vào bộ nhớ tạm!');
+                          setTimeout(() => setIsCopied(false), 2500);
+                        }
+                      }}
+                      style={{
+                        background: isCopied ? '#10b981' : 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '10px',
+                        padding: '10px 16px',
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        boxShadow: isCopied ? '0 4px 12px rgba(16, 185, 129, 0.3)' : '0 4px 12px rgba(220, 38, 38, 0.3)',
+                        transition: 'all 0.2s ease',
+                        flexShrink: 0
+                      }}
+                    >
+                      {isCopied ? <Check size={16} /> : <Copy size={16} />}
+                      {isCopied ? 'Đã copy!' : 'Sao chép Link'}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
                   <button
                     type="button"
-                    onClick={handleFetchCurrentTimeForModal}
-                    style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '12px', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                    onClick={() => {
+                      setCreatedShareLink(null);
+                      setNewCapText('');
+                      setNewCapUrl('');
+                      setUrlError(null);
+                    }}
+                    style={{
+                      padding: '10px 16px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#334155',
+                      fontWeight: 700,
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
                   >
-                    🎯 Lấy giờ hiện tại video
+                    + Tạo thêm 2nike khác
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAddCaptionModalOpen(false);
+                      setCreatedShareLink(null);
+                      setNewCapText('');
+                      setNewCapUrl('');
+                      setUrlError(null);
+                    }}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: '#0f172a',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Hoàn tất
                   </button>
                 </div>
-                <div style={{ position: 'relative' }}>
-                  <input
-                    type="text"
-                    placeholder="00:15:30"
-                    value={newCapTimeStr}
-                    onChange={(e) => setNewCapTimeStr(e.target.value)}
+              </div>
+            ) : (
+              <form onSubmit={handleSaveCaptionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* Link YouTube Input */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                    Tạo từ Link YouTube <span style={{ fontSize: '11px', fontWeight: 500, color: '#94a3b8' }}>(Có ?t=... để tự chọn video &amp; thời gian)</span>
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="https://youtu.be/LiUsPl_UVdw?t=983"
+                      value={newCapUrl}
+                      onChange={(e) => handleUrlInputChange(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: '#f8fafc',
+                        border: urlError ? '1px solid #ef4444' : '1px solid #cbd5e1',
+                        color: '#0f172a',
+                        borderRadius: '10px',
+                        padding: '10px 12px 10px 34px',
+                        fontSize: '13px',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <LinkIcon size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+                  </div>
+                  {urlError ? (
+                    <div style={{ color: '#ef4444', fontSize: '11px', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={13} /> {urlError}
+                    </div>
+                  ) : (
+                    <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
+                      Tự nhận diện góc video (1/2) và thời gian t=... từ đường dẫn YouTube.
+                    </div>
+                  )}
+                </div>
+
+                {/* Target Video Slot */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                    Góc Video
+                  </label>
+                  <select
+                    value={newCapSlot}
+                    onChange={(e) => setNewCapSlot(Number(e.target.value) as 1 | 2)}
                     style={{
                       width: '100%',
                       background: '#f8fafc',
                       border: '1px solid #cbd5e1',
                       color: '#0f172a',
                       borderRadius: '10px',
-                      padding: '10px 12px 10px 34px',
+                      padding: '10px 12px',
                       fontSize: '13px',
-                      fontFamily: 'monospace',
-                      fontWeight: 700,
+                      fontWeight: 600,
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value={1}>Video 1: {cfg1.title || 'Hiệp 1 / Cam 1'}</option>
+                    <option value={2}>Video 2: {cfg2.title || 'Hiệp 2 / Cam 2'}</option>
+                  </select>
+                </div>
+
+                {/* Timestamp Input + Button Lấy Giờ */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Thời gian (HH:MM:SS)</label>
+                    <button
+                      type="button"
+                      onClick={handleFetchCurrentTimeForModal}
+                      style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '12px', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                    >
+                      🎯 Lấy giờ hiện tại video
+                    </button>
+                  </div>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="00:15:30"
+                      value={newCapTimeStr}
+                      onChange={(e) => setNewCapTimeStr(e.target.value)}
+                      style={{
+                        width: '100%',
+                        background: '#f8fafc',
+                        border: '1px solid #cbd5e1',
+                        color: '#0f172a',
+                        borderRadius: '10px',
+                        padding: '10px 12px 10px 34px',
+                        fontSize: '13px',
+                        fontFamily: 'monospace',
+                        fontWeight: 700,
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <Clock size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+                  </div>
+                </div>
+
+                {/* Author Name */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                    Người tạo {!isAdmin && <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>(Cố định theo tài khoản)</span>}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder={isAdmin ? 'Admin' : (currentUser?.username || 'Tên người dùng')}
+                    value={isAdmin ? newCapAuthor : (currentUser?.username || '')}
+                    onChange={(e) => setNewCapAuthor(e.target.value)}
+                    disabled={!isAdmin}
+                    style={{
+                      width: '100%',
+                      background: !isAdmin ? '#f1f5f9' : '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      color: !isAdmin ? '#475569' : '#0f172a',
+                      borderRadius: '10px',
+                      padding: '10px 12px',
+                      fontSize: '13px',
+                      fontWeight: !isAdmin ? 700 : 400,
+                      cursor: !isAdmin ? 'not-allowed' : 'text',
                       outline: 'none',
                       boxSizing: 'border-box'
                     }}
                   />
-                  <Clock size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
                 </div>
-              </div>
 
-              {/* Author Name */}
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
-                  Người tạo {!isAdmin && <span style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}>(Cố định theo tài khoản)</span>}
-                </label>
-                <input
-                  type="text"
-                  placeholder={isAdmin ? 'Admin' : (currentUser?.username || 'Tên người dùng')}
-                  value={isAdmin ? newCapAuthor : (currentUser?.username || '')}
-                  onChange={(e) => setNewCapAuthor(e.target.value)}
-                  disabled={!isAdmin}
-                  style={{
-                    width: '100%',
-                    background: !isAdmin ? '#f1f5f9' : '#f8fafc',
-                    border: '1px solid #cbd5e1',
-                    color: !isAdmin ? '#475569' : '#0f172a',
-                    borderRadius: '10px',
-                    padding: '10px 12px',
-                    fontSize: '13px',
-                    fontWeight: !isAdmin ? 700 : 400,
-                    cursor: !isAdmin ? 'not-allowed' : 'text',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
+                {/* Caption Text Input */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                    Title
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Nội dung ghi chú (vd: Pha bóng nguy hiểm, Bàn thắng mở tỷ số...)"
+                    value={newCapText}
+                    onChange={(e) => setNewCapText(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      color: '#0f172a',
+                      borderRadius: '10px',
+                      padding: '10px 12px',
+                      fontSize: '13px',
+                      outline: 'none',
+                      resize: 'vertical',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
 
-              {/* Caption Text Input */}
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
-                  Title
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Nội dung ghi chú (vd: Pha bóng nguy hiểm, Bàn thắng mở tỷ số...)"
-                  value={newCapText}
-                  onChange={(e) => setNewCapText(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: '#f8fafc',
-                    border: '1px solid #cbd5e1',
-                    color: '#0f172a',
-                    borderRadius: '10px',
-                    padding: '10px 12px',
-                    fontSize: '13px',
-                    outline: 'none',
-                    resize: 'vertical',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              {/* Modal Buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => setAddCaptionModalOpen(false)}
-                  style={{
-                    padding: '10px 18px',
-                    borderRadius: '10px',
-                    border: '1px solid #cbd5e1',
-                    background: '#ffffff',
-                    color: '#475569',
-                    fontWeight: 600,
-                    fontSize: '13px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingCap}
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
-                    color: '#ffffff',
-                    fontWeight: 800,
-                    fontSize: '13px',
-                    cursor: submittingCap ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
-                    opacity: submittingCap ? 0.6 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                >
-                  {submittingCap ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={16} />}
-                  Lưu 2nike
-                </button>
-              </div>
-            </form>
+                {/* Modal Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setAddCaptionModalOpen(false)}
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      color: '#475569',
+                      fontWeight: 600,
+                      fontSize: '13px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingCap}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '13px',
+                      cursor: submittingCap ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+                      opacity: submittingCap ? 0.6 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    {submittingCap ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={16} />}
+                    Lưu 2nike
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
