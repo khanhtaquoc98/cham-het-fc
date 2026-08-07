@@ -11,9 +11,9 @@ interface FloatingStickerProps {
 }
 
 export default function FloatingSticker({
-  ballSrc = '/ball.png',
+  ballSrc = '/tiger-beer.png',
   sticker2Src = '/sticker2.png',
-  ballSize = 70,
+  ballSize = 110,
   sticker2Size = 110,
 }: FloatingStickerProps) {
   const sticker1Ref = useRef<HTMLDivElement>(null);
