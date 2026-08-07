@@ -70,3 +70,49 @@ export function formatOffsetDisplay(seconds: number): string {
   const sign = seconds > 0 ? '+' : '';
   return `${sign}${seconds}s`;
 }
+
+/**
+ * Parse timestamp in seconds from YouTube URL parameters (e.g. ?t=983, ?t=16m23s, ?t=1h2m3s, ?start=983)
+ */
+export function parseYouTubeTimestamp(url: string): number | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+
+  const match = trimmed.match(/[?&](t|start)=([^&#]+)/i);
+  if (!match) return null;
+
+  const rawVal = match[2].toLowerCase();
+
+  // Case 1: Purely numeric like 983 or 983s
+  if (/^\d+s?$/i.test(rawVal)) {
+    return parseInt(rawVal.replace(/s/i, ''), 10);
+  }
+
+  // Case 2: Formatted time like 1h2m30s, 15m30s, 1h30s, 15m, etc.
+  let totalSec = 0;
+  let matchedAny = false;
+
+  const hMatch = rawVal.match(/(\d+)h/i);
+  if (hMatch) {
+    totalSec += parseInt(hMatch[1], 10) * 3600;
+    matchedAny = true;
+  }
+
+  const mMatch = rawVal.match(/(\d+)m/i);
+  if (mMatch) {
+    totalSec += parseInt(mMatch[1], 10) * 60;
+    matchedAny = true;
+  }
+
+  const sMatch = rawVal.match(/(\d+)s/i);
+  if (sMatch) {
+    totalSec += parseInt(sMatch[1], 10);
+    matchedAny = true;
+  }
+
+  if (matchedAny) return totalSec;
+
+  const parsed = parseInt(rawVal, 10);
+  return isNaN(parsed) ? null : parsed;
+}
+

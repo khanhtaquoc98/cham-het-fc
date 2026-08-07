@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { MatchCaption, YouTubeVideoConfig } from '@/types/youtube';
-import { extractYouTubeId, formatSecondsToHHMMSS, formatSecondsToTime, parseTimeToSeconds } from '@/lib/youtube-utils';
+import { extractYouTubeId, formatSecondsToHHMMSS, formatSecondsToTime, parseTimeToSeconds, parseYouTubeTimestamp } from '@/lib/youtube-utils';
 import { supabase } from '@/lib/supabase';
-import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Loader2, Settings, Gauge, Monitor, MessageSquareText } from 'lucide-react';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Loader2, Settings, Gauge, Monitor, MessageSquareText, Link as LinkIcon, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface PlayerInstance {
@@ -413,6 +413,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const [newCapTimeStr, setNewCapTimeStr] = useState('');
   const [newCapAuthor, setNewCapAuthor] = useState('');
   const [newCapText, setNewCapText] = useState('');
+  const [newCapUrl, setNewCapUrl] = useState('');
+  const [urlError, setUrlError] = useState<string | null>(null);
   const [submittingCap, setSubmittingCap] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string; name?: string; role?: string } | null>(null);
 
@@ -1170,6 +1172,9 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
   // ── Add 2nike Modal Handlers ──
   const handleOpenAddCaptionModal = async () => {
+    setNewCapUrl('');
+    setUrlError(null);
+
     // Auto-pause videos when opening 2nike modal
     if (isPlaying) {
       try {
@@ -1238,12 +1243,54 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t)));
   };
 
+  const handleUrlInputChange = (urlStr: string) => {
+    setNewCapUrl(urlStr);
+    setUrlError(null);
+
+    const trimmed = urlStr.trim();
+    if (!trimmed) return;
+
+    const extractedId = extractYouTubeId(trimmed);
+    const vid1Id = extractYouTubeId(cfg1.youtube_id || '');
+    const vid2Id = extractYouTubeId(cfg2.youtube_id || '');
+
+    let matchedSlot: 1 | 2 | null = null;
+    if (vid1Id && extractedId === vid1Id) {
+      matchedSlot = 1;
+    } else if (vid2Id && extractedId === vid2Id) {
+      matchedSlot = 2;
+    }
+
+    if (!matchedSlot) {
+      setUrlError('Link YouTube không thuộc Video 1 hoặc Video 2 của trận đấu này!');
+      return;
+    }
+
+    setNewCapSlot(matchedSlot);
+
+    const timestampSec = parseYouTubeTimestamp(trimmed);
+    if (timestampSec !== null && timestampSec >= 0) {
+      setNewCapTimeStr(formatSecondsToHHMMSS(timestampSec));
+    }
+  };
+
   const handleSaveCaptionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!isAdmin && !currentUser) {
       toast.error('Vui lòng đăng nhập để sử dụng tính năng lưu 2nike!');
       return;
+    }
+
+    if (newCapUrl.trim()) {
+      const extractedId = extractYouTubeId(newCapUrl);
+      const vid1Id = extractYouTubeId(cfg1.youtube_id || '');
+      const vid2Id = extractYouTubeId(cfg2.youtube_id || '');
+      if (extractedId !== vid1Id && extractedId !== vid2Id) {
+        setUrlError('Link YouTube không thuộc Video 1 hoặc Video 2 của trận đấu này!');
+        toast.error('Link YouTube không trùng với Video 1 hoặc Video 2 của trận đấu này!');
+        return;
+      }
     }
 
     if (!newCapText.trim()) {
@@ -1275,6 +1322,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       if (res.ok && data.caption) {
         toast.success('Đã lưu 2nike mới!');
         setNewCapText('');
+        setNewCapUrl('');
+        setUrlError(null);
         setAddCaptionModalOpen(false);
       } else {
         toast.error(data.error || 'Lỗi khi lưu 2nike');
@@ -2269,6 +2318,42 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
             </div>
 
             <form onSubmit={handleSaveCaptionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {/* Link YouTube Input */}
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                  Tạo từ Link YouTube <span style={{ fontSize: '11px', fontWeight: 500, color: '#94a3b8' }}>(Có ?t=... để tự chọn video &amp; thời gian)</span>
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder="https://youtu.be/LiUsPl_UVdw?t=983"
+                    value={newCapUrl}
+                    onChange={(e) => handleUrlInputChange(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#f8fafc',
+                      border: urlError ? '1px solid #ef4444' : '1px solid #cbd5e1',
+                      color: '#0f172a',
+                      borderRadius: '10px',
+                      padding: '10px 12px 10px 34px',
+                      fontSize: '13px',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <LinkIcon size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+                </div>
+                {urlError ? (
+                  <div style={{ color: '#ef4444', fontSize: '11px', fontWeight: 600, marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <AlertCircle size={13} /> {urlError}
+                  </div>
+                ) : (
+                  <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>
+                    Tự nhận diện góc video (1/2) và thời gian t=... từ đường dẫn YouTube.
+                  </div>
+                )}
+              </div>
+
               {/* Target Video Slot */}
               <div>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
