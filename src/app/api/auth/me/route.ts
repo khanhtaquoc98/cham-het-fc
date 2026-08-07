@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { cookies } from 'next/headers';
 
 export async function GET() {
   const session = await getSession();
@@ -15,6 +16,8 @@ export async function GET() {
     .single();
 
   if (!user) {
+    const cookieStore = await cookies();
+    cookieStore.delete('session');
     return NextResponse.json({ user: null });
   }
 

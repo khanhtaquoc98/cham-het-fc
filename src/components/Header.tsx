@@ -282,7 +282,7 @@ export default function Header() {
           ) : (
             <div style={{ position: 'relative', zIndex: 10 }}>
               <Link
-                href="/login"
+                href="/login?force=1"
                 style={{
                   background: 'rgba(255,255,255,0.15)',
                   backdropFilter: 'blur(8px)',
@@ -507,7 +507,7 @@ export default function Header() {
                   Đăng nhập để xem thông tin và thêm bóng
                 </div>
                 <Link
-                  href="/login"
+                  href="/login?force=1"
                   onClick={() => setMobileMenuOpen(false)}
                   style={{
                     background: 'var(--accent, #c62828)',

@@ -41,7 +41,8 @@ export function middleware(request: NextRequest) {
   }
 
   if (pathname === '/login' || pathname === '/register') {
-    if (session) {
+    const forceLogin = request.nextUrl.searchParams.has('logout') || request.nextUrl.searchParams.has('force');
+    if (session && !forceLogin) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }

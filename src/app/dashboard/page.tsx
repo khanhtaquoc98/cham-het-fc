@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getSession } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
@@ -93,7 +94,13 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
     .eq("id", session.id)
     .single();
 
-  const balance = user?.balance || 0;
+  if (!user) {
+    const cookieStore = await cookies();
+    cookieStore.delete("session");
+    redirect("/login?force=1");
+  }
+
+  const balance = user.balance || 0;
 
   // Fetch linked player info if user has player_id
   let linkedPlayer = null;
