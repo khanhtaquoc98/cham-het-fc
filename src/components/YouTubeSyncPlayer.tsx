@@ -399,10 +399,11 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const player1Ref = useRef<PlayerInstance | null>(null);
   const player2Ref = useRef<PlayerInstance | null>(null);
 
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const [syncPointModalOpen, setSyncPointModalOpen] = useState(false);
-  const [modalTimes, setModalTimes] = useState<{ time1: number; time2: number }>({ time1: 0, time2: 0 });
+  const [syncTimeStr1, setSyncTimeStr1] = useState('00:00:00');
+  const [syncTimeStr2, setSyncTimeStr2] = useState('00:00:00');
 
   const [captionsList, setCaptionsList] = useState<MatchCaption[]>(propsCaptions || []);
   const [currentVideoTime, setCurrentVideoTime] = useState(0);
@@ -709,7 +710,10 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         t2 = player2Ref.current.getCurrentTime() || 0;
       }
     } catch {}
-    setModalTimes({ time1: Math.floor(t1), time2: Math.floor(t2) });
+    const floorT1 = Math.floor(t1);
+    const floorT2 = Math.floor(t2);
+    setSyncTimeStr1(formatSecondsToHHMMSS(floorT1));
+    setSyncTimeStr2(formatSecondsToHHMMSS(floorT2));
     setSyncPointModalOpen(true);
   };
 
@@ -787,28 +791,57 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     setIsPlayer2Ready(true);
   };
 
-  const onPlayerStateChange2 = (event: { data: number }) => {
-    if (event.data === 1 && player1Ref.current && player2Ref.current) {
+  const onPlayerStateChange1 = (event: { data: number }) => {
+    if (event.data === 1) {
+      setIsPlaying(true);
+    } else if (event.data === 2) {
+      let isOtherPlaying = false;
       try {
-        const t1 = typeof player1Ref.current.getCurrentTime === 'function' ? (player1Ref.current.getCurrentTime() || 0) : 0;
-        const t2 = typeof player2Ref.current.getCurrentTime === 'function' ? (player2Ref.current.getCurrentTime() || 0) : 0;
-        const offset1 = cfg1.start_offset_seconds || 0;
-        const offset2 = cfg2.start_offset_seconds || 0;
-        const expectedT2 = t1 - offset2 + offset1;
-
-        if (expectedT2 < 0) {
-          if (typeof player2Ref.current.pauseVideo === 'function') {
-            player2Ref.current.pauseVideo();
-          }
-          if (typeof player2Ref.current.seekTo === 'function') {
-            player2Ref.current.seekTo(0, true);
-          }
-        } else if (Math.abs(t2 - expectedT2) > 1.5) {
-          if (typeof player2Ref.current.seekTo === 'function') {
-            player2Ref.current.seekTo(expectedT2, true);
-          }
+        if (player2Ref.current && typeof player2Ref.current.getPlayerState === 'function') {
+          isOtherPlaying = player2Ref.current.getPlayerState() === 1;
         }
       } catch {}
+      if (!isOtherPlaying) {
+        setIsPlaying(false);
+      }
+    }
+  };
+
+  const onPlayerStateChange2 = (event: { data: number }) => {
+    if (event.data === 1) {
+      setIsPlaying(true);
+      if (player1Ref.current && player2Ref.current) {
+        try {
+          const t1 = typeof player1Ref.current.getCurrentTime === 'function' ? (player1Ref.current.getCurrentTime() || 0) : 0;
+          const t2 = typeof player2Ref.current.getCurrentTime === 'function' ? (player2Ref.current.getCurrentTime() || 0) : 0;
+          const offset1 = cfg1.start_offset_seconds || 0;
+          const offset2 = cfg2.start_offset_seconds || 0;
+          const expectedT2 = t1 - offset2 + offset1;
+
+          if (expectedT2 < 0) {
+            if (typeof player2Ref.current.pauseVideo === 'function') {
+              player2Ref.current.pauseVideo();
+            }
+            if (typeof player2Ref.current.seekTo === 'function') {
+              player2Ref.current.seekTo(0, true);
+            }
+          } else if (Math.abs(t2 - expectedT2) > 1.5) {
+            if (typeof player2Ref.current.seekTo === 'function') {
+              player2Ref.current.seekTo(expectedT2, true);
+            }
+          }
+        } catch {}
+      }
+    } else if (event.data === 2) {
+      let isOtherPlaying = false;
+      try {
+        if (player1Ref.current && typeof player1Ref.current.getPlayerState === 'function') {
+          isOtherPlaying = player1Ref.current.getPlayerState() === 1;
+        }
+      } catch {}
+      if (!isOtherPlaying) {
+        setIsPlaying(false);
+      }
     }
   };
 
@@ -917,6 +950,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       }
     } catch {}
     doSeek(1, t1, true);
+    setIsPlaying(true);
   };
 
   const pendingSeekRef = useRef<{ slot: 1 | 2; seconds: number; autoPlay: boolean } | null>(null);
@@ -1151,21 +1185,66 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     );
   };
 
-  const handleAutoCalculateSyncPoint = () => {
-    let time1 = 0;
-    let time2 = 0;
+  const handleFetchSyncTime1 = () => {
+    let t1 = 0;
     try {
       if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
-        time1 = player1Ref.current.getCurrentTime() || 0;
-      }
-      if (player2Ref.current && typeof player2Ref.current.getCurrentTime === 'function') {
-        time2 = player2Ref.current.getCurrentTime() || 0;
+        t1 = player1Ref.current.getCurrentTime() || 0;
       }
     } catch {}
+    setSyncTimeStr1(formatSecondsToHHMMSS(Math.floor(t1)));
+  };
 
-    const newOffset = Math.round(time1 - time2);
+  const handleFetchSyncTime2 = () => {
+    let t2 = 0;
+    try {
+      if (player2Ref.current && typeof player2Ref.current.getCurrentTime === 'function') {
+        t2 = player2Ref.current.getCurrentTime() || 0;
+      }
+    } catch {}
+    setSyncTimeStr2(formatSecondsToHHMMSS(Math.floor(t2)));
+  };
+
+  const handleAutoCalculateSyncPoint = async () => {
+    const sec1 = parseTimeToSeconds(syncTimeStr1);
+    const sec2 = parseTimeToSeconds(syncTimeStr2);
+    const newOffset = Math.round(sec1 - sec2);
+
     if (onOffsetChange) {
       onOffsetChange(2, newOffset);
+    } else {
+      // Fallback: save directly via API if no onOffsetChange callback provided
+      try {
+        const targetMatchId = effectiveMatchId || 'default_match';
+        const fetchRes = await fetch(`/api/youtube-config?match_id=${targetMatchId}`);
+        const fetchReqData = await fetchRes.json();
+        let currentConfigs: YouTubeVideoConfig[] = fetchReqData.configs || [];
+
+        if (!currentConfigs || currentConfigs.length === 0) {
+          currentConfigs = [
+            { slot: 1, match_id: targetMatchId, youtube_url: cfg1.youtube_url || '', youtube_id: extractYouTubeId(cfg1.youtube_url || ''), title: cfg1.title || 'Cam 1', start_offset_seconds: 0 },
+            { slot: 2, match_id: targetMatchId, youtube_url: cfg2.youtube_url || '', youtube_id: extractYouTubeId(cfg2.youtube_url || ''), title: cfg2.title || 'Cam 2', start_offset_seconds: newOffset }
+          ];
+        } else {
+          currentConfigs = currentConfigs.map(c => c.slot === 2 ? { ...c, start_offset_seconds: newOffset } : c);
+        }
+
+        const saveRes = await fetch('/api/youtube-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            match_id: targetMatchId,
+            configs: currentConfigs
+          })
+        });
+
+        const saveReqData = await saveRes.json();
+        if (saveReqData.success) {
+          toast.success(`Đã tự động lưu độ trễ Video 2 (${newOffset >= 0 ? '+' : ''}${newOffset}s) vào CSDL!`);
+        }
+      } catch (err) {
+        console.error('Error saving offset via API:', err);
+      }
     }
     setSyncPointModalOpen(false);
   };
@@ -1505,6 +1584,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     opts={opts1}
                     onReady={onPlayerReady1}
                     onEnd={onPlayerEnd1}
+                    onStateChange={onPlayerStateChange1}
                     style={{ width: '100%', height: '100%' }}
                   />
                   {/* Overlay to block any direct user interaction / clicking on Video 1 */}
@@ -2215,27 +2295,115 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
             color: '#0f172a'
           }}>
-            <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 12px 0', color: '#0f172a' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 800, margin: '0 0 10px 0', color: '#0f172a' }}>
               Tool Căn Độ Trễ Tự Động (Auto Offset Calibration)
             </h3>
-            <p style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5', margin: '0 0 16px 0' }}>
-              Hãy bấm <strong>Play</strong> trên cả 2 video, tìm đến một tình huống diễn ra cùng lúc (ví dụ: quả phạt góc hoặc bàn thắng), sau đó tạm dừng cả 2 video đúng thời điểm đó và nhấn nút bên dưới.
+            <p style={{ fontSize: '12.5px', color: '#475569', lineHeight: '1.5', margin: '0 0 16px 0' }}>
+              Nhập thủ công hoặc bấm nút 🎯 để lấy mốc thời gian tại cùng một tình huống (phạt góc, bàn thắng...) trên cả 2 video.
             </p>
 
-            <div style={{
-              background: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '12px',
-              padding: '12px',
-              fontSize: '13px',
-              marginBottom: '20px'
-            }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+              {/* Video 1 Time Input */}
               <div>
-                <strong>Video 1 (Mốc):</strong> {formatSecondsToHHMMSS(modalTimes.time1)}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                    Video 1 (Mốc):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleFetchSyncTime1}
+                    style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '12px', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                  >
+                    🎯 Lấy giờ Video 1
+                  </button>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder="00:00:00"
+                    value={syncTimeStr1}
+                    onChange={(e) => setSyncTimeStr1(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      color: '#0f172a',
+                      borderRadius: '10px',
+                      padding: '10px 12px 10px 34px',
+                      fontSize: '13.5px',
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <Clock size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+                </div>
               </div>
-              <div style={{ marginTop: '6px' }}>
-                <strong>Video 2 (Tình huống tương ứng):</strong> {formatSecondsToHHMMSS(modalTimes.time2)}
+
+              {/* Video 2 Time Input */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                    Video 2 (Tình huống tương ứng):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleFetchSyncTime2}
+                    style={{ background: 'none', border: 'none', color: '#dc2626', fontSize: '12px', fontWeight: 800, cursor: 'pointer', padding: 0 }}
+                  >
+                    🎯 Lấy giờ Video 2
+                  </button>
+                </div>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder="00:00:00"
+                    value={syncTimeStr2}
+                    onChange={(e) => setSyncTimeStr2(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#f8fafc',
+                      border: '1px solid #cbd5e1',
+                      color: '#0f172a',
+                      borderRadius: '10px',
+                      padding: '10px 12px 10px 34px',
+                      fontSize: '13.5px',
+                      fontFamily: 'monospace',
+                      fontWeight: 700,
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <Clock size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: '#94a3b8' }} />
+                </div>
               </div>
+
+              {/* Calculated Offset Preview Badge */}
+              {(() => {
+                const s1 = parseTimeToSeconds(syncTimeStr1);
+                const s2 = parseTimeToSeconds(syncTimeStr2);
+                const diff = Math.round(s1 - s2);
+                return (
+                  <div style={{
+                    background: 'rgba(220, 38, 38, 0.06)',
+                    border: '1px solid rgba(220, 38, 38, 0.2)',
+                    borderRadius: '10px',
+                    padding: '10px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: '#0f172a'
+                  }}>
+                    <span>Độ trễ tính toán được:</span>
+                    <span style={{ color: '#dc2626', fontSize: '15px', fontWeight: 800 }}>
+                      {diff >= 0 ? `+${diff}` : diff}s
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
@@ -2243,7 +2411,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 type="button"
                 onClick={() => setSyncPointModalOpen(false)}
                 style={{
-                  padding: '8px 16px',
+                  padding: '10px 18px',
                   borderRadius: '10px',
                   border: '1px solid #cbd5e1',
                   background: '#ffffff',

@@ -7,12 +7,14 @@ interface FloatingStickerProps {
   imageSrc?: string;
   size?: number;
   initialSpeed?: number;
+  friction?: number; // Deceleration factor when speed exceeds initialSpeed
 }
 
 export default function FloatingSticker({
   imageSrc = '/sticker.webp',
   size = 110,
   initialSpeed = 2.5,
+  friction = 0.98,
 }: FloatingStickerProps) {
   const stickerRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
@@ -62,11 +64,25 @@ export default function FloatingSticker({
       const windowWidth = window.innerWidth;
       const windowHeight = window.innerHeight;
 
-      // Smoothly adjust speed multiplier on hover (slow down to 20% instead of abrupt stop)
-      const targetMult = isHoveredRef.current ? 0.2 : 1.0;
+      // Smoothly adjust speed multiplier on hover (slow down to 25% instead of abrupt stop)
+      const targetMult = isHoveredRef.current ? 0.25 : 1.0;
       speedMult.current += (targetMult - speedMult.current) * 0.1;
 
       if (!isDragging.current) {
+        // Friction damping: Gradually slow down high velocity (from mouse throw) back to initialSpeed
+        const currentSpeed = Math.sqrt(vel.current.vx * vel.current.vx + vel.current.vy * vel.current.vy);
+        if (currentSpeed > initialSpeed) {
+          const newSpeed = Math.max(initialSpeed, currentSpeed * friction);
+          const ratio = newSpeed / currentSpeed;
+          vel.current.vx *= ratio;
+          vel.current.vy *= ratio;
+        } else if (currentSpeed < initialSpeed * 0.4 && currentSpeed > 0.01) {
+          // Ensure it doesn't stall completely
+          const ratio = (initialSpeed * 0.4) / currentSpeed;
+          vel.current.vx *= ratio;
+          vel.current.vy *= ratio;
+        }
+
         // Apply position update with smooth speed multiplier
         pos.current.x += vel.current.vx * speedMult.current;
         pos.current.y += vel.current.vy * speedMult.current;
@@ -104,7 +120,7 @@ export default function FloatingSticker({
         rotation.current += vel.current.vx * 0.2 * speedMult.current;
       }
 
-      // Update DOM transform using translate3d for hardware acceleration
+      // Update DOM transform using translate3d for 60fps hardware acceleration
       if (stickerRef.current) {
         stickerRef.current.style.transform = `translate3d(${pos.current.x}px, ${pos.current.y}px, 0) rotate(${rotation.current}deg)`;
       }
@@ -125,7 +141,7 @@ export default function FloatingSticker({
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       window.removeEventListener('resize', handleResize);
     };
-  }, [size, initialSpeed]);
+  }, [size, initialSpeed, friction]);
 
   // Drag handlers
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -168,7 +184,7 @@ export default function FloatingSticker({
     if (!isDragging.current) return;
     isDragging.current = false;
 
-    const speedCap = 12;
+    const maxThrowSpeed = 16;
     let vx = mouseVel.current.vx;
     let vy = mouseVel.current.vy;
 
@@ -177,9 +193,9 @@ export default function FloatingSticker({
       const angle = Math.random() * Math.PI * 2;
       vx = Math.cos(angle) * initialSpeed;
       vy = Math.sin(angle) * initialSpeed;
-    } else if (speed > speedCap) {
-      vx = (vx / speed) * speedCap;
-      vy = (vy / speed) * speedCap;
+    } else if (speed > maxThrowSpeed) {
+      vx = (vx / speed) * maxThrowSpeed;
+      vy = (vy / speed) * maxThrowSpeed;
     }
 
     vel.current = { vx, vy };

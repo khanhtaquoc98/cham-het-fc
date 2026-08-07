@@ -123,14 +123,16 @@ export const AdminYouTubeConfigSection: React.FC<Props> = ({ matchId = 'default_
   }, [fetchConfigs]);
 
   // ── Save Configs to DB ──
-  const handleSaveConfigs = async (e?: React.FormEvent) => {
+  const handleSaveConfigs = async (e?: React.FormEvent, customConfigs?: YouTubeVideoConfig[]) => {
     if (e) e.preventDefault();
     setSaving(true);
     try {
-      const preparedConfigs = configs.map(c => ({
+      const targetConfigs = customConfigs || configs;
+      const preparedConfigs = targetConfigs.map(c => ({
         ...c,
         match_id: selectedMatchId,
-        youtube_id: extractYouTubeId(c.youtube_url)
+        youtube_id: extractYouTubeId(c.youtube_url),
+        start_offset_seconds: Number(c.start_offset_seconds) || 0,
       }));
 
       const res = await fetch('/api/youtube-config', {
@@ -158,9 +160,9 @@ export const AdminYouTubeConfigSection: React.FC<Props> = ({ matchId = 'default_
 
   // ── Offset Change Callback from Player ──
   const handleOffsetChange = (slot: 1 | 2, newOffset: number) => {
-    setConfigs(prev => prev.map(c => c.slot === slot ? { ...c, start_offset_seconds: newOffset } : c));
-    toast.success(`Đã tự động tính độ trễ Video 2: ${newOffset}s`);
-    setTimeout(() => handleSaveConfigs(), 300);
+    const updated = configs.map(c => c.slot === slot ? { ...c, start_offset_seconds: newOffset } : c);
+    setConfigs(updated);
+    handleSaveConfigs(undefined, updated);
   };
 
   const handleSeekFromCaption = (slot: 1 | 2, seconds: number) => {
