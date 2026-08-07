@@ -216,41 +216,6 @@ export default function UserProfileSection({ user, linkedPlayer, recentMatches =
             )}
           </div>
 
-          {/* Pencil Edit Icon Badge on Avatar Circle */}
-          {linkedPlayer && (
-            <label style={{
-              position: 'absolute',
-              bottom: '0px',
-              right: '0px',
-              width: '26px',
-              height: '26px',
-              borderRadius: '50%',
-              background: '#dc2626',
-              border: '2px solid #ffffff',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: uploading ? 'not-allowed' : 'pointer',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
-              transition: 'all 0.15s ease'
-            }} title="Đổi Avatar Cầu Thủ">
-              {uploading ? (
-                <RefreshCw size={12} className="animate-spin" />
-              ) : (
-                <Pencil size={12} />
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                disabled={uploading}
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
-              />
-            </label>
-          )}
-        </div>
-
         {/* User & Player Meta */}
         <div style={{ flex: 1, minWidth: '150px' }}>
           <div style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', lineHeight: 1.2 }}>
