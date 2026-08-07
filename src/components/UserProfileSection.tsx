@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { User, Shield, MessageSquare, Pencil, RefreshCw, AlertCircle, Film, Send, Trophy } from 'lucide-react';
+import { User, Shield, MessageSquare, AlertCircle, Film, Send, Trophy } from 'lucide-react';
 
 export interface PlayerMatchItem {
   id: string;
@@ -43,8 +43,7 @@ interface UserProfileSectionProps {
 
 export default function UserProfileSection({ user, linkedPlayer, recentMatches = [], playerStats }: UserProfileSectionProps) {
   const router = useRouter();
-  const [uploading, setUploading] = useState(false);
-  const [avatarVer, setAvatarVer] = useState<number | string | null>(null);
+  const [avatarVer] = useState<number | string | null>(null);
 
   // Telegram link form state
   const [isEditingTele, setIsEditingTele] = useState(false);
@@ -62,45 +61,7 @@ export default function UserProfileSection({ user, linkedPlayer, recentMatches =
   const versionParam = avatarVer ? `?v=${avatarVer}` : (linkedPlayer?.avatar_version ? `?v=${linkedPlayer.avatar_version}` : '');
   const avatarUrl = filename ? `${supabaseUrl}/storage/v1/object/public/players/${filename}.webp${versionParam}` : null;
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !linkedPlayer) return;
 
-    if (!file.type.startsWith('image/')) {
-      toast.error('Vui lòng chọn hình ảnh (PNG, JPG, WEBP)');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Kích thước ảnh phải nhỏ hơn 5MB');
-      return;
-    }
-
-    try {
-      setUploading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('filename', `${filename}.webp`);
-      formData.append('playerId', linkedPlayer.id);
-
-      const res = await fetch('/api/players/upload-avatar', {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setAvatarVer(Date.now());
-        toast.success('Đã cập nhật Avatar mới thành công!', { icon: '✨' });
-        router.refresh();
-      } else {
-        toast.error(data.error || 'Tải ảnh thất bại');
-      }
-    } catch {
-      toast.error('Không thể kết nối máy chủ');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleSendTeleOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,6 +176,7 @@ export default function UserProfileSection({ user, linkedPlayer, recentMatches =
               </div>
             )}
           </div>
+        </div>
 
         {/* User & Player Meta */}
         <div style={{ flex: 1, minWidth: '150px' }}>
