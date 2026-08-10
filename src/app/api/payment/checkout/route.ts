@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import payos from '@/lib/payos';
 import { supabase } from '@/lib/supabase';
+import { createKosPayment, getKosGatewayUrl } from '@/lib/kos';
 
 export async function POST(request: Request) {
   try {
@@ -66,17 +67,38 @@ export async function POST(request: Request) {
     const paymentType = process.env.PAYMENT_TYPE || 'PAYOS';
 
     if (paymentType === 'KOS') {
-      const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:8000';
-      // Dùng MB Bank Webhook Gateway
+      const gatewayUrl = getKosGatewayUrl();
       const uniqueContent = `CHAMHETFC ${orderCode}`;
-      checkoutUrl = `${gatewayUrl}/checkout` +
-        `?amount=${totalAmount}` +
-        `&content=${encodeURIComponent(uniqueContent)}` +
-        `&orderId=${orderData.id}` +
-        `&orderCode=${orderCode}` +
-        `&callback=${encodeURIComponent(`${baseUrl}/payment/result`)}` +
-        `&cancel_url=${encodeURIComponent(`${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}&status=cancelled`)}` +
-        `&webhook_url=${encodeURIComponent(`${baseUrl}/api/payment/webhook`)}`;
+      const callbackUrl = `${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}`;
+      const cancelUrl = `${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}&status=cancelled`;
+      const webhookUrl = `${baseUrl}/api/payment/webhook`;
+
+      try {
+        const kosRes = await createKosPayment({
+          orderId: orderData.id,
+          amount: totalAmount,
+          content: uniqueContent,
+          callbackUrl,
+          cancelUrl,
+          webhookUrl,
+        });
+
+        if (kosRes?.checkout_url) {
+          checkoutUrl = kosRes.checkout_url;
+        } else {
+          throw new Error('KOS Gateway did not return checkout_url');
+        }
+      } catch (kosErr) {
+        console.warn('Direct KOS payment creation API failed, falling back to direct URL:', kosErr);
+        checkoutUrl = `${gatewayUrl}/checkout` +
+          `?amount=${totalAmount}` +
+          `&content=${encodeURIComponent(uniqueContent)}` +
+          `&orderId=${orderData.id}` +
+          `&orderCode=${orderCode}` +
+          `&callback=${encodeURIComponent(callbackUrl)}` +
+          `&cancel_url=${encodeURIComponent(cancelUrl)}` +
+          `&webhook_url=${encodeURIComponent(webhookUrl)}`;
+      }
 
       // Cập nhật mô tả trong database thành uniqueContent cho khớp đối soát
       await supabase

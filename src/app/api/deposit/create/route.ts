@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import payos from "@/lib/payos";
 import { getSession } from "@/lib/auth";
+import { createKosPayment, getKosGatewayUrl } from "@/lib/kos";
 
 export async function POST(request: Request) {
   try {
@@ -45,16 +46,38 @@ export async function POST(request: Request) {
     let checkoutUrl = '';
 
     if (paymentType === 'KOS') {
-      const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:8000';
+      const gatewayUrl = getKosGatewayUrl();
       const uniqueContent = `CHAMHETFC ${orderCode}`;
-      checkoutUrl = `${gatewayUrl}/checkout` +
-        `?amount=${amount}` +
-        `&content=${encodeURIComponent(uniqueContent)}` +
-        `&orderId=${txData.id}` +
-        `&orderCode=${orderCode}` +
-        `&callback=${encodeURIComponent(`${domain}/dashboard?status=success`)}` +
-        `&cancel_url=${encodeURIComponent(`${domain}/dashboard?status=cancel`)}` +
-        `&webhook_url=${encodeURIComponent(`${domain}/api/payment/webhook`)}`;
+      const callbackUrl = `${domain}/dashboard?status=success`;
+      const cancelUrl = `${domain}/dashboard?status=cancel`;
+      const webhookUrl = `${domain}/api/payment/webhook`;
+
+      try {
+        const kosRes = await createKosPayment({
+          orderId: txData.id,
+          amount,
+          content: uniqueContent,
+          callbackUrl,
+          cancelUrl,
+          webhookUrl,
+        });
+
+        if (kosRes?.checkout_url) {
+          checkoutUrl = kosRes.checkout_url;
+        } else {
+          throw new Error('KOS Gateway did not return checkout_url');
+        }
+      } catch (kosErr) {
+        console.warn('Deposit KOS payment creation API failed, falling back to direct URL:', kosErr);
+        checkoutUrl = `${gatewayUrl}/checkout` +
+          `?amount=${amount}` +
+          `&content=${encodeURIComponent(uniqueContent)}` +
+          `&orderId=${txData.id}` +
+          `&orderCode=${orderCode}` +
+          `&callback=${encodeURIComponent(callbackUrl)}` +
+          `&cancel_url=${encodeURIComponent(cancelUrl)}` +
+          `&webhook_url=${encodeURIComponent(webhookUrl)}`;
+      }
     } else {
       const body = {
         orderCode,

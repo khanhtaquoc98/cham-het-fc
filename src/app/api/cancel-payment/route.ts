@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { cancelKosPayment } from '@/lib/kos';
 
 const PAYOS_CLIENT_ID = process.env.PAYOS_CLIENT_ID || '';
 const PAYOS_API_KEY = process.env.PAYOS_API_KEY || '';
@@ -93,7 +94,15 @@ export async function POST() {
     processedCodes.add(orderCode);
 
     try {
-      await cancelPayOSLink(orderCode, 'Giao dịch bị treo quá lâu');
+      const paymentType = process.env.PAYMENT_TYPE || 'PAYOS';
+
+      if (paymentType === 'KOS') {
+        for (const item of items) {
+          await cancelKosPayment(item.id, 'Giao dịch bị treo quá lâu');
+        }
+      } else {
+        await cancelPayOSLink(orderCode, 'Giao dịch bị treo quá lâu');
+      }
 
       // Cập nhật status → 'cancelled' cho tất cả rows thuộc orderCode này
       for (const item of items) {
@@ -114,7 +123,23 @@ export async function POST() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[cancel-payment] Failed to cancel orderCode ${orderCode}:`, msg);
-      results.push({ source: items.map((i) => i.source).join('+'), orderCode, status: 'error', reason: msg });
+
+      // Ngay cả khi API bên thứ 3 lỗi, vẫn đánh dấu cancelled trong DB để dọn đơn treo
+      for (const item of items) {
+        if (item.source === 'payment_orders') {
+          await supabase
+            .from('payment_orders')
+            .update({ status: 'cancelled' })
+            .eq('id', item.id);
+        } else {
+          await supabase
+            .from('transactions')
+            .update({ status: 'cancelled' })
+            .eq('id', item.id);
+        }
+      }
+
+      results.push({ source: items.map((i) => i.source).join('+'), orderCode, status: 'cancelled', reason: `DB cancelled (API error: ${msg})` });
     }
   }
 

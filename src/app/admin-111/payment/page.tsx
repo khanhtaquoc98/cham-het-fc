@@ -306,7 +306,7 @@ export default function PaymentPage() {
   // Helper: normalize value → human label
   const labelForMethod = (m: string) => {
     if (m === 'app')   return 'App ⚽';
-    if (m === 'payos') return '🏦 QR Ngân hàng';
+    if (m === 'payos' || m === 'gateway') return '🏦 QR Ngân hàng';
     if (m === 'other') return '💵 Tiền mặt';
     if (m === 'manual') return 'Thủ công';
     return m;
@@ -349,8 +349,10 @@ export default function PaymentPage() {
       const allPlayers = summary.playerPayments || [];
       const unpaidPlayers = allPlayers.filter(p => !p.isPaid);
 
-      const qrCount  = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'payos').length;
-      const qrAmount  = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'payos').reduce((s, p) => s + p.totalAmount, 0);
+      const isQR = (m: string) => m === 'payos' || m === 'gateway';
+
+      const qrCount  = allPlayers.filter(p => p.isPaid && isQR(p.paymentMethod)).length;
+      const qrAmount = allPlayers.filter(p => p.isPaid && isQR(p.paymentMethod)).reduce((s, p) => s + p.totalAmount, 0);
 
       const appCount  = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'app').length;
       const appAmount = allPlayers.filter(p => p.isPaid && p.paymentMethod === 'app').reduce((s, p) => s + p.totalAmount, 0);
@@ -370,7 +372,7 @@ export default function PaymentPage() {
         : '';
 
       const body = [
-        `QR Ngân Hàng (payos) x ${qrCount} người: ${fmt(qrAmount)}đ`,
+        `QR Ngân Hàng x ${qrCount} người: ${fmt(qrAmount)}đ`,
         `App (Bóng) x ${appCount} người: ${fmt(appAmount)}đ`,
         `Khác/Tiền Mặt: x ${otherCount} người: ${fmt(otherAmount)}đ`,
         unpaidList,
@@ -408,11 +410,13 @@ export default function PaymentPage() {
   const paidAmount = playerPayments.filter(p => p.isPaid).reduce((s, p) => s + p.totalAmount, 0);
 
   // Tổng tiền theo phương thức thanh toán
+  const isQR = (m: string) => m === 'payos' || m === 'gateway';
+
   const paidByApp   = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'app').reduce((s, p) => s + p.totalAmount, 0);
-  const paidByQR    = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'payos').reduce((s, p) => s + p.totalAmount, 0);
+  const paidByQR    = playerPayments.filter(p => p.isPaid && isQR(p.paymentMethod)).reduce((s, p) => s + p.totalAmount, 0);
   const paidByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'other').reduce((s, p) => s + p.totalAmount, 0);
   const countByApp   = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'app').length;
-  const countByQR    = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'payos').length;
+  const countByQR    = playerPayments.filter(p => p.isPaid && isQR(p.paymentMethod)).length;
   const countByOther = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'other').length;
 
   return (

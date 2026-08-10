@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { checkKosPayment } from '@/lib/kos';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
     }
 
     // Lấy order từ DB
-    const { data: order, error } = await supabase
+    let { data: order, error } = await supabase
       .from('payment_orders')
       .select('*')
       .eq('id', orderId)
@@ -21,6 +22,40 @@ export async function GET(request: Request) {
 
     if (error || !order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    // Nếu đơn chưa paid và đang xài KOS payment, chủ động check KOS Gateway
+    const paymentType = process.env.PAYMENT_TYPE || 'PAYOS';
+    if (order.status !== 'paid' && paymentType === 'KOS') {
+      const kosStatus = await checkKosPayment(order.id);
+      if (kosStatus && (kosStatus.status === 'completed' || kosStatus.status === 'success')) {
+        const nowIso = new Date().toISOString();
+        await supabase
+          .from('payment_orders')
+          .update({ status: 'paid', paid_at: nowIso })
+          .eq('id', order.id);
+
+        order.status = 'paid';
+        order.paid_at = nowIso;
+
+        const playerPaymentIds: string[] = order.player_payment_ids || [];
+        if (playerPaymentIds.length > 0) {
+          await supabase
+            .from('player_payments')
+            .update({
+              is_paid: true,
+              paid_at: nowIso,
+              payment_method: 'payos',
+            })
+            .in('id', playerPaymentIds);
+        }
+      } else if (kosStatus && (kosStatus.status === 'cancelled' || kosStatus.status === 'failed')) {
+        await supabase
+          .from('payment_orders')
+          .update({ status: 'cancelled' })
+          .eq('id', order.id);
+        order.status = 'cancelled';
+      }
     }
 
     // Lấy tên player từ player_payments

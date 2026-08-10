@@ -1,37 +1,57 @@
 import { NextResponse } from 'next/server';
 import payos from '@/lib/payos';
 import { supabase } from '@/lib/supabase';
-import crypto from 'crypto';
+import { verifyKosSignature } from '@/lib/kos';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const gatewaySignature = request.headers.get('x-webhook-signature') || request.headers.get('X-Webhook-Signature');
+    const gatewaySignature =
+      request.headers.get('x-webhook-signature') ||
+      request.headers.get('X-Webhook-Signature') ||
+      body?.signature;
 
-    if (gatewaySignature) {
-      // Xử lý webhook từ MB Bank Webhook Gateway
-      const gatewaySecret = process.env.GATEWAY_CALLBACK_SECRET || 'super-secret-callback-token';
-      const { reference_id, payment_id, amount, trans_no, status } = body;
+    const isKosWebhook = Boolean(gatewaySignature || body?.event || body?.payment_id);
 
-      // Verify signature (khớp với định dạng float của Python)
-      const amountStr = Number.isInteger(amount) ? amount.toFixed(1) : String(amount);
-      const signStr = `${reference_id}${payment_id}${amountStr}${trans_no}${gatewaySecret}`;
-      const computedSignature = crypto.createHash('sha256').update(signStr).digest('hex');
-
-      if (computedSignature !== gatewaySignature) {
-        console.error('Invalid gateway signature:', { computedSignature, gatewaySignature, signStr });
+    if (isKosWebhook) {
+      // 1. Verify signature từ KOS Gateway
+      const isValidSig = verifyKosSignature(body, gatewaySignature);
+      if (!isValidSig) {
+        console.error('Invalid KOS gateway signature:', { body, gatewaySignature });
         return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
       }
 
-      if (status === 'success') {
+      const { event, status, amount } = body;
+      const targetOrderId = body.order_id || body.reference_id;
+
+      const isSuccess =
+        event === 'payment.success' ||
+        status === 'completed' ||
+        status === 'success';
+
+      const isFailed =
+        event === 'payment.failed' ||
+        status === 'cancelled' ||
+        status === 'failed';
+
+      if (isSuccess && targetOrderId) {
         // Giao dịch thành công!
         // 1. Thử tìm trong payment_orders trước (thanh toán trận đấu)
-        const { data: order } = await supabase
+        let { data: order } = await supabase
           .from('payment_orders')
           .select('*')
-          .eq('id', reference_id)
+          .eq('id', targetOrderId)
           .single();
+
+        if (!order && !isNaN(Number(targetOrderId))) {
+          const { data: orderByCode } = await supabase
+            .from('payment_orders')
+            .select('*')
+            .eq('order_code', Number(targetOrderId))
+            .single();
+          order = orderByCode;
+        }
 
         if (order) {
           if (order.status !== 'paid') {
@@ -47,13 +67,13 @@ export async function POST(request: Request) {
                 .update({
                   is_paid: true,
                   paid_at: new Date().toISOString(),
-                  payment_method: 'gateway',
+                  payment_method: 'payos',
                 })
                 .in('id', playerPaymentIds)
                 .select('player_name');
 
               const playerNames = updatedPlayers?.map(p => p.player_name).join(', ') || '';
-              const formattedAmount = new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+              const formattedAmount = new Intl.NumberFormat('vi-VN').format(amount || order.amount) + 'đ';
 
               if (playerNames) {
                 try {
@@ -72,19 +92,17 @@ export async function POST(request: Request) {
                 }
               }
             }
-            console.log(`✅ Gateway Payment confirmed: orderId=${reference_id}, players=${playerPaymentIds.length}`);
+            console.log(`✅ KOS Gateway Payment confirmed: orderId=${targetOrderId}, players=${playerPaymentIds.length}`);
           }
         } else {
           // 2. Không thấy trong payment_orders -> Thử xử lý như deposit (thêm Bóng)
           const { data: tx } = await supabase
             .from('transactions')
             .select('*')
-            .eq('id', reference_id)
-            .eq('status', 'pending')
-            .eq('type', 'deposit')
+            .eq('id', targetOrderId)
             .single();
 
-          if (tx) {
+          if (tx && tx.status === 'pending' && tx.type === 'deposit') {
             await supabase
               .from('transactions')
               .update({ status: 'success' })
@@ -102,10 +120,24 @@ export async function POST(request: Request) {
                 .update({ balance: (user.balance || 0) + tx.amount })
                 .eq('id', tx.account_id);
             }
-            console.log(`✅ Gateway Deposit confirmed: txId=${reference_id}, amount=${tx.amount}, account=${tx.account_id}`);
+            console.log(`✅ KOS Gateway Deposit confirmed: txId=${targetOrderId}, amount=${tx.amount}, account=${tx.account_id}`);
           }
         }
+      } else if (isFailed && targetOrderId) {
+        // Giao dịch hủy hoặc thất bại
+        await supabase
+          .from('payment_orders')
+          .update({ status: 'cancelled' })
+          .eq('id', targetOrderId);
+
+        await supabase
+          .from('transactions')
+          .update({ status: 'cancelled' })
+          .eq('id', targetOrderId);
+
+        console.log(`❌ KOS Gateway Payment cancelled/failed: orderId=${targetOrderId}`);
       }
+
       return NextResponse.json({ ok: true });
     }
 
