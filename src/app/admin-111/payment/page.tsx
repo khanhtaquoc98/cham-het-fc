@@ -252,7 +252,7 @@ export default function PaymentPage() {
       if (!res.ok) throw new Error(data.error || 'Lỗi xử lý thanh toán');
 
       await fetchData();
-      toast.success(pp.isPaid ? 'Bỏ đánh dấu thanh toán' : `Thanh toán thành công qua ${method}`);
+      toast.success(pp.isPaid ? 'Bỏ đánh dấu thanh toán' : `Thanh toán thành công qua ${labelForMethod(method)}`);
     } catch (err: unknown) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : 'Lỗi khi cập nhật trạng thái');
@@ -305,11 +305,20 @@ export default function PaymentPage() {
 
   // Helper: normalize value → human label
   const labelForMethod = (m: string) => {
-    if (m === 'app')   return 'App ⚽';
-    if (m === 'payos' || m === 'gateway') return '🏦 QR Ngân hàng';
-    if (m === 'other') return '💵 Tiền mặt';
-    if (m === 'manual') return 'Thủ công';
-    return m;
+    const clean = (m || '').replace(/[\[\]]/g, '').trim().toLowerCase();
+    if (clean === 'app' || clean.includes('app')) return 'App ⚽';
+    if (
+      clean.includes('payos') ||
+      clean.includes('gateway') ||
+      clean.includes('kos') ||
+      clean.includes('qr')
+    ) {
+      return '🏦 QR Ngân hàng';
+    }
+    if (clean.includes('other') || clean.includes('tiền mặt')) return '💵 Tiền mặt';
+    if (clean.includes('manual') || clean.includes('thủ công')) return 'Thủ công';
+    if (clean === 'unpaid' || clean === '') return 'Chưa TT';
+    return '🏦 QR Ngân hàng';
   };
 
   const handleSendNotification = async () => {
@@ -349,7 +358,10 @@ export default function PaymentPage() {
       const allPlayers = summary.playerPayments || [];
       const unpaidPlayers = allPlayers.filter(p => !p.isPaid);
 
-      const isQR = (m: string) => m === 'payos' || m === 'gateway';
+      const isQR = (m: string) => {
+        const clean = (m || '').replace(/[\[\]]/g, '').trim().toLowerCase();
+        return clean.includes('payos') || clean.includes('gateway') || clean.includes('kos') || clean.includes('qr');
+      };
 
       const qrCount  = allPlayers.filter(p => p.isPaid && isQR(p.paymentMethod)).length;
       const qrAmount = allPlayers.filter(p => p.isPaid && isQR(p.paymentMethod)).reduce((s, p) => s + p.totalAmount, 0);
@@ -410,7 +422,10 @@ export default function PaymentPage() {
   const paidAmount = playerPayments.filter(p => p.isPaid).reduce((s, p) => s + p.totalAmount, 0);
 
   // Tổng tiền theo phương thức thanh toán
-  const isQR = (m: string) => m === 'payos' || m === 'gateway';
+  const isQR = (m: string) => {
+    const clean = (m || '').replace(/[\[\]]/g, '').trim().toLowerCase();
+    return clean.includes('payos') || clean.includes('gateway') || clean.includes('kos') || clean.includes('qr');
+  };
 
   const paidByApp   = playerPayments.filter(p => p.isPaid && p.paymentMethod === 'app').reduce((s, p) => s + p.totalAmount, 0);
   const paidByQR    = playerPayments.filter(p => p.isPaid && isQR(p.paymentMethod)).reduce((s, p) => s + p.totalAmount, 0);
