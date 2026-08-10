@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import payos from '@/lib/payos';
 import { supabase } from '@/lib/supabase';
 import { verifyKosSignature } from '@/lib/kos';
+import { sendPaymentNotification } from '@/lib/payment';
 
 export async function POST(request: Request) {
   try {
@@ -67,29 +68,14 @@ export async function POST(request: Request) {
                 .update({
                   is_paid: true,
                   paid_at: new Date().toISOString(),
-                  payment_method: 'payos',
+                  payment_method: 'kos',
                 })
                 .in('id', playerPaymentIds)
                 .select('player_name');
 
               const playerNames = updatedPlayers?.map(p => p.player_name).join(', ') || '';
-              const formattedAmount = new Intl.NumberFormat('vi-VN').format(amount || order.amount) + 'đ';
-
               if (playerNames) {
-                try {
-                  const safePlayerNames = playerNames.replace(/([_*\[\]`])/g, '\\$1');
-
-                  await fetch('https://summary-bot-sepia.vercel.app/api/notify-payment', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      title: 'Thanh toán thành công',
-                      body: `Đã nhận thanh toán của ${safePlayerNames} với số tiền ${formattedAmount}`
-                    })
-                  });
-                } catch (err) {
-                  console.error('Failed to notify bot:', err);
-                }
+                await sendPaymentNotification(playerNames, amount || order.amount);
               }
             }
             console.log(`✅ KOS Gateway Payment confirmed: orderId=${targetOrderId}, players=${playerPaymentIds.length}`);
@@ -181,24 +167,9 @@ export async function POST(request: Request) {
 
           const playerNames = updatedPlayers?.map(p => p.player_name).join(', ') || '';
           const senderName = webhookData.counterAccountName || 'Một thành viên';
-          const formattedAmount = new Intl.NumberFormat('vi-VN').format(webhookData.amount) + 'đ';
 
           if (playerNames) {
-            try {
-              const safeSenderName = senderName.replace(/([_*\[\]`])/g, '\\$1');
-              const safePlayerNames = playerNames.replace(/([_*\[\]`])/g, '\\$1');
-
-              await fetch('https://summary-bot-sepia.vercel.app/api/notify-payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  title: 'Thanh toán thành công',
-                  body: `${safeSenderName} đã thanh toán ${formattedAmount} cho ${safePlayerNames}`
-                })
-              });
-            } catch (err) {
-              console.error('Failed to notify bot:', err);
-            }
+            await sendPaymentNotification(playerNames, webhookData.amount, senderName);
           }
         }
 

@@ -435,3 +435,33 @@ function findRegisteredPlayer(
 
   return null;
 }
+
+export async function sendPaymentNotification(
+  playerNames: string,
+  amount: number,
+  senderName?: string
+): Promise<void> {
+  if (!playerNames) return;
+  try {
+    const safePlayerNames = playerNames.replace(/([_*\[\]`])/g, '\\$1');
+    const formattedAmount = new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+
+    let bodyText = `Đã nhận thanh toán của ${safePlayerNames} với số tiền ${formattedAmount}`;
+    if (senderName) {
+      const safeSenderName = senderName.replace(/([_*\[\]`])/g, '\\$1');
+      bodyText = `${safeSenderName} đã thanh toán ${formattedAmount} cho ${safePlayerNames}`;
+    }
+
+    await fetch('https://summary-bot-sepia.vercel.app/api/notify-payment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Thanh toán thành công',
+        body: bodyText,
+      }),
+    });
+  } catch (err) {
+    console.error('Failed to notify payment bot:', err);
+  }
+}
+

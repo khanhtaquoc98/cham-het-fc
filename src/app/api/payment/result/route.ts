@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { checkKosPayment } from '@/lib/kos';
+import { sendPaymentNotification } from '@/lib/payment';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,14 +41,20 @@ export async function GET(request: Request) {
 
         const playerPaymentIds: string[] = order.player_payment_ids || [];
         if (playerPaymentIds.length > 0) {
-          await supabase
+          const { data: updatedPlayers } = await supabase
             .from('player_payments')
             .update({
               is_paid: true,
               paid_at: nowIso,
-              payment_method: 'payos',
+              payment_method: 'kos',
             })
-            .in('id', playerPaymentIds);
+            .in('id', playerPaymentIds)
+            .select('player_name');
+
+          const playerNamesStr = updatedPlayers?.map(p => p.player_name).join(', ') || '';
+          if (playerNamesStr) {
+            await sendPaymentNotification(playerNamesStr, order.amount);
+          }
         }
       } else if (kosStatus && (kosStatus.status === 'cancelled' || kosStatus.status === 'failed')) {
         await supabase
