@@ -39,6 +39,7 @@ export async function createKosPayment(
   const res = await fetch(`${gatewayUrl}/api/v1/payment/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(5000),
     body: JSON.stringify({
       order_id: params.orderId,
       amount: params.amount,

@@ -1,8 +1,157 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { CircleDot, User, ClipboardList, CalendarDays, Clock3, MapPin, CheckCircle, Link2, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+// ==========================================
+// AUTOCOMPLETE PLAYER COMPONENT
+// ==========================================
+
+function PlayerAutocomplete({
+  registeredPlayers,
+  onSelect,
+  onCancel,
+}: {
+  registeredPlayers: PlayerConfig[];
+  onSelect: (playerId: string) => void;
+  onCancel: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(true);
+  const [selectedId, setSelectedId] = useState<string>('');
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return registeredPlayers;
+    return registeredPlayers.filter(rp => {
+      const matchName = (rp.name || '').toLowerCase().includes(q);
+      const matchSub = (rp.subNames || []).some(sub => sub.toLowerCase().includes(q));
+      return matchName || matchSub;
+    });
+  }, [query, registeredPlayers]);
+
+  const handleChoose = (player: PlayerConfig) => {
+    setQuery(player.name);
+    setSelectedId(player.id);
+    setIsOpen(false);
+  };
+
+  const handleConfirm = () => {
+    if (selectedId) {
+      onSelect(selectedId);
+    } else if (filtered.length === 1) {
+      onSelect(filtered[0].id);
+    }
+  };
+
+  return (
+    <div ref={wrapperRef} style={{ position: 'relative', display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ position: 'relative' }}>
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setSelectedId('');
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder="Gõ tên cầu thủ..."
+          autoFocus
+          style={{
+            ...inputCompact,
+            width: '110px',
+            fontSize: '11px',
+            padding: '4px 8px',
+            borderRadius: '6px',
+            border: '1.5px solid #c62828',
+          }}
+        />
+
+        {isOpen && (
+          <div style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            zIndex: 999,
+            width: '160px',
+            maxHeight: '160px',
+            overflowY: 'auto',
+            background: 'white',
+            border: '1px solid rgba(198,40,40,0.2)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+            marginTop: '4px',
+            textAlign: 'left',
+          }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '8px 10px', fontSize: '11px', color: '#8a8aaa' }}>Không thấy cầu thủ</div>
+            ) : (
+              filtered.map((rp) => (
+                <div
+                  key={rp.id}
+                  onClick={() => handleChoose(rp)}
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: '#1a1a2e',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid rgba(198,40,40,0.05)',
+                    background: selectedId === rp.id ? 'rgba(198,40,40,0.08)' : 'transparent',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(198,40,40,0.08)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = selectedId === rp.id ? 'rgba(198,40,40,0.08)' : 'transparent')}
+                >
+                  <div style={{ fontWeight: 700 }}>{rp.name}</div>
+                  {rp.subNames && rp.subNames.length > 0 && (
+                    <div style={{ fontSize: '9.5px', color: '#8a8aaa' }}>({rp.subNames.join(', ')})</div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      <button
+        style={{
+          ...btnBase,
+          fontSize: '11px',
+          padding: '4px 8px',
+          background: selectedId || filtered.length === 1 ? '#2e7d32' : '#e0e0e0',
+          color: selectedId || filtered.length === 1 ? 'white' : '#888',
+          cursor: selectedId || filtered.length === 1 ? 'pointer' : 'not-allowed',
+        }}
+        onClick={handleConfirm}
+        disabled={!selectedId && filtered.length !== 1}
+        title="Xác nhận"
+      >
+        ✓
+      </button>
+
+      <button
+        style={{ ...btnBase, fontSize: '11px', padding: '4px 8px', background: '#f5f5f5', color: '#616161' }}
+        onClick={onCancel}
+        title="Hủy"
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
 
 // ==========================================
 // TYPES
@@ -406,21 +555,27 @@ function PlayerStatsList() {
     fetch('/api/players').then(r => r.json()).then(d => setRegisteredPlayers(d)).catch(() => {});
   }, [page, fetchStats]);
 
-  const handleLinkPlayer = async (playerName: string) => {
-    if (!selectedPlayerId) return;
+  const handleLinkPlayer = async (playerName: string, targetPlayerId?: string) => {
+    const idToUse = targetPlayerId || selectedPlayerId;
+    if (!idToUse) return;
     try {
       const res = await fetch('/api/history/players', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerName, playerId: selectedPlayerId }),
+        body: JSON.stringify({ playerName, playerId: idToUse }),
       });
-      if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok !== false) {
+        toast.success('Đã liên kết cầu thủ thành công!');
         setLinkingPlayer(null);
         setSelectedPlayerId('');
         fetchStats(page);
+      } else {
+        toast.error('Lỗi khi liên kết cầu thủ: ' + (data.error || 'Thất bại'));
       }
     } catch (err) {
       console.error(err);
+      toast.error('Lỗi kết nối server');
     }
   };
 
@@ -493,22 +648,11 @@ function PlayerStatsList() {
                     </td>
                     <td style={tdCenter}>
                       {linkingPlayer === player.playerName ? (
-                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', justifyContent: 'center' }}>
-                          <select
-                            style={{ ...inputCompact, width: '90px', fontSize: '11px', padding: '4px 6px' }}
-                            value={selectedPlayerId}
-                            onChange={e => setSelectedPlayerId(e.target.value)}
-                          >
-                            <option value="">Chọn...</option>
-                            {registeredPlayers.map(rp => (
-                              <option key={rp.id} value={rp.id}>{rp.name}</option>
-                            ))}
-                          </select>
-                          <button style={{ ...btnBase, fontSize: '11px', padding: '4px 8px', background: '#e8f5e9', color: '#2e7d32' }}
-                            onClick={() => handleLinkPlayer(player.playerName)}>✓</button>
-                          <button style={{ ...btnBase, fontSize: '11px', padding: '4px 8px', background: '#f5f5f5', color: '#616161' }}
-                            onClick={() => { setLinkingPlayer(null); setSelectedPlayerId(''); }}>✕</button>
-                        </div>
+                        <PlayerAutocomplete
+                          registeredPlayers={registeredPlayers}
+                          onSelect={(targetId) => handleLinkPlayer(player.playerName, targetId)}
+                          onCancel={() => { setLinkingPlayer(null); setSelectedPlayerId(''); }}
+                        />
                       ) : (
                         <button
                           style={{ ...btnBase, fontSize: '11px', padding: '4px 10px', background: player.playerId ? '#e8f5e9' : '#fff3e0', color: player.playerId ? '#2e7d32' : '#e65100' }}

@@ -233,27 +233,32 @@ export function PlayerCardCarousel({ playerStats, playerConfigs }: {
   playerStats: PlayerCardData[];
   playerConfigs: { id: string; name: string; jerseyNumber: number | null; telegramHandle?: string | null; updatedAt?: string | number | Date | null; avatarVersion?: string | number | null; avatarUrl?: string | null }[];
 }) {
-  const allPlayers = playerConfigs.map(config => {
-    const stat = playerStats.find(s =>
-      s.playerId === config.id ||
-      s.playerName.trim().toLowerCase() === config.name.trim().toLowerCase()
-    );
+  const allPlayers = playerConfigs
+    .filter(config => {
+      const num = config.jerseyNumber;
+      return num !== null && num !== undefined && !isNaN(Number(num)) && Number(num) > 0 && Number(num) !== 19;
+    })
+    .map(config => {
+      const stat = playerStats.find(s =>
+        s.playerId === config.id ||
+        s.playerName.trim().toLowerCase() === config.name.trim().toLowerCase()
+      );
 
-    return {
-      playerName: config.name,
-      playerId: config.id,
-      wins: stat?.wins || 0,
-      draws: stat?.draws || 0,
-      losses: stat?.losses || 0,
-      totalMatches: stat?.totalMatches || 0,
-      winRate: stat?.winRate || 0,
-      jerseyNumber: config.jerseyNumber ?? null,
-      telegramHandle: config.telegramHandle || stat?.telegramHandle || null,
-      updatedAt: config.updatedAt || null,
-      avatarVersion: config.avatarVersion || null,
-      avatarUrl: config.avatarUrl || null,
-    };
-  });
+      return {
+        playerName: config.name,
+        playerId: config.id,
+        wins: stat?.wins || 0,
+        draws: stat?.draws || 0,
+        losses: stat?.losses || 0,
+        totalMatches: stat?.totalMatches || 0,
+        winRate: stat?.winRate || 0,
+        jerseyNumber: config.jerseyNumber ?? null,
+        telegramHandle: config.telegramHandle || stat?.telegramHandle || null,
+        updatedAt: config.updatedAt || null,
+        avatarVersion: config.avatarVersion || null,
+        avatarUrl: config.avatarUrl || null,
+      };
+    });
 
   if (allPlayers.length === 0) return null;
 

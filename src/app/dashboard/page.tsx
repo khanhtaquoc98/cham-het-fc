@@ -8,6 +8,7 @@ import SuccessToast from "./SuccessToast";
 import TelegramLinkSection from "@/components/TelegramLinkSection";
 
 import UserProfileSection from "@/components/UserProfileSection";
+import { getPlayerMatchHistory } from "@/lib/history";
 
 export default async function DashboardPage(props: { searchParams?: Promise<{ status?: string, cancel?: string, orderCode?: string, page?: string }> }) {
   const session = await getSession();
@@ -155,7 +156,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
         .order('created_at', { ascending: false })
         .limit(5);
 
-      if (pStatsByName) {
+      if (pStatsByName && pStatsByName.length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         playerRecentMatches = pStatsByName.map((s: any) => ({
           id: s.id,
@@ -166,6 +167,18 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
           result: s.result,
           homeScore: s.match_history?.home_score,
           awayScore: s.match_history?.away_score,
+        }));
+      } else {
+        const fallbackHistory = await getPlayerMatchHistory(linkedPlayer.name, 1, 5);
+        playerRecentMatches = fallbackHistory.matches.map((m) => ({
+          id: m.id,
+          matchHistoryId: m.matchHistoryId,
+          matchDate: m.matchHistory?.matchDate,
+          matchTime: m.matchHistory?.matchTime,
+          teamName: m.teamName,
+          result: m.result,
+          homeScore: m.matchHistory?.homeScore,
+          awayScore: m.matchHistory?.awayScore,
         }));
       }
     }
