@@ -9,7 +9,7 @@ import {
   resetPaymentsForMatch,
   autoCheckoutAllApp,
 } from '@/lib/payment';
-import { getMatchData } from '@/lib/storage';
+import { getMatchData, deleteMatchData } from '@/lib/storage';
 import { saveMatchHistory } from '@/lib/history';
 
 export const dynamic = 'force-dynamic';
@@ -132,6 +132,13 @@ export async function POST(request: Request) {
         matchHistory: saved,
         playerCount: matchData.teams.reduce((s, t) => s + t.players.length, 0),
       });
+    } else if (action === 'reset-match') {
+      const matchData = await getMatchData();
+      if (matchData) {
+        await resetPaymentsForMatch(matchData.id);
+      }
+      await deleteMatchData(false);
+      return NextResponse.json({ ok: true });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

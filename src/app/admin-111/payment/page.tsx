@@ -403,6 +403,21 @@ export default function PaymentPage() {
 
       if (!res.ok) throw new Error('Gửi thông báo thất bại');
       toast.success('📣 Đã gửi thông báo Chốt Thanh Toán!');
+
+      // Step 3: Tự động reset trận đấu (giống lệnh /reset) để làm sạch dữ liệu cho trận sau
+      try {
+        const resetRes = await fetch('/api/payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'reset-match' }),
+        });
+        if (resetRes.ok) {
+          toast.success('🗑️ Đã xoá & reset dữ liệu trận đấu (giống lệnh /reset)!', { duration: 4000 });
+          await fetchData();
+        }
+      } catch (resetErr) {
+        console.error('Reset match error:', resetErr);
+      }
     } catch (err: unknown) {
       console.error(err);
       toast.error(err instanceof Error ? err.message : 'Lỗi khi gửi thông báo');
