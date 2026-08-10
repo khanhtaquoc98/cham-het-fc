@@ -124,10 +124,14 @@ export async function POST(request: Request) {
       .update({ checkout_url: checkoutUrl })
       .eq('id', orderData.id);
 
+    const qrCodeUrl = `https://img.vietqr.io/image/TIMO-0934860931-compact2.png?amount=${totalAmount}&addInfo=${encodeURIComponent(`CHAMHETFC ${orderCode}`)}&accountName=TA%20QUOC%20KHANH`;
+
     return NextResponse.json({
       checkoutUrl,
+      qrCodeUrl,
       orderCode,
       orderId: orderData.id,
+      content: `CHAMHETFC ${orderCode}`,
     });
   } catch (err: any) {
     console.error('Checkout error:', err);
