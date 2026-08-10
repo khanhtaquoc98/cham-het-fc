@@ -31,49 +31,6 @@ export default function PublicPaymentPage() {
   const [checkPaidData, setCheckPaidData] = useState<CheckPaidData | null>(null);
   const [checkPaidLoading, setCheckPaidLoading] = useState(true);
 
-  const [kosModalData, setKosModalData] = useState<{
-    checkoutUrl: string;
-    qrCodeUrl: string;
-    orderCode: number;
-    orderId: string;
-    content: string;
-  } | null>(null);
-
-  // Auto polling while kosModalData is open
-  useEffect(() => {
-    if (!kosModalData) return;
-    const interval = setInterval(async () => {
-      try {
-        const [paymentRes, checkPaidRes] = await Promise.all([
-          fetch('/api/payment'),
-          fetch('/api/payment/check-paid'),
-        ]);
-        const paymentData: PaymentSummary = await paymentRes.json();
-        const checkData = await checkPaidRes.json();
-
-        setSummary(paymentData);
-        setCheckPaidData(checkData);
-
-        // Check if all selected players are paid
-        const currentSelected = Array.from(selectedIds);
-        if (currentSelected.length > 0) {
-          const allPaid = currentSelected.every(id => {
-            const p = paymentData.playerPayments?.find(item => item.id === id);
-            return p?.isPaid;
-          });
-          if (allPaid) {
-            toast.success('🎉 Thanh toán thành công!');
-            setKosModalData(null);
-            setSelectedIds(new Set());
-          }
-        }
-      } catch (err) {
-        console.error('Polling error:', err);
-      }
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [kosModalData, selectedIds]);
-
   const fetchData = useCallback(async () => {
     setCheckPaidLoading(true);
     try {
@@ -213,23 +170,24 @@ export default function PublicPaymentPage() {
         }
         @media (max-width: 768px) {
           .invoice-card {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            width: 100%;
-            top: auto;
-            border-radius: 24px 24px 0 0;
-            z-index: 50;
-            box-shadow: 0 -8px 24px rgba(0,0,0,0.15);
-            max-height: 60vh;
-            overflow-y: auto;
-            border-bottom: none;
-            padding-bottom: env(safe-area-inset-bottom, 20px);
-            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            top: auto !important;
+            border-radius: 24px 24px 0 0 !important;
+            z-index: 9999 !important;
+            box-shadow: 0 -8px 30px rgba(0,0,0,0.2) !important;
+            max-height: 75vh !important;
+            overflow-y: auto !important;
+            border-bottom: none !important;
+            padding-bottom: calc(16px + env(safe-area-inset-bottom, 16px)) !important;
+            background: #ffffff !important;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
           }
           .main-grid {
-            padding-bottom: 240px;
+            padding-bottom: 260px !important;
           }
         }
         @keyframes slideUp {
@@ -241,7 +199,7 @@ export default function PublicPaymentPage() {
           to { opacity: 1; }
         }
       `}} />
-      <div className="content-appear" style={containerStyle}>
+      <div style={containerStyle}>
         <Link href="/" style={backLinkStyle}>← Trang chủ</Link>
 
         {/* Header */}
@@ -474,20 +432,14 @@ export default function PublicPaymentPage() {
                     });
                     const data = await res.json();
                     if (data.checkoutUrl) {
-                      setKosModalData({
-                        checkoutUrl: data.checkoutUrl,
-                        qrCodeUrl: data.qrCodeUrl,
-                        orderCode: data.orderCode,
-                        orderId: data.orderId,
-                        content: data.content,
-                      });
+                      window.location.href = data.checkoutUrl;
                     } else {
                       toast.error('Lỗi tạo link thanh toán: ' + (data.error || 'Unknown error'));
+                      setPaying(false);
                     }
                   } catch (err) {
                     console.error(err);
                     toast.error('Lỗi kết nối. Vui lòng thử lại.');
-                  } finally {
                     setPaying(false);
                   }
                 }}
@@ -498,122 +450,6 @@ export default function PublicPaymentPage() {
           )}
         </div>
       </div>
-
-      {/* Bottom Sheet Payment Modal */}
-      {kosModalData && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.65)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            animation: 'fadeIn 0.2s ease-out',
-          }}
-          onClick={() => setKosModalData(null)}
-        >
-          <div
-            style={{
-              background: '#ffffff',
-              width: '100%',
-              maxWidth: 500,
-              borderRadius: '24px 24px 0 0',
-              padding: '20px 24px calc(24px + env(safe-area-inset-bottom, 0px))',
-              boxShadow: '0 -10px 40px rgba(0,0,0,0.25)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              animation: 'slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Sheet handle bar */}
-            <div style={{ width: 40, height: 4, background: '#e0e0e0', borderRadius: 2, margin: '0 auto 16px' }} />
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1a1a2e', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <CreditCard size={20} color="#e53935" /> Thanh toán KOS Gateway
-                </h3>
-                <p style={{ fontSize: 12, color: '#8a8aaa', margin: '4px 0 0' }}>Mã đơn: #{kosModalData.orderCode}</p>
-              </div>
-              <button
-                onClick={() => setKosModalData(null)}
-                style={{ background: 'rgba(0,0,0,0.05)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-              >
-                <XCircle size={18} color="#8a8aaa" />
-              </button>
-            </div>
-
-            {/* QR Code */}
-            <div style={{ textAlign: 'center', background: '#fafafa', borderRadius: 16, padding: 16, border: '1px solid #f0f0f0', marginBottom: 16 }}>
-              <img
-                src={kosModalData.qrCodeUrl}
-                alt="Mã QR Thanh Toán"
-                style={{ width: 210, height: 210, margin: '0 auto', borderRadius: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-              />
-              <div style={{ marginTop: 12, fontSize: 20, fontWeight: 900, color: '#c62828' }}>
-                {formatVND(invoiceTotal)}
-              </div>
-              <div style={{ fontSize: 12, color: '#4a4a6a', marginTop: 6, background: 'rgba(198,40,40,0.06)', display: 'inline-block', padding: '4px 12px', borderRadius: 20, fontWeight: 600 }}>
-                Nội dung CK: <span style={{ color: '#c62828', userSelect: 'all', fontWeight: 800 }}>{kosModalData.content}</span>
-              </div>
-            </div>
-
-            {/* List summary */}
-            <div style={{ marginBottom: 16, fontSize: 13, color: '#6a6a8a' }}>
-              <strong>Cầu thủ ({selectedPlayers.length}):</strong> {selectedPlayers.map(p => p.playerName).join(', ')}
-            </div>
-
-            {/* Action buttons */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <a
-                href={kosModalData.checkoutUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  width: '100%',
-                  padding: '14px',
-                  borderRadius: 12,
-                  background: 'linear-gradient(135deg, #e53935, #ef5350)',
-                  color: 'white',
-                  fontWeight: 700,
-                  fontSize: 15,
-                  textDecoration: 'none',
-                  boxShadow: '0 4px 16px rgba(229,57,53,0.3)',
-                  textAlign: 'center',
-                }}
-              >
-                🚀 Mở cổng thanh toán KOS (kos-payment.vercel.app)
-              </a>
-              <button
-                onClick={() => {
-                  window.location.href = kosModalData.checkoutUrl;
-                }}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: 12,
-                  background: '#f5f5f5',
-                  color: '#4a4a6a',
-                  border: '1px solid #e0e0e0',
-                  fontWeight: 600,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                }}
-              >
-                Chuyển hướng trang hiện tại tới KOS Gateway
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
