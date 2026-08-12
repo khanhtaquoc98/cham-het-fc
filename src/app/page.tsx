@@ -1038,7 +1038,7 @@ export default function Home() {
 
   return (
     <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* PWA Install Modal */}
+      {/* PWA Install Modal - Commented out
       {showInstallModal && (
         <div className="install-modal-overlay" onClick={dismissInstall}>
           <div className="install-modal" onClick={e => e.stopPropagation()}>
@@ -1067,7 +1067,7 @@ export default function Home() {
             </button>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Theme Toggle */}
       {/* <button className="theme-toggle" onClick={toggleTheme} title={isDark ? 'Chuyển sang sáng' : 'Chuyển sang tối'}>
