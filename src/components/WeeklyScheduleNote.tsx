@@ -14,28 +14,28 @@ interface ScheduleItem {
 const SCHEDULE_ITEMS: ScheduleItem[] = [
   {
     id: 'diem-danh',
-    dayRange: 'T2 -> T3',
+    dayRange: 'Thứ 2 -> Thứ 3',
     task: 'Điểm danh',
     days: [1, 2], // Mon, Tue
     icon: <ClipboardCheck size={16} />,
   },
   {
     id: 'xem-danh-sach',
-    dayRange: 'T4',
+    dayRange: 'Thứ 4',
     task: 'Xem danh sách team',
     days: [3], // Wed
     icon: <Users size={16} />,
   },
   {
     id: 'da-bong',
-    dayRange: 'T5',
+    dayRange: 'Thứ 5',
     task: 'Đá bóng',
     days: [4], // Thu
     icon: <Trophy size={16} />,
   },
   {
     id: 'dong-tien',
-    dayRange: 'T6 -> CN',
+    dayRange: 'Thứ 6 -> Chủ Nhật',
     task: 'Đóng tiền sân',
     days: [5, 6, 0], // Fri, Sat, Sun
     icon: <CreditCard size={16} />,
@@ -173,7 +173,7 @@ const MODAL_NOTE_STYLES = `
     font-weight: 700;
     color: #92400e;
     font-size: 13px;
-    min-width: 100px;
+    min-width: 140px;
   }
 
   .note-step-item.is-today .step-day-badge {
@@ -259,13 +259,13 @@ const MODAL_NOTE_STYLES = `
   .banner-today-badge {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
     background: #ef4444;
     color: #ffffff;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 800;
-    padding: 3px 9px;
-    border-radius: 14px;
+    padding: 4px 12px;
+    border-radius: 16px;
     white-space: nowrap;
     flex-shrink: 0;
     box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);
@@ -288,7 +288,7 @@ const MODAL_NOTE_STYLES = `
     color: #ffffff;
     font-size: 12px;
     font-weight: 800;
-    padding: 6px 14px;
+    padding: 6px 16px;
     border-radius: 20px;
     border: none;
     cursor: pointer;
@@ -325,7 +325,7 @@ export default function WeeklyScheduleNote() {
       >
         <div className="banner-left">
           <span className="banner-today-badge">
-            <MapPin size={11} style={{ display: 'inline' }} /> HÔM NAY ({todayItem.dayRange})
+            <Calendar size={13} style={{ display: 'inline' }} /> {todayItem.dayRange}
           </span>
           <span className="banner-task-text">
             {todayItem.task}
@@ -391,11 +391,6 @@ export default function WeeklyScheduleNote() {
                     {/* Task text */}
                     <div className="step-task-info">
                       <span className="step-task-name">{item.task}</span>
-                      {isToday && (
-                        <span className="today-tag">
-                          <MapPin size={10} style={{ display: 'inline', marginRight: '1px' }} /> HÔM NAY
-                        </span>
-                      )}
                     </div>
                   </div>
                 );
