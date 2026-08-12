@@ -2952,3 +2952,176 @@ div[role="status"] {
     display: flex !important;
   }
 }
+
+/* ============================================= */
+/* WEEKLY SCHEDULE NOTE STYLES                   */
+/* ============================================= */
+.weekly-schedule-paper {
+  position: relative;
+  max-width: 520px;
+  margin: 0 auto 28px auto;
+  padding: 22px 24px 18px 28px;
+  background: #fffdf0;
+  background-image: repeating-linear-gradient(#fffdf0, #fffdf0 31px, #e5e0c8 32px);
+  border-radius: 4px 16px 4px 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08), inset 0 0 40px rgba(220, 200, 140, 0.15);
+  border-left: 5px solid #ef4444;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transform: rotate(-0.5deg);
+}
+
+.weekly-schedule-paper:hover {
+  transform: rotate(0deg) translateY(-2px);
+  box-shadow: 0 16px 32px -6px rgba(0, 0, 0, 0.16), 0 10px 14px -6px rgba(0, 0, 0, 0.1);
+}
+
+.note-pushpin {
+  position: absolute;
+  top: -12px;
+  right: 24px;
+  font-size: 24px;
+  filter: drop-shadow(2px 4px 3px rgba(0,0,0,0.3));
+  z-index: 10;
+}
+
+.note-header {
+  margin-bottom: 16px;
+  border-bottom: 2px dashed #d6cfb3;
+  padding-bottom: 10px;
+}
+
+.note-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #78350f;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.5px;
+}
+
+.note-subtitle {
+  font-size: 12px;
+  color: #92400e;
+  font-style: italic;
+  display: block;
+  margin-top: 2px;
+}
+
+.note-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-step-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(217, 119, 6, 0.15);
+  transition: all 0.2s ease;
+}
+
+.note-step-item.is-today {
+  background: #fef08a;
+  border: 1.5px solid #eab308;
+  box-shadow: 0 4px 12px rgba(234, 179, 8, 0.25);
+  transform: scale(1.01);
+}
+
+.step-day-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: #92400e;
+  font-size: 13px;
+  min-width: 100px;
+}
+
+.note-step-item.is-today .step-day-badge {
+  color: #854d0e;
+  font-weight: 900;
+}
+
+.step-task-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.step-task-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #451a03;
+}
+
+.note-step-item.is-today .step-task-name {
+  font-weight: 900;
+  color: #000000;
+  background: linear-gradient(120deg, rgba(250, 204, 21, 0.5) 0%, rgba(250, 204, 21, 0.9) 100%);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.today-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ef4444;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 12px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.today-pulse {
+  width: 6px;
+  height: 6px;
+  background: #ffffff;
+  border-radius: 50%;
+  animation: pulse-dot 1.2s infinite;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+.step-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(217, 119, 6, 0.15);
+  color: #b45309;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.step-link-btn:hover {
+  background: #b45309;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.note-footer {
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(217, 119, 6, 0.2);
+  font-size: 11px;
+  color: #78350f;
+  text-align: center;
+}
