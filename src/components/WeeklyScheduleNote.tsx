@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Calendar, CheckCircle2, ChevronRight, Clock, Users, ShieldAlert } from 'lucide-react';
+import { Calendar, ClipboardCheck, Users, Trophy, CreditCard, ChevronRight, Pin, MapPin } from 'lucide-react';
 import Link from 'next/link';
 
 interface ScheduleItem {
@@ -9,7 +9,7 @@ interface ScheduleItem {
   dayRange: string;
   task: string;
   days: number[]; // 0: Sunday, 1: Monday, 2: Tuesday, 3: Wednesday, 4: Thursday, 5: Friday, 6: Saturday
-  icon: string;
+  icon: React.ReactNode;
   link?: string;
   linkText?: string;
 }
@@ -20,21 +20,21 @@ const SCHEDULE_ITEMS: ScheduleItem[] = [
     dayRange: 'T2 -> T3',
     task: 'Điểm danh',
     days: [1, 2], // Mon, Tue
-    icon: '📋',
+    icon: <ClipboardCheck size={16} />,
   },
   {
     id: 'xem-danh-sach',
     dayRange: 'T4',
     task: 'Xem danh sách team',
     days: [3], // Wed
-    icon: '👥',
+    icon: <Users size={16} />,
   },
   {
     id: 'da-bong',
     dayRange: 'T5',
     task: 'Đá bóng',
     days: [4], // Thu
-    icon: '⚽',
+    icon: <Trophy size={16} />,
     link: '/match-now',
     linkText: 'Xem sân',
   },
@@ -43,7 +43,7 @@ const SCHEDULE_ITEMS: ScheduleItem[] = [
     dayRange: 'T6 -> CN',
     task: 'Đóng tiền sân',
     days: [5, 6, 0], // Fri, Sat, Sun
-    icon: '💳',
+    icon: <CreditCard size={16} />,
     link: '/payment',
     linkText: 'Đóng tiền',
   },
@@ -61,7 +61,7 @@ export default function WeeklyScheduleNote() {
     <div className="weekly-schedule-paper">
       {/* Sticky Pushpin Icon */}
       <div className="note-pushpin" title="Lịch hoạt động tuần">
-        📌
+        <Pin size={18} style={{ transform: 'rotate(-45deg)', fill: '#ef4444', color: '#dc2626' }} />
       </div>
 
       {/* Header */}
@@ -95,7 +95,7 @@ export default function WeeklyScheduleNote() {
                 {isToday && (
                   <span className="today-tag">
                     <span className="today-pulse" />
-                    📍 HÔM NAY
+                    <MapPin size={12} style={{ display: 'inline', marginRight: '2px' }} /> HÔM NAY
                   </span>
                 )}
               </div>
@@ -113,7 +113,7 @@ export default function WeeklyScheduleNote() {
 
       {/* Footer note */}
       <div className="note-footer">
-        📌 <i>Vui lòng chú ý mốc thời gian để điểm danh và đóng tiền đúng hạn!</i>
+        <i>Vui lòng chú ý mốc thời gian để điểm danh và đóng tiền đúng hạn!</i>
       </div>
     </div>
   );
