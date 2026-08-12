@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Home, Users, Trophy } from 'lucide-react';
 
 export default function NotFound() {
   return (
@@ -23,9 +24,13 @@ export default function NotFound() {
       }}>
         <span>4</span>
         <span style={{
-          display: 'inline-block',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           animation: 'spin 4s linear infinite',
-        }}>⚽</span>
+        }}>
+          <Trophy size={54} />
+        </span>
         <span>4</span>
       </div>
 
@@ -73,7 +78,7 @@ export default function NotFound() {
             transition: 'transform 0.2s ease, background-color 0.2s ease',
           }}
         >
-          🏠 Về Trang Chủ
+          <Home size={16} /> Về Trang Chủ
         </Link>
         <Link
           href="/players"
@@ -92,7 +97,7 @@ export default function NotFound() {
             transition: 'transform 0.2s ease',
           }}
         >
-          👥 Danh Sách Cầu Thủ
+          <Users size={16} /> Danh Sách Cầu Thủ
         </Link>
       </div>
     </div>

@@ -35,7 +35,7 @@ const SCHEDULE_ITEMS: ScheduleItem[] = [
   },
   {
     id: 'dong-tien',
-    dayRange: 'Thứ 6 -> Chủ Nhật',
+    dayRange: 'Thứ 6 -> CN',
     task: 'Đóng tiền sân',
     days: [5, 6, 0], // Fri, Sat, Sun
     icon: <CreditCard size={16} />,
@@ -173,7 +173,9 @@ const MODAL_NOTE_STYLES = `
     font-weight: 700;
     color: #92400e;
     font-size: 13px;
-    min-width: 140px;
+    min-width: 145px;
+    margin-right: 12px;
+    flex-shrink: 0;
   }
 
   .note-step-item.is-today .step-day-badge {
@@ -195,25 +197,8 @@ const MODAL_NOTE_STYLES = `
   }
 
   .note-step-item.is-today .step-task-name {
-    font-weight: 900;
-    color: #000000;
-    background: linear-gradient(120deg, rgba(250, 204, 21, 0.5) 0%, rgba(250, 204, 21, 0.9) 100%);
-    padding: 2px 8px;
-    border-radius: 4px;
-  }
-
-  .today-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: #ef4444;
-    color: #ffffff;
-    font-size: 10px;
     font-weight: 800;
-    padding: 2px 8px;
-    border-radius: 12px;
-    letter-spacing: 0.5px;
-    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+    color: #78350f;
   }
 
   .note-footer {
@@ -225,28 +210,39 @@ const MODAL_NOTE_STYLES = `
     text-align: center;
   }
 
-  /* Trigger Banner Container */
+  /* Trigger Banner - 1-Line Sticky Paper Note Style */
   .schedule-trigger-banner {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     width: 100%;
     max-width: 580px;
-    margin: 0 auto 20px auto;
-    padding: 10px 16px 10px 18px;
-    border-radius: 28px;
-    background: linear-gradient(135deg, #fffdf0 0%, #fef3c7 100%);
-    border: 1.5px solid #f59e0b;
-    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.18);
+    margin: 0 auto 22px auto;
+    padding: 10px 16px 10px 32px;
+    background: #fffdf0;
+    background-image: repeating-linear-gradient(#fffdf0, #fffdf0 27px, #e5e0c8 28px);
+    border-radius: 4px 16px 4px 16px;
+    border-left: 5px solid #ef4444;
+    box-shadow: 0 8px 18px -4px rgba(0, 0, 0, 0.12), inset 0 0 24px rgba(220, 200, 140, 0.15);
     cursor: pointer;
     transition: all 0.25s ease;
+    transform: rotate(-0.5deg);
   }
 
   .schedule-trigger-banner:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
-    background: #fef08a;
+    transform: rotate(0deg) translateY(-2px);
+    box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.16);
+    background: #fef9c3;
+  }
+
+  .banner-pushpin {
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    z-index: 10;
+    filter: drop-shadow(2px 3px 2px rgba(0,0,0,0.25));
   }
 
   .banner-left {
@@ -262,10 +258,10 @@ const MODAL_NOTE_STYLES = `
     gap: 5px;
     background: #ef4444;
     color: #ffffff;
-    font-size: 12px;
+    font-size: 11.5px;
     font-weight: 800;
-    padding: 4px 12px;
-    border-radius: 16px;
+    padding: 4px 11px;
+    border-radius: 14px;
     white-space: nowrap;
     flex-shrink: 0;
     box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);
@@ -317,15 +313,20 @@ export default function WeeklyScheduleNote() {
     <>
       <style dangerouslySetInnerHTML={{ __html: MODAL_NOTE_STYLES }} />
 
-      {/* Trigger Banner (Positioned Above Match Info Section) */}
+      {/* Trigger Banner (1-Line Sticky Paper Note Style Above Match Info Section) */}
       <div
         className="schedule-trigger-banner"
         onClick={() => setIsOpen(true)}
         title="Bấm để xem chi tiết lịch hoạt động tuần"
       >
+        {/* Pinned Red Pushpin Icon */}
+        <div className="banner-pushpin" title="Lịch hoạt động tuần">
+          <Pin size={18} style={{ transform: 'rotate(-45deg)', fill: '#ef4444', color: '#dc2626' }} />
+        </div>
+
         <div className="banner-left">
           <span className="banner-today-badge">
-            <Calendar size={13} style={{ display: 'inline' }} /> {todayItem.dayRange}
+            <Calendar size={12} style={{ display: 'inline' }} /> {todayItem.dayRange}
           </span>
           <span className="banner-task-text">
             {todayItem.task}
@@ -385,7 +386,7 @@ export default function WeeklyScheduleNote() {
                     {/* Day badge */}
                     <div className="step-day-badge">
                       <span className="step-icon">{item.icon}</span>
-                      <span className="step-range">{item.dayRange}:</span>
+                      <span className="step-range">{item.dayRange}:&nbsp;</span>
                     </div>
 
                     {/* Task text */}
