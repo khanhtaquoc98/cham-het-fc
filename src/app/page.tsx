@@ -1099,10 +1099,10 @@ export default function Home() {
           <EmptyState siteTheme={siteTheme} playerStats={playerStats} playerConfigs={playerConfigs} />
         ) : (
           <>
-            <MatchInfoSection matchData={matchData} />
-
             {/* Weekly Schedule Note */}
             <WeeklyScheduleNote />
+
+            <MatchInfoSection matchData={matchData} />
 
             {/* Traffic Camera Section */}
             <TrafficCameraWidget />

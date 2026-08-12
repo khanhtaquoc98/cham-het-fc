@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Calendar, ClipboardCheck, Users, Trophy, CreditCard, ChevronRight, Pin, MapPin, X } from 'lucide-react';
-import Link from 'next/link';
 
 interface ScheduleItem {
   id: string;
@@ -10,8 +9,6 @@ interface ScheduleItem {
   task: string;
   days: number[]; // 0: Sunday, 1: Monday, 2: Tuesday, 3: Wednesday, 4: Thursday, 5: Friday, 6: Saturday
   icon: React.ReactNode;
-  link?: string;
-  linkText?: string;
 }
 
 const SCHEDULE_ITEMS: ScheduleItem[] = [
@@ -61,7 +58,7 @@ const MODAL_NOTE_STYLES = `
     justify-content: center;
     z-index: 99999;
     padding: 16px;
-    animation: scheduleFadeIn 0.25s ease-out;
+    animation: scheduleFadeIn 0.2s ease-out;
   }
 
   @keyframes scheduleFadeIn {
@@ -80,11 +77,11 @@ const MODAL_NOTE_STYLES = `
     border-radius: 8px 20px 8px 20px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35), 0 10px 15px -3px rgba(0, 0, 0, 0.2), inset 0 0 40px rgba(220, 200, 140, 0.2);
     border-left: 6px solid #ef4444;
-    animation: scheduleScaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: scheduleScaleUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   @keyframes scheduleScaleUp {
-    from { transform: scale(0.9) translateY(12px); opacity: 0; }
+    from { transform: scale(0.92) translateY(8px); opacity: 0; }
     to { transform: scale(1) translateY(0); opacity: 1; }
   }
 
@@ -219,26 +216,6 @@ const MODAL_NOTE_STYLES = `
     box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
   }
 
-  .step-link-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: rgba(217, 119, 6, 0.15);
-    color: #b45309;
-    text-decoration: none;
-    transition: all 0.2s ease;
-    flex-shrink: 0;
-  }
-
-  .step-link-btn:hover {
-    background: #b45309;
-    color: #ffffff;
-    transform: scale(1.1);
-  }
-
   .note-footer {
     margin-top: 14px;
     padding-top: 8px;
@@ -248,27 +225,81 @@ const MODAL_NOTE_STYLES = `
     text-align: center;
   }
 
-  /* Trigger Button */
-  .schedule-trigger-btn {
-    display: inline-flex;
+  /* Trigger Banner Container */
+  .schedule-trigger-banner {
+    display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 18px;
-    border-radius: 20px;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    max-width: 580px;
+    margin: 0 auto 20px auto;
+    padding: 10px 16px 10px 18px;
+    border-radius: 28px;
     background: linear-gradient(135deg, #fffdf0 0%, #fef3c7 100%);
     border: 1.5px solid #f59e0b;
-    color: #78350f;
-    font-weight: 700;
-    font-size: 13px;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.18);
     cursor: pointer;
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
     transition: all 0.25s ease;
   }
 
-  .schedule-trigger-btn:hover {
+  .schedule-trigger-banner:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(245, 158, 11, 0.35);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
     background: #fef08a;
+  }
+
+  .banner-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  .banner-today-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    padding: 3px 9px;
+    border-radius: 14px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.25);
+  }
+
+  .banner-task-text {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #78350f;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .banner-view-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+    transition: all 0.2s ease;
+  }
+
+  .banner-view-btn:hover {
+    background: #dc2626;
+    transform: scale(1.05);
   }
 `;
 
@@ -280,22 +311,36 @@ export default function WeeklyScheduleNote() {
     setCurrentDay(new Date().getDay());
   }, []);
 
+  const todayItem = SCHEDULE_ITEMS.find(item => item.days.includes(currentDay)) || SCHEDULE_ITEMS[0];
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: MODAL_NOTE_STYLES }} />
 
-      {/* Inline Trigger Button / Banner */}
-      <div style={{ display: 'flex', justifyContent: 'center', margin: '0 auto 24px auto' }}>
-        <button
-          className="schedule-trigger-btn"
-          onClick={() => setIsOpen(true)}
-          title="Mở lịch hoạt động tuần"
-        >
-          <Pin size={16} style={{ transform: 'rotate(-45deg)', color: '#ef4444', fill: '#ef4444' }} />
-          <span>LỊCH HOẠT ĐỘNG TRONG TUẦN</span>
-          <span style={{ fontSize: '11px', background: '#ef4444', color: '#fff', padding: '2px 6px', borderRadius: '10px', fontWeight: 800 }}>
-            📌 Xem
+      {/* Trigger Banner (Positioned Above Match Info Section) */}
+      <div
+        className="schedule-trigger-banner"
+        onClick={() => setIsOpen(true)}
+        title="Bấm để xem chi tiết lịch hoạt động tuần"
+      >
+        <div className="banner-left">
+          <span className="banner-today-badge">
+            <MapPin size={11} style={{ display: 'inline' }} /> HÔM NAY ({todayItem.dayRange})
           </span>
+          <span className="banner-task-text">
+            {todayItem.task}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          className="banner-view-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(true);
+          }}
+        >
+          Xem
         </button>
       </div>
 
@@ -304,7 +349,12 @@ export default function WeeklyScheduleNote() {
         <div className="schedule-modal-overlay" onClick={() => setIsOpen(false)}>
           <div className="weekly-schedule-modal-paper" onClick={(e) => e.stopPropagation()}>
             {/* Close Button */}
-            <button className="schedule-close-btn" onClick={() => setIsOpen(false)} title="Đóng">
+            <button
+              type="button"
+              className="schedule-close-btn"
+              onClick={() => setIsOpen(false)}
+              title="Đóng"
+            >
               <X size={18} />
             </button>
 
@@ -347,13 +397,6 @@ export default function WeeklyScheduleNote() {
                         </span>
                       )}
                     </div>
-
-                    {/* Optional Quick Link */}
-                    {item.link && (
-                      <Link href={item.link} className="step-link-btn" title={item.linkText} onClick={() => setIsOpen(false)}>
-                        <ChevronRight size={14} />
-                      </Link>
-                    )}
                   </div>
                 );
               })}
