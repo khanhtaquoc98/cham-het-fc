@@ -12,6 +12,7 @@ import { isDuplicateWithTeleVoters } from '@/lib/players';
 import VoteFloatingWidget from '@/components/VoteFloatingWidget';
 import TrafficCameraWidget from '@/components/TrafficCameraWidget';
 import FloatingSticker from '@/components/FloatingSticker';
+import WeeklyScheduleNote from '@/components/WeeklyScheduleNote';
 
 interface PlayerStatsSummary {
   playerName: string;
@@ -1099,6 +1100,9 @@ export default function Home() {
         ) : (
           <>
             <MatchInfoSection matchData={matchData} />
+
+            {/* Weekly Schedule Note */}
+            <WeeklyScheduleNote />
 
             {/* Traffic Camera Section */}
             <TrafficCameraWidget />

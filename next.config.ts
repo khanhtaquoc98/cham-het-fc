@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 let supabaseHostname = "*.supabase.co";
 try {
@@ -11,7 +12,10 @@ try {
 
 const nextConfig: NextConfig = {
   /* config options here */
-  reactCompiler: true,
+  outputFileTracingRoot: path.resolve(__dirname),
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   images: {
     minimumCacheTTL: 300, // Cache optimized images for 5 minutes (300s)
     remotePatterns: [
