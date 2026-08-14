@@ -69,7 +69,7 @@ export async function POST() {
 
             // Gửi noti Telegram
             if (playerNamesStr) {
-              const senderName = paymentInfo.transactions?.[0]?.counterAccountName;
+              const senderName = paymentInfo.transactions?.[0]?.counterAccountName || undefined;
               await sendPaymentNotification(playerNamesStr, order.amount, senderName);
             }
           }

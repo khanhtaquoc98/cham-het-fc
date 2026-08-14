@@ -95,7 +95,7 @@ export async function GET(request: Request) {
 
               const playerNamesStr = updatedPlayers?.map(p => p.player_name).join(', ') || '';
               if (playerNamesStr) {
-                await sendPaymentNotification(playerNamesStr, order.amount, paymentInfo.transactions?.[0]?.counterAccountName);
+                await sendPaymentNotification(playerNamesStr, order.amount, paymentInfo.transactions?.[0]?.counterAccountName || undefined);
               }
             }
             console.log(`✅ PayOS verify confirmed: orderCode=${order.order_code}`);
