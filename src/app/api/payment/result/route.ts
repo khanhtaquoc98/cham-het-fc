@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { checkKosPayment } from '@/lib/kos';
 import { sendPaymentNotification } from '@/lib/payment';
+import payos from '@/lib/payos';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,43 +26,91 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Nếu đơn chưa paid và đang xài KOS payment, chủ động check KOS Gateway
+    // Nếu đơn chưa paid, chủ động verify với payment gateway
     const paymentType = process.env.PAYMENT_TYPE || 'PAYOS';
-    if (order.status !== 'paid' && paymentType === 'KOS') {
-      const kosStatus = await checkKosPayment(order.id);
-      if (kosStatus && (kosStatus.status === 'completed' || kosStatus.status === 'success')) {
-        const nowIso = new Date().toISOString();
-        await supabase
-          .from('payment_orders')
-          .update({ status: 'paid', paid_at: nowIso })
-          .eq('id', order.id);
+    if (order.status !== 'paid') {
+      if (paymentType === 'KOS') {
+        // KOS Gateway verification
+        const kosStatus = await checkKosPayment(order.id);
+        if (kosStatus && (kosStatus.status === 'completed' || kosStatus.status === 'success')) {
+          const nowIso = new Date().toISOString();
+          await supabase
+            .from('payment_orders')
+            .update({ status: 'paid', paid_at: nowIso })
+            .eq('id', order.id);
 
-        order.status = 'paid';
-        order.paid_at = nowIso;
+          order.status = 'paid';
+          order.paid_at = nowIso;
 
-        const playerPaymentIds: string[] = order.player_payment_ids || [];
-        if (playerPaymentIds.length > 0) {
-          const { data: updatedPlayers } = await supabase
-            .from('player_payments')
-            .update({
-              is_paid: true,
-              paid_at: nowIso,
-              payment_method: 'kos',
-            })
-            .in('id', playerPaymentIds)
-            .select('player_name');
+          const playerPaymentIds: string[] = order.player_payment_ids || [];
+          if (playerPaymentIds.length > 0) {
+            const { data: updatedPlayers } = await supabase
+              .from('player_payments')
+              .update({
+                is_paid: true,
+                paid_at: nowIso,
+                payment_method: 'kos',
+              })
+              .in('id', playerPaymentIds)
+              .select('player_name');
 
-          const playerNamesStr = updatedPlayers?.map(p => p.player_name).join(', ') || '';
-          if (playerNamesStr) {
-            await sendPaymentNotification(playerNamesStr, order.amount);
+            const playerNamesStr = updatedPlayers?.map(p => p.player_name).join(', ') || '';
+            if (playerNamesStr) {
+              await sendPaymentNotification(playerNamesStr, order.amount);
+            }
           }
+        } else if (kosStatus && (kosStatus.status === 'cancelled' || kosStatus.status === 'failed')) {
+          await supabase
+            .from('payment_orders')
+            .update({ status: 'cancelled' })
+            .eq('id', order.id);
+          order.status = 'cancelled';
         }
-      } else if (kosStatus && (kosStatus.status === 'cancelled' || kosStatus.status === 'failed')) {
-        await supabase
-          .from('payment_orders')
-          .update({ status: 'cancelled' })
-          .eq('id', order.id);
-        order.status = 'cancelled';
+      } else {
+        // PayOS verification - chủ động gọi PayOS API kiểm tra trạng thái
+        try {
+          const paymentInfo = await payos.paymentRequests.getPaymentLinkInformation(String(order.order_code));
+          if (paymentInfo && paymentInfo.status === 'PAID') {
+            const nowIso = new Date().toISOString();
+            await supabase
+              .from('payment_orders')
+              .update({ status: 'paid', paid_at: nowIso })
+              .eq('id', order.id);
+
+            order.status = 'paid';
+            order.paid_at = nowIso;
+
+            // Update player_payments
+            const playerPaymentIds: string[] = order.player_payment_ids || [];
+            if (playerPaymentIds.length > 0) {
+              const { data: updatedPlayers } = await supabase
+                .from('player_payments')
+                .update({
+                  is_paid: true,
+                  paid_at: nowIso,
+                  payment_method: 'payos',
+                })
+                .in('id', playerPaymentIds)
+                .select('player_name');
+
+              const playerNamesStr = updatedPlayers?.map(p => p.player_name).join(', ') || '';
+              if (playerNamesStr) {
+                await sendPaymentNotification(playerNamesStr, order.amount, paymentInfo.transactions?.[0]?.counterAccountName);
+              }
+            }
+            console.log(`✅ PayOS verify confirmed: orderCode=${order.order_code}`);
+          } else if (paymentInfo && paymentInfo.status === 'CANCELLED') {
+            await supabase
+              .from('payment_orders')
+              .update({ status: 'cancelled' })
+              .eq('id', order.id);
+            order.status = 'cancelled';
+            console.log(`❌ PayOS verify cancelled: orderCode=${order.order_code}`);
+          }
+        } catch (payosErr) {
+          console.error('PayOS verify error (non-blocking):', payosErr);
+          // Không throw, vẫn trả về status hiện tại từ DB
+        }
       }
     }
 
@@ -91,3 +140,4 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Failed' }, { status: 500 });
   }
 }
+

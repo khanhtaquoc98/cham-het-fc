@@ -31,23 +31,41 @@ function PaymentResultContent() {
       return;
     }
 
+    let retryCount = 0;
+    const MAX_RETRIES = 5;
+    let cancelled = false;
+
     const fetchResult = async () => {
       try {
         const res = await fetch(`/api/payment/result?orderId=${orderId}`);
         if (res.ok) {
           const data = await res.json();
           setResult(data);
+          // Nếu đã paid hoặc cancelled/failed, dừng retry
+          if (data.status === 'paid' || data.status === 'cancelled' || data.status === 'failed') {
+            setLoading(false);
+            return;
+          }
         }
       } catch (err) {
         console.error('Failed to fetch result:', err);
-      } finally {
-        setLoading(false);
+      }
+
+      setLoading(false);
+
+      // Retry nếu chưa đạt trạng thái cuối cùng
+      retryCount++;
+      if (retryCount < MAX_RETRIES && !cancelled) {
+        setTimeout(fetchResult, 3000);
       }
     };
 
-    // Đợi 1s để webhook PayOS kịp xử lý
+    // Đợi 1.5s để webhook PayOS kịp xử lý, rồi bắt đầu fetch
     const timer = setTimeout(fetchResult, 1500);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [orderId]);
 
   const formatVND = (amount: number) => new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
