@@ -69,7 +69,7 @@ export async function GET(request: Request) {
       } else {
         // PayOS verification - chủ động gọi PayOS API kiểm tra trạng thái
         try {
-          const paymentInfo = await payos.paymentRequests.getPaymentLinkInformation(String(order.order_code));
+          const paymentInfo = await payos.paymentRequests.get(Number(order.order_code));
           if (paymentInfo && paymentInfo.status === 'PAID') {
             const nowIso = new Date().toISOString();
             await supabase

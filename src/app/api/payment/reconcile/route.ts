@@ -40,7 +40,7 @@ export async function POST() {
 
     for (const order of pendingOrders) {
       try {
-        const paymentInfo = await payos.paymentRequests.getPaymentLinkInformation(String(order.order_code));
+        const paymentInfo = await payos.paymentRequests.get(Number(order.order_code));
 
         if (paymentInfo && paymentInfo.status === 'PAID') {
           // PayOS đã PAID nhưng DB chưa → update
