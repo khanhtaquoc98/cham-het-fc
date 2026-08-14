@@ -10,9 +10,11 @@ export async function POST(request: Request) {
 
     const gatewaySignature =
       request.headers.get('x-webhook-signature') ||
-      request.headers.get('X-Webhook-Signature') ||
-      body?.signature;
+      request.headers.get('X-Webhook-Signature');
 
+    // KOS webhook có header x-webhook-signature hoặc field event/payment_id
+    // PayOS webhook cũng có body.signature nhưng KHÔNG có header x-webhook-signature
+    // nên chỉ dùng header + KOS-specific fields để phân biệt
     const isKosWebhook = Boolean(gatewaySignature || body?.event || body?.payment_id);
 
     if (isKosWebhook) {
