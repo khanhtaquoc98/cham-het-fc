@@ -163,6 +163,27 @@ export default function VenuePage() {
 
   }, []);
 
+  // Listen for reset event from layout's reset button
+  useEffect(() => {
+    const handleMatchReset = () => {
+      // Re-fetch match data after reset (bench is preserved, teams are cleared)
+      fetch('/api/match')
+        .then(r => r.json())
+        .then(res => {
+          const data: MatchData = res.matchData;
+          if (data) {
+            setBench(data.bench || []);
+            setTeams(data.teams || []);
+          } else {
+            setTeams([]);
+          }
+        })
+        .catch(err => console.error('Error re-fetching after reset:', err));
+    };
+    window.addEventListener('admin-match-reset', handleMatchReset);
+    return () => window.removeEventListener('admin-match-reset', handleMatchReset);
+  }, []);
+
   const handleSaveCamera = async () => {
     setCameraSaving(true);
     setCameraStatus(null);
