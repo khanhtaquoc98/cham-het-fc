@@ -194,22 +194,27 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
   const borderClass = getTeamBorderClass(team.name);
   const tooltip = getTeamTooltip(team.name);
 
+  const isChamHet = team.name.toUpperCase() === 'CHAMHETFC';
+  const displayName = isChamHet ? 'ChamHetFC' : team.name;
+
   return (
     <div className={`glass-card ${borderClass}`} style={{ animationDelay: `${index * 0.08}s` }}>
       <div className="team-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <SmallJerseyIcon team={color} isDark={isDark} siteTheme={siteTheme} />
-          <h2 className={`team-name ${color}-name`}>{team.name}</h2>
-          <span style={{
-            fontSize: '11px',
-            fontWeight: 500,
-            padding: '2px 8px',
-            borderRadius: '6px',
-            background: color === 'home' ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(198,40,40,0.08)') : color === 'away' ? (isDark ? 'rgba(239,83,80,0.12)' : 'rgba(55,71,79,0.08)') : 'rgba(239,108,0,0.08)',
-            color: color === 'home' ? (isDark ? '#ffffff' : 'var(--accent)') : color === 'away' ? (isDark ? '#ef5350' : '#37474f') : 'var(--accent-orange)',
-          }}>
-            Áo {tooltip}
-          </span>
+          {!isChamHet && <SmallJerseyIcon team={color} isDark={isDark} siteTheme={siteTheme} />}
+          <h2 className={`team-name ${color}-name`}>{displayName}</h2>
+          {!isChamHet && (
+            <span style={{
+              fontSize: '11px',
+              fontWeight: 500,
+              padding: '2px 8px',
+              borderRadius: '6px',
+              background: color === 'home' ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(198,40,40,0.08)') : color === 'away' ? (isDark ? 'rgba(239,83,80,0.12)' : 'rgba(55,71,79,0.08)') : 'rgba(239,108,0,0.08)',
+              color: color === 'home' ? (isDark ? '#ffffff' : 'var(--accent)') : color === 'away' ? (isDark ? '#ef5350' : '#37474f') : 'var(--accent-orange)',
+            }}>
+              Áo {tooltip}
+            </span>
+          )}
         </div>
         <div className={`team-count ${color}`}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -245,6 +250,7 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
             totalMatches: stat?.totalMatches || 0,
             winRate: stat?.winRate || 0,
             jerseyNumber: matched?.jerseyNumber ?? null,
+            isInjuryProne: matched?.isInjuryProne ?? false,
             telegramHandle: player.telegramHandle || matched?.telegramHandle || null,
             updatedAt: matched?.updatedAt || null,
             avatarVersion: matched?.avatarVersion || null,
@@ -266,6 +272,29 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
                     color: 'var(--text-primary)',
                   }}>
                     {player.name}
+                    {matched?.isInjuryProne && (
+                      <span
+                        title="Cầu thủ hay chấn thương (Injury Prone)"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '17px',
+                          height: '17px',
+                          borderRadius: '4px',
+                          background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+                          border: '1px solid rgba(255, 255, 255, 0.8)',
+                          marginLeft: '6px',
+                          verticalAlign: 'middle',
+                          boxShadow: '0 2px 5px rgba(220, 38, 38, 0.5)',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="#ffffff">
+                          <path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z" />
+                        </svg>
+                      </span>
+                    )}
                   </div>
                   {player.telegramHandle && (
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '1px' }}>
@@ -482,7 +511,7 @@ function EmptyState({ siteTheme, playerStats, playerConfigs }: { siteTheme: stri
       {playerStats.length > 0 && (
         <PlayerCardCarousel
           playerStats={playerStats}
-          playerConfigs={playerConfigs.map(c => ({ id: c.id, name: c.name, jerseyNumber: c.jerseyNumber, telegramHandle: c.telegramHandle }))}
+          playerConfigs={playerConfigs.map(c => ({ id: c.id, name: c.name, jerseyNumber: c.jerseyNumber, isInjuryProne: c.isInjuryProne, telegramHandle: c.telegramHandle }))}
         />
       )}
     </div>
@@ -523,6 +552,7 @@ export default function Home() {
   const [playerConfigs, setPlayerConfigs] = useState<PlayerConfig[]>([]);
   const [playerStats, setPlayerStats] = useState<PlayerStatsSummary[]>([]);
   const [currentUser, setCurrentUser] = useState<{username: string; id: string; name?: string; player_id?: string} | null>(null);
+  const [thirdPartyVoters, setThirdPartyVoters] = useState<string[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [paymentSummary, setPaymentSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -730,7 +760,6 @@ export default function Home() {
   const [benchSaving, setBenchSaving] = useState(false);
   const [customBenchName, setCustomBenchName] = useState('');
   const [showBenchSuggestions, setShowBenchSuggestions] = useState(false);
-  const [thirdPartyVoters, setThirdPartyVoters] = useState<string[]>([]);
 
   const filteredBenchSuggestions = useMemo(() => {
     const query = customBenchName.trim().toLowerCase();
@@ -1187,6 +1216,7 @@ export default function Home() {
                     id: c.id,
                     name: c.name,
                     jerseyNumber: c.jerseyNumber,
+                    isInjuryProne: c.isInjuryProne,
                     telegramHandle: c.telegramHandle,
                     updatedAt: c.updatedAt,
                     avatarVersion: c.avatarVersion,

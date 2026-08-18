@@ -13,6 +13,7 @@ export interface PlayerCardData {
   totalMatches: number;
   winRate: number;
   jerseyNumber?: number | null;
+  isInjuryProne?: boolean | null;
   telegramHandle?: string | null;
   updatedAt?: string | number | Date | null;
   avatarVersion?: string | number | null;
@@ -147,7 +148,6 @@ export function PlayerCard({ player, style, className, externalRotate }: {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}>
-
         {/* Player image */}
         <div className="panini-player-img">
           {hasImage ? (
@@ -200,7 +200,32 @@ export function PlayerCard({ player, style, className, externalRotate }: {
 
         {/* Name bar */}
         <div className="panini-name-bar">
-          <span className="panini-name">{player.playerName}</span>
+          <span className="panini-name">
+            {player.playerName}
+            {player.isInjuryProne && (
+              <span
+                title="Cầu thủ dễ chấn thương (Injury Prone)"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '4px',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+                  border: '1px solid rgba(255, 255, 255, 0.8)',
+                  marginLeft: '6px',
+                  verticalAlign: 'middle',
+                  boxShadow: '0 2px 5px rgba(220, 38, 38, 0.5)',
+                  flexShrink: 0,
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#ffffff">
+                  <path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z" />
+                </svg>
+              </span>
+            )}
+          </span>
         </div>
 
         {/* Telegram handle */}
@@ -231,7 +256,7 @@ export function PlayerCard({ player, style, className, externalRotate }: {
 
 export function PlayerCardCarousel({ playerStats, playerConfigs }: {
   playerStats: PlayerCardData[];
-  playerConfigs: { id: string; name: string; jerseyNumber: number | null; telegramHandle?: string | null; updatedAt?: string | number | Date | null; avatarVersion?: string | number | null; avatarUrl?: string | null }[];
+  playerConfigs: { id: string; name: string; jerseyNumber: number | null; isInjuryProne?: boolean | null; telegramHandle?: string | null; updatedAt?: string | number | Date | null; avatarVersion?: string | number | null; avatarUrl?: string | null }[];
 }) {
   const allPlayers = playerConfigs
     .filter(config => {
@@ -253,6 +278,7 @@ export function PlayerCardCarousel({ playerStats, playerConfigs }: {
         totalMatches: stat?.totalMatches || 0,
         winRate: stat?.winRate || 0,
         jerseyNumber: config.jerseyNumber ?? null,
+        isInjuryProne: config.isInjuryProne ?? stat?.isInjuryProne ?? false,
         telegramHandle: config.telegramHandle || stat?.telegramHandle || null,
         updatedAt: config.updatedAt || null,
         avatarVersion: config.avatarVersion || null,

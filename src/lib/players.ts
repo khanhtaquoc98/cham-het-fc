@@ -2,10 +2,49 @@ import { PlayerConfig } from '@/types/player';
 import { DEFAULT_PLAYERS } from '@/lib/default-players';
 import { supabase } from '@/lib/supabase';
 
+const INJURY_PRONE_KEY = 'injury_prone_players';
+
+export async function getInjuryPronePlayerIds(): Promise<Set<string>> {
+  try {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', INJURY_PRONE_KEY)
+      .single();
+    if (data?.value) {
+      const parsed = JSON.parse(data.value);
+      if (Array.isArray(parsed)) return new Set(parsed);
+    }
+  } catch (e) {
+    // Ignore error
+  }
+  return new Set();
+}
+
+export async function saveInjuryPronePlayerId(playerId: string, isInjuryProne: boolean): Promise<void> {
+  try {
+    const set = await getInjuryPronePlayerIds();
+    if (isInjuryProne) {
+      set.add(playerId);
+    } else {
+      set.delete(playerId);
+    }
+    await supabase.from('app_settings').upsert({
+      key: INJURY_PRONE_KEY,
+      value: JSON.stringify(Array.from(set)),
+    }, { onConflict: 'key' });
+  } catch (e) {
+    console.error('Failed to save injury prone setting:', e);
+  }
+}
+
 export async function getPlayers(): Promise<PlayerConfig[]> {
-  const { data, error } = await supabase
-    .from('players')
-    .select('*');
+  const [playersRes, injuryProneSet] = await Promise.all([
+    supabase.from('players').select('*'),
+    getInjuryPronePlayerIds(),
+  ]);
+
+  const { data, error } = playersRes;
 
   if (error) {
     console.error('Error fetching players from Supabase:', error);
@@ -21,6 +60,7 @@ export async function getPlayers(): Promise<PlayerConfig[]> {
       : [],
     telegramHandle: row.telegram_handle || '',
     jerseyNumber: row.jersey_number,
+    isInjuryProne: injuryProneSet.has(row.id) || Boolean(row.is_injury_prone),
     updatedAt: row.created_at || null,
     avatarVersion: row.avatar_version || null,
   }));
@@ -32,7 +72,10 @@ export async function getPlayers(): Promise<PlayerConfig[]> {
   // Include DEFAULT_PLAYERS that have not been overridden/created in DB yet
   const missingDefaultPlayers = DEFAULT_PLAYERS.filter(
     (def) => !dbPlayerIds.has(def.id) && !dbPlayerNames.has(def.name.trim().toLowerCase())
-  );
+  ).map(def => ({
+    ...def,
+    isInjuryProne: injuryProneSet.has(def.id) || Boolean(def.isInjuryProne),
+  }));
 
   return [...dbPlayers, ...missingDefaultPlayers];
 }
@@ -73,7 +116,11 @@ export async function addPlayer(player: Omit<PlayerConfig, 'id'>): Promise<Playe
     console.error('Failed to add player:', error);
   }
 
-  return { ...player, id, telegramHandle: player.telegramHandle || '' };
+  if (player.isInjuryProne !== undefined) {
+    await saveInjuryPronePlayerId(id, Boolean(player.isInjuryProne));
+  }
+
+  return { ...player, id, telegramHandle: player.telegramHandle || '', isInjuryProne: Boolean(player.isInjuryProne) };
 }
 
 export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 'id'>>): Promise<PlayerConfig | null> {
@@ -84,6 +131,10 @@ export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 
   if (data.telegramHandle !== undefined) updateObj.telegram_handle = data.telegramHandle;
   if (data.jerseyNumber !== undefined) updateObj.jersey_number = data.jerseyNumber;
   if (data.avatarVersion !== undefined) updateObj.avatar_version = data.avatarVersion;
+
+  if (data.isInjuryProne !== undefined) {
+    await saveInjuryPronePlayerId(id, Boolean(data.isInjuryProne));
+  }
 
   // Try standard update first
   let { data: updated, error } = await supabase
@@ -106,6 +157,8 @@ export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 
     error = retryRes.error;
   }
 
+  const injuryProneSet = await getInjuryPronePlayerIds();
+
   if (!error && updated) {
     return {
       id: updated.id,
@@ -113,6 +166,7 @@ export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 
       subNames: updated.sub_names || [],
       telegramHandle: updated.telegram_handle || '',
       jerseyNumber: updated.jersey_number,
+      isInjuryProne: injuryProneSet.has(updated.id),
       avatarVersion: updated.avatar_version || null,
     };
   }
@@ -162,6 +216,7 @@ export async function updatePlayer(id: string, data: Partial<Omit<PlayerConfig, 
     subNames: upserted.sub_names || [],
     telegramHandle: upserted.telegram_handle || '',
     jerseyNumber: upserted.jersey_number,
+    isInjuryProne: injuryProneSet.has(upserted.id),
     avatarVersion: upserted.avatar_version || null,
   };
 }

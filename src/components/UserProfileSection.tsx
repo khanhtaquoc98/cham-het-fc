@@ -35,6 +35,7 @@ interface UserProfileSectionProps {
     id: string;
     name: string;
     jersey_number?: number | null;
+    is_injury_prone?: boolean | null;
     avatar_version?: string | number | null;
   } | null;
   recentMatches?: PlayerMatchItem[];
@@ -190,6 +191,29 @@ export default function UserProfileSection({ user, linkedPlayer, recentMatches =
                 <span>•</span>
                 <span style={{ color: '#dc2626', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                   <Shield size={13} /> Áo số #{linkedPlayer.jersey_number}
+                </span>
+              </>
+            )}
+            {linkedPlayer?.is_injury_prone && (
+              <>
+                <span>•</span>
+                <span
+                  title="Dễ chấn thương (Injury Prone)"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '18px',
+                    height: '18px',
+                    borderRadius: '5px',
+                    background: 'linear-gradient(135deg, #ef4444 0%, #991b1b 100%)',
+                    boxShadow: '0 2px 6px rgba(220, 38, 38, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.8)',
+                  }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
                 </span>
               </>
             )}

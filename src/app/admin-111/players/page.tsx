@@ -34,6 +34,7 @@ export default function PlayersPage() {
     subNames: '',
     telegramHandle: '',
     jerseyNumber: '',
+    isInjuryProne: false,
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -79,7 +80,7 @@ export default function PlayersPage() {
   // Open Modal for Add
   const handleOpenAddModal = () => {
     setModalMode('add');
-    setModalData({ id: '', name: '', subNames: '', telegramHandle: '', jerseyNumber: '' });
+    setModalData({ id: '', name: '', subNames: '', telegramHandle: '', jerseyNumber: '', isInjuryProne: false });
     setSelectedFile(null);
     setImagePreview(null);
     setIsModalOpen(true);
@@ -94,6 +95,7 @@ export default function PlayersPage() {
       subNames: (player.subNames || []).join(', '),
       telegramHandle: player.telegramHandle || '',
       jerseyNumber: player.jerseyNumber != null ? String(player.jerseyNumber) : '',
+      isInjuryProne: Boolean(player.isInjuryProne),
     });
 
     const filename = player.jerseyNumber != null ? player.jerseyNumber : player.id;
@@ -177,6 +179,7 @@ export default function PlayersPage() {
             subNames: subNamesArray,
             telegramHandle: modalData.telegramHandle,
             jerseyNumber: jerseyNum,
+            isInjuryProne: modalData.isInjuryProne,
           }),
         });
 
@@ -226,6 +229,7 @@ export default function PlayersPage() {
           subNames: subNamesArray,
           telegramHandle: modalData.telegramHandle,
           jerseyNumber: jerseyNum,
+          isInjuryProne: modalData.isInjuryProne,
         };
 
         if (avatarVer) {
@@ -441,8 +445,29 @@ export default function PlayersPage() {
                   <PlayerVerticalAvatar player={player} size={84} />
 
                   <div style={{ width: '100%', marginTop: '4px' }}>
-                    <div style={{ fontSize: '17px', fontWeight: 800, color: '#1a1a2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {player.name}
+                    <div style={{ fontSize: '17px', fontWeight: 800, color: '#1a1a2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                      <span>{player.name}</span>
+                      {player.isInjuryProne && (
+                        <span
+                          title="Cầu thủ hay chấn thương (Injury Prone)"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '18px',
+                            height: '18px',
+                            borderRadius: '4px',
+                            background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+                            border: '1px solid rgba(255, 255, 255, 0.8)',
+                            boxShadow: '0 2px 5px rgba(220, 38, 38, 0.4)',
+                            flexShrink: 0,
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="#ffffff">
+                            <path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z" />
+                          </svg>
+                        </span>
+                      )}
                     </div>
 
                     {player.telegramHandle ? (
@@ -690,6 +715,18 @@ export default function PlayersPage() {
                   value={modalData.subNames}
                   onChange={(e) => setModalData(d => ({ ...d, subNames: e.target.value }))}
                 />
+              </div>
+
+              <div style={{ marginTop: '4px', paddingTop: '4px' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13.5px', fontWeight: 600, color: '#c62828' }}>
+                  <input
+                    type="checkbox"
+                    checked={modalData.isInjuryProne}
+                    onChange={(e) => setModalData(d => ({ ...d, isInjuryProne: e.target.checked }))}
+                    style={{ width: '18px', height: '18px', accentColor: '#c62828', cursor: 'pointer' }}
+                  />
+                  <span>🩹 Cầu thủ hay chấn thương (Injury Prone)</span>
+                </label>
               </div>
 
               {/* Modal Action Buttons */}

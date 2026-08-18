@@ -16,7 +16,7 @@ export async function GET(request: Request) {
     }
 
     // Lấy order từ DB
-    let { data: order, error } = await supabase
+    const { data: order, error } = await supabase
       .from('payment_orders')
       .select('*')
       .eq('id', orderId)

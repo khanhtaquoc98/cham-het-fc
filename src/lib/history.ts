@@ -214,8 +214,10 @@ async function savePlayerStatsForMatch(match: MatchHistory): Promise<void> {
     const players = await getPlayers().catch(() => []);
     const stats: Omit<PlayerStat, 'id' | 'createdAt'>[] = [];
 
-    for (const team of match.teams) {
+    for (let i = 0; i < match.teams.length; i++) {
+      const team = match.teams[i];
       const teamUpper = (team.name || '').toUpperCase();
+      const isHome = i === 0 || teamUpper.includes('HOME') || teamUpper.includes('CHAMHETFC');
       let playerResult: PlayerResult;
 
       if (match.result === 'extra_win') {
@@ -227,10 +229,10 @@ async function savePlayerStatsForMatch(match: MatchHistory): Promise<void> {
       } else if (match.result === 'draw') {
         playerResult = 'draw';
       } else if (match.result === 'home_win') {
-        playerResult = teamUpper.includes('HOME') ? 'win' : 'lose';
+        playerResult = isHome ? 'win' : 'lose';
       } else {
         // away_win
-        playerResult = teamUpper.includes('AWAY') ? 'win' : 'lose';
+        playerResult = isHome ? 'lose' : 'win';
       }
 
       for (const player of team.players || []) {
@@ -321,8 +323,10 @@ async function computePlayerStatsFromMatchHistory(page: number = 1, pageSize: nu
 
   for (const match of matches) {
     const teams = match.teams || [];
-    for (const team of teams) {
+    for (let i = 0; i < teams.length; i++) {
+      const team = teams[i];
       const teamUpper = (team.name || '').toUpperCase();
+      const isHome = i === 0 || teamUpper.includes('HOME') || teamUpper.includes('CHAMHETFC');
       let playerResult: PlayerResult = 'lose';
 
       if (match.result === 'extra_win') {
@@ -330,9 +334,9 @@ async function computePlayerStatsFromMatchHistory(page: number = 1, pageSize: nu
       } else if (match.result === 'draw') {
         playerResult = 'draw';
       } else if (match.result === 'home_win') {
-        playerResult = teamUpper.includes('HOME') ? 'win' : 'lose';
+        playerResult = isHome ? 'win' : 'lose';
       } else if (match.result === 'away_win') {
-        playerResult = teamUpper.includes('AWAY') ? 'win' : 'lose';
+        playerResult = isHome ? 'lose' : 'win';
       }
 
       for (const player of (team.players || [])) {
@@ -500,8 +504,10 @@ async function computePlayerMatchHistoryFromMatchHistory(playerName: string, pag
       createdAt: match.created_at,
     };
 
-    for (const team of matchHistory.teams) {
+    for (let i = 0; i < matchHistory.teams.length; i++) {
+      const team = matchHistory.teams[i];
       const teamUpper = (team.name || '').toUpperCase();
+      const isHome = i === 0 || teamUpper.includes('HOME') || teamUpper.includes('CHAMHETFC');
       let playerResult: PlayerResult = 'lose';
 
       if (match.result === 'extra_win') {
@@ -509,9 +515,9 @@ async function computePlayerMatchHistoryFromMatchHistory(playerName: string, pag
       } else if (match.result === 'draw') {
         playerResult = 'draw';
       } else if (match.result === 'home_win') {
-        playerResult = teamUpper.includes('HOME') ? 'win' : 'lose';
+        playerResult = isHome ? 'win' : 'lose';
       } else if (match.result === 'away_win') {
-        playerResult = teamUpper.includes('AWAY') ? 'win' : 'lose';
+        playerResult = isHome ? 'lose' : 'win';
       }
 
       for (const player of (team.players || [])) {

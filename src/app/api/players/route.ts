@@ -13,7 +13,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, subNames, telegramHandle, jerseyNumber } = body;
+    const { name, subNames, telegramHandle, jerseyNumber, isInjuryProne } = body;
 
     if (!name) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 });
@@ -24,6 +24,7 @@ export async function POST(request: Request) {
       subNames: subNames || [],
       telegramHandle: telegramHandle || '',
       jerseyNumber: jerseyNumber != null ? Number(jerseyNumber) : null,
+      isInjuryProne: Boolean(isInjuryProne),
     });
 
     return NextResponse.json(player, { status: 201 });
@@ -46,6 +47,10 @@ export async function PUT(request: Request) {
       data.jerseyNumber = data.jerseyNumber !== null && data.jerseyNumber !== '' && !isNaN(Number(data.jerseyNumber))
         ? Number(data.jerseyNumber)
         : null;
+    }
+
+    if (data.isInjuryProne !== undefined) {
+      data.isInjuryProne = Boolean(data.isInjuryProne);
     }
 
     const updated = await updatePlayer(id, data);

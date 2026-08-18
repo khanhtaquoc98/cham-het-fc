@@ -65,6 +65,9 @@ export default function PaymentPage() {
           for (const t of matchData.teams) {
             if (s[t.name] === undefined) s[t.name] = 0;
           }
+          if (matchData.teams.length === 1) {
+            if (s['AWAY'] === undefined) s['AWAY'] = 0;
+          }
         }
         setScores(s);
       } else if (matchData?.teams) {
@@ -72,10 +75,11 @@ export default function PaymentPage() {
         for (const t of matchData.teams) {
           s[t.name] = 0;
         }
-        setScores(s);
         if (matchData.teams.length === 1) {
+          s['AWAY'] = 0;
           setLosingTeams([{ teamName: matchData.teams[0].name, score: 0, drinkPercent: 100 }]);
         }
+        setScores(s);
       }
     } catch (err) {
       console.error('Failed to fetch:', err);
@@ -488,28 +492,58 @@ export default function PaymentPage() {
         </div>
 
         {/* Tỉ số để xác định team thua */}
-        {teams.length > 1 && (
+        {teams.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>Tỉ số trận đấu</label>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              {teams.map((t, idx) => (
-                <div key={t.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: '#4a4a6a' }}>
-                    {t.name === 'HOME' ? '⚪' : t.name === 'AWAY' ? '⚫' : '🟠'} {t.name}
-                  </span>
-                  <input
-                    style={{ ...inputStyle, width: 60, textAlign: 'center', padding: '8px' }}
-                    type="number"
-                    min="0"
-                    value={scores[t.name] ?? 0}
-                    onChange={e => handleScoreChange(t.name, parseInt(e.target.value) || 0)}
-                  />
-                  {idx < teams.length - 1 && <span style={{ color: '#ccc', fontWeight: 700 }}>-</span>}
-                </div>
-              ))}
+              {teams.length === 1 ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#4a4a6a' }}>
+                      🔴 {teams[0].name === 'Home' ? 'ChamHetFC' : teams[0].name}
+                    </span>
+                    <input
+                      style={{ ...inputStyle, width: 60, textAlign: 'center', padding: '8px' }}
+                      type="number"
+                      min="0"
+                      value={scores[teams[0].name] ?? scores['ChamHetFC'] ?? 0}
+                      onChange={e => handleScoreChange(teams[0].name, parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                  <span style={{ color: '#ccc', fontWeight: 700 }}>-</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#4a4a6a' }}>
+                      ⚫ Đội ngoài
+                    </span>
+                    <input
+                      style={{ ...inputStyle, width: 60, textAlign: 'center', padding: '8px' }}
+                      type="number"
+                      min="0"
+                      value={scores['AWAY'] ?? scores['Đội ngoài'] ?? 0}
+                      onChange={e => handleScoreChange('AWAY', parseInt(e.target.value) || 0)}
+                    />
+                  </div>
+                </>
+              ) : (
+                teams.map((t, idx) => (
+                  <div key={t.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#4a4a6a' }}>
+                      {t.name === 'HOME' ? '⚪' : t.name === 'AWAY' ? '⚫' : '🟠'} {t.name}
+                    </span>
+                    <input
+                      style={{ ...inputStyle, width: 60, textAlign: 'center', padding: '8px' }}
+                      type="number"
+                      min="0"
+                      value={scores[t.name] ?? 0}
+                      onChange={e => handleScoreChange(t.name, parseInt(e.target.value) || 0)}
+                    />
+                    {idx < teams.length - 1 && <span style={{ color: '#ccc', fontWeight: 700 }}>-</span>}
+                  </div>
+                ))
+              )}
             </div>
 
-            {losingTeams.length > 0 && (
+            {losingTeams.length > 0 && teams.length > 1 && (
               <div style={{ marginTop: 8, fontSize: 12, color: '#e65100', fontWeight: 600 }}>
                 🍺 Tiền nước: {losingTeams.map(lt =>
                   `${lt.teamName} (${lt.drinkPercent}%)`

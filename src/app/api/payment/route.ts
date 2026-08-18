@@ -98,19 +98,14 @@ export async function POST(request: Request) {
       if (!matchData.teams || matchData.teams.length === 0) {
         return NextResponse.json({ error: 'No teams data' }, { status: 400 });
       }
-      if (matchData.teams.length === 1) {
-        // 1 team → skip lưu lịch sử, không có tỉ số thắng/thua
-        return NextResponse.json({ ok: true, skipped: true, reason: '1 team - no match result to save' });
-      }
-
-      const { scores } = body; // Record<string, number> e.g. { HOME: 1, AWAY: 2 }
+      const { scores } = body; // Record<string, number> e.g. { HOME: 1, AWAY: 2 } or { ChamHetFC: 1, AWAY: 0 }
       if (!scores || typeof scores !== 'object') {
         return NextResponse.json({ error: 'Missing scores' }, { status: 400 });
       }
 
       const teamNames = matchData.teams.map(t => t.name.toUpperCase());
-      const homeScore = scores['HOME'] ?? scores[teamNames[0]] ?? 0;
-      const awayScore = scores['AWAY'] ?? scores[teamNames[1]] ?? 0;
+      const homeScore = scores['ChamHetFC'] ?? scores['CHAMHETFC'] ?? scores['HOME'] ?? (teamNames[0] ? scores[teamNames[0]] : undefined) ?? 0;
+      const awayScore = scores['AWAY'] ?? scores['ĐỘI NGOÀI'] ?? scores['OPPONENT'] ?? (teamNames[1] ? scores[teamNames[1]] : undefined) ?? 0;
       const extraScore = teamNames.length >= 3 ? (scores['EXTRA'] ?? scores[teamNames[2]] ?? 0) : null;
 
       const saved = await saveMatchHistory(

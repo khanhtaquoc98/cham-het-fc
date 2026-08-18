@@ -616,7 +616,7 @@ export default function VenuePage() {
   const handleCreateTeams = async () => {
     // When click "Tạo Team", initialize empty teams based on config and ensure bench exists if null
     const newTeams: Team[] = [];
-    const teamNames = venue.teamConfig === 3 ? ['Home', 'Away', 'Extra'] : venue.teamConfig === 1 ? ['Home'] : ['Home', 'Away'];
+    const teamNames = venue.teamConfig === 3 ? ['Home', 'Away', 'Extra'] : venue.teamConfig === 1 ? ['ChamHetFC'] : ['Home', 'Away'];
     
     for (const name of teamNames) {
       newTeams.push({ name, players: [] });
@@ -644,7 +644,7 @@ export default function VenuePage() {
     // Copy the bench array to shuffle it
     const shuffledBench = [...bench].sort(() => Math.random() - 0.5);
     let currentTeams = JSON.parse(JSON.stringify(teams)) as Team[];
-    const teamNames = venue.teamConfig === 3 ? ['Home', 'Away', 'Extra'] : venue.teamConfig === 1 ? ['Home'] : ['Home', 'Away'];
+    const teamNames = venue.teamConfig === 3 ? ['Home', 'Away', 'Extra'] : venue.teamConfig === 1 ? ['ChamHetFC'] : ['Home', 'Away'];
     
     for (const name of teamNames) {
       if (!currentTeams.find(t => t.name.toLowerCase() === name.toLowerCase())) {
@@ -1768,7 +1768,7 @@ export default function VenuePage() {
             <div style={{ flex: 1, overflowY: 'auto', maxHeight: '420px', paddingRight: '4px', marginBottom: '16px' }}>
               {votedCandidates.length === 0 ? (
                 <div style={{ padding: '28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', border: '1px dashed var(--border-subtle)', borderRadius: '12px' }}>
-                  Chưa có dữ liệu vote từ Telegram. Bạn có thể bấm vào <strong style={{ color: '#0088cc', cursor: 'pointer' }} onClick={() => setShowRawTextInput(true)}>"✏️ Dán / Nhập danh sách bằng tay"</strong> ở góc phải để phân tích nhanh!
+                  Chưa có dữ liệu vote từ Telegram. Bạn có thể bấm vào <strong style={{ color: '#0088cc', cursor: 'pointer' }} onClick={() => setShowRawTextInput(true)}>&quot;✏️ Dán / Nhập danh sách bằng tay&quot;</strong> ở góc phải để phân tích nhanh!
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

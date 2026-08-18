@@ -304,7 +304,16 @@ function MatchHistoryList() {
     }
   };
 
-  const getResultBadge = (result: string) => {
+  const getResultBadge = (result: string, teams: any[] = []) => {
+    const isSingleTeam = teams.length === 1 || (teams[0]?.name && teams[0].name.toUpperCase() === 'CHAMHETFC');
+    if (isSingleTeam) {
+      switch (result) {
+        case 'home_win': return { text: 'ChamHetFC Thắng', bg: '#e8f5e9', color: '#2e7d32' };
+        case 'away_win': return { text: 'ChamHetFC Thua', bg: '#ffebee', color: '#c62828' };
+        case 'draw': return { text: 'Hoà', bg: '#f5f5f5', color: '#616161' };
+        default: return { text: result, bg: '#f5f5f5', color: '#616161' };
+      }
+    }
     switch (result) {
       case 'home_win': return { text: 'HOME Win', bg: '#e8f5e9', color: '#2e7d32' };
       case 'away_win': return { text: 'AWAY Win', bg: '#e3f2fd', color: '#1565c0' };
@@ -328,8 +337,9 @@ function MatchHistoryList() {
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {matches.map((match) => {
-              const badge = getResultBadge(match.result);
-              const homeTeam = match.teams.find(t => t.name.toUpperCase().includes('HOME'));
+              const badge = getResultBadge(match.result, match.teams);
+              const isSingleTeam = match.teams.length === 1 || (match.teams[0]?.name && match.teams[0].name.toUpperCase() === 'CHAMHETFC');
+              const homeTeam = match.teams.find(t => t.name.toUpperCase().includes('HOME') || t.name.toUpperCase().includes('CHAMHETFC')) || match.teams[0];
               const awayTeam = match.teams.find(t => t.name.toUpperCase().includes('AWAY'));
               const extraTeam = match.teams.find(t => t.name.toUpperCase().includes('EXTRA'));
               const isEditing = editingMatchId === match.id;
@@ -451,14 +461,18 @@ function MatchHistoryList() {
                   ) : (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '12px' }}>
                       <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', color: '#8a8aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>HOME</div>
+                        <div style={{ fontSize: '11px', color: '#8a8aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                          {isSingleTeam ? (homeTeam?.name === 'Home' ? 'ChamHetFC' : (homeTeam?.name || 'ChamHetFC')) : 'HOME'}
+                        </div>
                         <div style={{ fontSize: '28px', fontWeight: 900, color: match.result === 'home_win' ? '#2e7d32' : '#c62828' }}>
                           {match.homeScore}
                         </div>
                       </div>
                       <span style={{ fontSize: '18px', fontWeight: 800, color: '#8a8aaa' }}>-</span>
                       <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', color: '#8a8aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>AWAY</div>
+                        <div style={{ fontSize: '11px', color: '#8a8aaa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                          {isSingleTeam ? 'Đội ngoài' : 'AWAY'}
+                        </div>
                         <div style={{ fontSize: '28px', fontWeight: 900, color: match.result === 'away_win' ? '#2e7d32' : '#c62828' }}>
                           {match.awayScore}
                         </div>

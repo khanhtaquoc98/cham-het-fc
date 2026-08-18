@@ -10,6 +10,7 @@ interface PlayerInfo {
   id: string;
   name: string;
   jersey_number?: number | null;
+  is_injury_prone?: boolean | null;
   avatar_version?: string | number | null;
   telegram_handle?: string | null;
 }
@@ -120,6 +121,23 @@ export default function PlayerAvatarSection({ player }: { player: PlayerInfo }) 
             <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Shield size={14} style={{ color: '#dc2626' }} />
               Áo số #{player.jersey_number}
+            </div>
+          )}
+          {player.is_injury_prone && (
+            <div style={{
+              fontSize: '11px',
+              fontWeight: 800,
+              color: '#c62828',
+              background: '#ffebee',
+              border: '1px solid rgba(198,40,40,0.3)',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              marginTop: '4px'
+            }}>
+              🩹 Dễ chấn thương
             </div>
           )}
         </div>
