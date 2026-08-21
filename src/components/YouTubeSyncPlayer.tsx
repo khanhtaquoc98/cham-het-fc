@@ -1358,6 +1358,23 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     setSyncPointModalOpen(false);
   };
 
+  const fetchCurrentTimeForSlot = useCallback((slot: 1 | 2) => {
+    let t = 0;
+    try {
+      const p = slot === 1 ? player1Ref.current : player2Ref.current;
+      if (p && typeof p.getCurrentTime === 'function') {
+        t = p.getCurrentTime() || 0;
+      }
+    } catch {}
+    return formatSecondsToHHMMSS(Math.floor(t));
+  }, []);
+
+  const handleSlotSelectChange = (slot: 1 | 2) => {
+    setNewCapSlot(slot);
+    const newTimeStr = fetchCurrentTimeForSlot(slot);
+    setNewCapTimeStr(newTimeStr);
+  };
+
   // ── Add 2nike Modal Handlers ──
   const handleOpenAddCaptionModal = async () => {
     setNewCapUrl('');
@@ -1375,13 +1392,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     }
 
     if (isAdmin) {
-      let t1 = 0;
-      try {
-        if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
-          t1 = player1Ref.current.getCurrentTime() || 0;
-        }
-      } catch {}
-      setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t1)));
+      setNewCapTimeStr(fetchCurrentTimeForSlot(newCapSlot));
       if (!newCapAuthor) setNewCapAuthor('Admin');
       setAddCaptionModalOpen(true);
       return;
@@ -1411,26 +1422,13 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       return;
     }
 
-    let t1 = 0;
-    try {
-      if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
-        t1 = player1Ref.current.getCurrentTime() || 0;
-      }
-    } catch {}
-    setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t1)));
+    setNewCapTimeStr(fetchCurrentTimeForSlot(newCapSlot));
     setNewCapAuthor(user.username);
     setAddCaptionModalOpen(true);
   };
 
   const handleFetchCurrentTimeForModal = () => {
-    let t = 0;
-    try {
-      const p = newCapSlot === 1 ? player1Ref.current : player2Ref.current;
-      if (p && typeof p.getCurrentTime === 'function') {
-        t = p.getCurrentTime() || 0;
-      }
-    } catch {}
-    setNewCapTimeStr(formatSecondsToHHMMSS(Math.floor(t)));
+    setNewCapTimeStr(fetchCurrentTimeForSlot(newCapSlot));
   };
 
   const handleUrlInputChange = (urlStr: string) => {
@@ -1461,6 +1459,8 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     const timestampSec = parseYouTubeTimestamp(trimmed);
     if (timestampSec !== null && timestampSec >= 0) {
       setNewCapTimeStr(formatSecondsToHHMMSS(timestampSec));
+    } else {
+      setNewCapTimeStr(fetchCurrentTimeForSlot(matchedSlot));
     }
   };
 
@@ -2794,7 +2794,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                   </label>
                   <select
                     value={newCapSlot}
-                    onChange={(e) => setNewCapSlot(Number(e.target.value) as 1 | 2)}
+                    onChange={(e) => handleSlotSelectChange(Number(e.target.value) as 1 | 2)}
                     style={{
                       width: '100%',
                       background: '#f8fafc',
