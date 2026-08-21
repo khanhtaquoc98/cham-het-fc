@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import YouTube, { YouTubeProps } from 'react-youtube';
 import { MatchCaption, YouTubeVideoConfig } from '@/types/youtube';
-import { extractYouTubeId, formatSecondsToHHMMSS, formatSecondsToTime, parseTimeToSeconds, parseYouTubeTimestamp } from '@/lib/youtube-utils';
+import { extractYouTubeId, formatSecondsToHHMMSS, parseTimeToSeconds, parseYouTubeTimestamp } from '@/lib/youtube-utils';
 import { supabase } from '@/lib/supabase';
-import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, RotateCcw, RotateCw, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Loader2, Settings, Gauge, Monitor, MessageSquareText, Link as LinkIcon, AlertCircle, Copy, Check } from 'lucide-react';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Settings, Gauge, Monitor, MessageSquareText, Link as LinkIcon, Unlink, AlertCircle, Copy, Check } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface PlayerInstance {
@@ -404,6 +404,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const player2Ref = useRef<PlayerInstance | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isSyncEnabled, setIsSyncEnabled] = useState(true);
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const [syncPointModalOpen, setSyncPointModalOpen] = useState(false);
   const [syncTimeStr1, setSyncTimeStr1] = useState('00:00:00');
@@ -816,24 +817,30 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const onPlayerStateChange2 = (event: { data: number }) => {
     if (event.data === 1) {
       setIsPlaying(true);
-      if (player1Ref.current && player2Ref.current) {
+      if (isSyncEnabled && player1Ref.current && player2Ref.current) {
         try {
           const t1 = typeof player1Ref.current.getCurrentTime === 'function' ? (player1Ref.current.getCurrentTime() || 0) : 0;
           const t2 = typeof player2Ref.current.getCurrentTime === 'function' ? (player2Ref.current.getCurrentTime() || 0) : 0;
+          const d1 = duration1 || (typeof player1Ref.current.getDuration === 'function' ? player1Ref.current.getDuration() || 0 : 0);
           const offset1 = cfg1.start_offset_seconds || 0;
           const offset2 = cfg2.start_offset_seconds || 0;
           const expectedT2 = t1 - offset2 + offset1;
 
-          if (expectedT2 < 0) {
-            if (typeof player2Ref.current.pauseVideo === 'function') {
-              player2Ref.current.pauseVideo();
-            }
-            if (typeof player2Ref.current.seekTo === 'function') {
-              player2Ref.current.seekTo(0, true);
-            }
-          } else if (Math.abs(t2 - expectedT2) > 1.5) {
-            if (typeof player2Ref.current.seekTo === 'function') {
-              player2Ref.current.seekTo(expectedT2, true);
+          // If Video 1 has already ended (or reached max duration), do not pull Video 2 back!
+          const isV1Ended = isPlayer1Ended || (d1 > 0 && t1 >= d1 - 1);
+
+          if (!isV1Ended) {
+            if (expectedT2 < 0) {
+              if (typeof player2Ref.current.pauseVideo === 'function') {
+                player2Ref.current.pauseVideo();
+              }
+              if (typeof player2Ref.current.seekTo === 'function') {
+                player2Ref.current.seekTo(0, true);
+              }
+            } else if (Math.abs(t2 - expectedT2) > 1.5) {
+              if (typeof player2Ref.current.seekTo === 'function') {
+                player2Ref.current.seekTo(expectedT2, true);
+              }
             }
           }
         } catch {}
@@ -884,7 +891,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
   // ── Auto Re-Sync Video 2 when offset configs load from API ──
   useEffect(() => {
-    if (!isBothReady) return;
+    if (!isBothReady || !isSyncEnabled) return;
 
     const offset1 = cfg1.start_offset_seconds || 0;
     const offset2 = cfg2.start_offset_seconds || 0;
@@ -907,20 +914,29 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         }
       }
     } catch {}
-  }, [isBothReady, cfg1.start_offset_seconds, cfg2.start_offset_seconds, cfg1.youtube_id, cfg2.youtube_id]);
+  }, [isBothReady, isSyncEnabled, cfg1.start_offset_seconds, cfg2.start_offset_seconds, cfg1.youtube_id, cfg2.youtube_id]);
 
   // ── Sync Loop: Ensures Video 2 waits at 0s until Video 1 reaches offset2 ──
   useEffect(() => {
-    if (!isBothReady) return;
+    if (!isBothReady || !isSyncEnabled) return;
 
     const interval = setInterval(() => {
       try {
         if (player1Ref.current && player2Ref.current) {
           const t1 = typeof player1Ref.current.getCurrentTime === 'function' ? (player1Ref.current.getCurrentTime() || 0) : 0;
           const t2 = typeof player2Ref.current.getCurrentTime === 'function' ? (player2Ref.current.getCurrentTime() || 0) : 0;
+          const d1 = duration1 || (typeof player1Ref.current.getDuration === 'function' ? player1Ref.current.getDuration() || 0 : 0);
           const offset1 = cfg1.start_offset_seconds || 0;
           const offset2 = cfg2.start_offset_seconds || 0;
           const expectedT2 = t1 - offset2 + offset1;
+
+          // Check if Video 1 reached the end
+          const isV1Ended = isPlayer1Ended || (d1 > 0 && t1 >= d1 - 1);
+
+          if (isV1Ended) {
+            // Video 1 has ended, allow Video 2 to play independently to its own end
+            return;
+          }
 
           if (expectedT2 < 0) {
             const state2 = typeof player2Ref.current.getPlayerState === 'function' ? player2Ref.current.getPlayerState() : -1;
@@ -945,7 +961,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     }, 500);
 
     return () => clearInterval(interval);
-  }, [isPlaying, isBothReady, isPlayer2Ended, cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
+  }, [isPlaying, isBothReady, isSyncEnabled, isPlayer1Ended, isPlayer2Ended, duration1, cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
 
   const handleManualSync = () => {
     if (!isBothReady) return;
@@ -964,6 +980,24 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const doSeek = useCallback((slot: 1 | 2, seconds: number, autoPlay: boolean = true) => {
     const offset1 = cfg1.start_offset_seconds || 0;
     const offset2 = cfg2.start_offset_seconds || 0;
+
+    // IF sync is disabled, seek ONLY the targeted slot player
+    if (!isSyncEnabled) {
+      try {
+        const p = slot === 1 ? player1Ref.current : player2Ref.current;
+        if (p && typeof p.seekTo === 'function') {
+          p.seekTo(seconds, true);
+          if (autoPlay && typeof p.playVideo === 'function') {
+            p.playVideo();
+          }
+        }
+        if (autoPlay) setIsPlaying(true);
+      } catch (e) {
+        console.warn('Seek error:', e);
+      }
+      return;
+    }
+
     let targetTime1 = 0;
     let targetTime2 = 0;
 
@@ -975,11 +1009,27 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       targetTime1 = seconds + offset2 - offset1;
     }
 
+    const d1 = duration1 || (player1Ref.current && typeof player1Ref.current.getDuration === 'function' ? player1Ref.current.getDuration() || 0 : 0);
+    const d2 = duration2 || (player2Ref.current && typeof player2Ref.current.getDuration === 'function' ? player2Ref.current.getDuration() || 0 : 0);
+
     try {
       if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
-        player1Ref.current.seekTo(targetTime1, true);
-        if (autoPlay && typeof player1Ref.current.playVideo === 'function') {
-          player1Ref.current.playVideo();
+        if (d1 > 0 && targetTime1 >= d1) {
+          // Seeking past Video 1 end: clamp Video 1 to end
+          player1Ref.current.seekTo(d1, true);
+          if (typeof player1Ref.current.pauseVideo === 'function') {
+            player1Ref.current.pauseVideo();
+          }
+          setIsPlayer1Ended(true);
+        } else if (targetTime1 < 0) {
+          player1Ref.current.seekTo(0, true);
+          setIsPlayer1Ended(false);
+        } else {
+          player1Ref.current.seekTo(targetTime1, true);
+          setIsPlayer1Ended(false);
+          if (autoPlay && typeof player1Ref.current.playVideo === 'function') {
+            player1Ref.current.playVideo();
+          }
         }
       }
 
@@ -989,8 +1039,16 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           if (typeof player2Ref.current.pauseVideo === 'function') {
             player2Ref.current.pauseVideo();
           }
+          setIsPlayer2Ended(false);
+        } else if (d2 > 0 && targetTime2 >= d2) {
+          player2Ref.current.seekTo(d2, true);
+          if (typeof player2Ref.current.pauseVideo === 'function') {
+            player2Ref.current.pauseVideo();
+          }
+          setIsPlayer2Ended(true);
         } else {
           player2Ref.current.seekTo(targetTime2, true);
+          setIsPlayer2Ended(false);
           if (autoPlay && typeof player2Ref.current.playVideo === 'function') {
             player2Ref.current.playVideo();
           }
@@ -1003,7 +1061,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
     } catch (e) {
       console.warn('Seek error:', e);
     }
-  }, [cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
+  }, [isSyncEnabled, duration1, duration2, cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
 
   useImperativeHandle(ref, () => ({
     seekTo: (slot: 1 | 2, seconds: number, autoPlay: boolean = true) => {
@@ -1063,31 +1121,76 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         }
 
         if (player2Ref.current && typeof player2Ref.current.playVideo === 'function') {
-          const t1 = typeof player1Ref.current?.getCurrentTime === 'function' ? (player1Ref.current.getCurrentTime() || 0) : 0;
-          const offset1 = cfg1.start_offset_seconds || 0;
-          const offset2 = cfg2.start_offset_seconds || 0;
-          const expectedT2 = t1 - offset2 + offset1;
-
-          if (expectedT2 >= 0) {
+          if (!isSyncEnabled) {
             player2Ref.current.playVideo();
+          } else {
+            const t1 = typeof player1Ref.current?.getCurrentTime === 'function' ? (player1Ref.current.getCurrentTime() || 0) : 0;
+            const d1 = duration1 || (player1Ref.current && typeof player1Ref.current.getDuration === 'function' ? player1Ref.current.getDuration() || 0 : 0);
+            const offset1 = cfg1.start_offset_seconds || 0;
+            const offset2 = cfg2.start_offset_seconds || 0;
+            const expectedT2 = t1 - offset2 + offset1;
+
+            if (expectedT2 >= 0 || (d1 > 0 && t1 >= d1 - 1)) {
+              player2Ref.current.playVideo();
+            }
           }
         }
       } catch {}
       setIsPlaying(true);
     }
-  }, [isBothReady, isPlaying, cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
+  }, [isBothReady, isPlaying, isSyncEnabled, duration1, cfg1.start_offset_seconds, cfg2.start_offset_seconds]);
 
   const handleSeekRelative = useCallback((deltaSeconds: number) => {
     if (!isBothReady) return;
+
     let t1 = 0;
+    let t2 = 0;
+    const d1 = duration1 || (player1Ref.current && typeof player1Ref.current.getDuration === 'function' ? player1Ref.current.getDuration() || 0 : 0);
+    const d2 = duration2 || (player2Ref.current && typeof player2Ref.current.getDuration === 'function' ? player2Ref.current.getDuration() || 0 : 0);
+
     try {
       if (player1Ref.current && typeof player1Ref.current.getCurrentTime === 'function') {
         t1 = player1Ref.current.getCurrentTime() || 0;
       }
+      if (player2Ref.current && typeof player2Ref.current.getCurrentTime === 'function') {
+        t2 = player2Ref.current.getCurrentTime() || 0;
+      }
     } catch {}
-    const newT1 = Math.max(0, t1 + deltaSeconds);
-    doSeek(1, newT1, isPlaying);
-  }, [isBothReady, isPlaying, doSeek]);
+
+    const isV1Ended = isPlayer1Ended || (d1 > 0 && t1 >= d1 - 1);
+
+    if (!isSyncEnabled) {
+      // Unsynced mode: seek both videos relative to their own current time
+      try {
+        if (player1Ref.current && typeof player1Ref.current.seekTo === 'function') {
+          const newT1 = Math.max(0, Math.min(d1 > 0 ? d1 : Infinity, t1 + deltaSeconds));
+          player1Ref.current.seekTo(newT1, true);
+        }
+        if (player2Ref.current && typeof player2Ref.current.seekTo === 'function') {
+          const newT2 = Math.max(0, Math.min(d2 > 0 ? d2 : Infinity, t2 + deltaSeconds));
+          player2Ref.current.seekTo(newT2, true);
+        }
+        if (isPlaying) {
+          if (player1Ref.current && typeof player1Ref.current.playVideo === 'function') player1Ref.current.playVideo();
+          if (player2Ref.current && typeof player2Ref.current.playVideo === 'function') player2Ref.current.playVideo();
+        }
+      } catch (e) {
+        console.warn('Relative seek error:', e);
+      }
+      return;
+    }
+
+    // Synced mode:
+    if (isV1Ended) {
+      // Video 1 has ended, seek Video 2 relative to Video 2's current time (t2)
+      const newT2 = Math.max(0, t2 + deltaSeconds);
+      doSeek(2, newT2, isPlaying);
+    } else {
+      // Normal synced seek relative to Video 1
+      const newT1 = Math.max(0, t1 + deltaSeconds);
+      doSeek(1, newT1, isPlaying);
+    }
+  }, [isBothReady, isPlaying, isSyncEnabled, isPlayer1Ended, duration1, duration2, doSeek]);
 
   const handleSeekPrevNote = useCallback(() => {
     if (!isBothReady || !hasPrevNote || !captionsList || captionsList.length === 0) return;
@@ -1465,8 +1568,39 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
           </div>
         </div>
 
-        {/* Right Actions: Add 2nike Modal Button & Admin Auto calibration */}
+        {/* Right Actions: Sync Toggle, Add 2nike Modal Button & Admin Auto calibration */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {cfg1.youtube_id && cfg2.youtube_id && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsSyncEnabled(prev => {
+                  const next = !prev;
+                  toast.success(next ? 'Đã BẬT chế độ đồng bộ 2 video' : 'Đã TẮT chế độ đồng bộ (xem độc lập)');
+                  return next;
+                });
+              }}
+              style={{
+                background: isSyncEnabled ? '#ecfdf5' : '#fef2f2',
+                color: isSyncEnabled ? '#047857' : '#dc2626',
+                border: isSyncEnabled ? '1px solid #a7f3d0' : '1px solid #fecaca',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontWeight: 800,
+                fontSize: '12px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+              title={isSyncEnabled ? 'Bấm để tắt đồng bộ (cho phép tua tự do từng video)' : 'Bấm để bật đồng bộ 2 video'}
+            >
+              {isSyncEnabled ? <LinkIcon size={15} style={{ color: '#059669' }} /> : <Unlink size={15} style={{ color: '#dc2626' }} />}
+              {isSyncEnabled ? 'Đang Đồng Bộ' : 'Tắt Đồng Bộ'}
+            </button>
+          )}
+
           {(cfg1.youtube_id || cfg2.youtube_id) && (
             <button
               type="button"
