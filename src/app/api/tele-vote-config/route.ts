@@ -114,49 +114,52 @@ export async function GET(request: Request) {
 
     // Handle fetching voters
     if (action === 'voters') {
-      if (Array.isArray(savedConfig.custom_voters)) {
-        const voters = savedConfig.custom_voters.map(name => ({
-          user_name: name,
-          option_ids: [1]
-        }));
-        return NextResponse.json({ voters });
-      }
+      let teleVoters: { user_name: string; option_ids: number[] | string }[] = [];
 
       if (isThirdParty) {
         const thirdPartyData = await fetchThirdPartyData();
         if (thirdPartyData) {
           const benchNames = parseBenchNames(thirdPartyData.bench);
           if (benchNames.length > 0) {
-            const voters = benchNames.map(name => ({
+            teleVoters = benchNames.map(name => ({
               user_name: name,
               option_ids: [1]
             }));
-            return NextResponse.json({ voters });
-          }
-
-          const activeVote = thirdPartyData.activeVote;
-          if (activeVote && activeVote.votes) {
-            const voters = Object.values(activeVote.votes).map((v: any) => ({
-              user_name: v.name || 'Unknown',
-              option_ids: Array.isArray(v.options) ? v.options : []
-            }));
-            return NextResponse.json({ voters });
+          } else {
+            const activeVote = thirdPartyData.activeVote;
+            if (activeVote && activeVote.votes) {
+              teleVoters = Object.values(activeVote.votes).map((v: any) => ({
+                user_name: v.name || 'Unknown',
+                option_ids: Array.isArray(v.options) ? v.options : []
+              }));
+            }
           }
         }
-        return NextResponse.json({ voters: [] });
+      } else {
+        let query = supabase.from('poll_answers').select('*');
+        if (pollId) {
+          query = query.eq('poll_id', pollId);
+        }
+        const { data: voters } = await query.order('updated_at', { ascending: false });
+        teleVoters = voters || [];
       }
 
-      let query = supabase.from('poll_answers').select('*');
-      if (pollId) {
-        query = query.eq('poll_id', pollId);
-      }
-      const { data: voters, error } = await query.order('updated_at', { ascending: false });
+      const appVoters: string[] = Array.isArray(savedConfig.custom_voters) ? savedConfig.custom_voters : [];
 
-      if (error) {
-        return NextResponse.json({ voters: [] });
-      }
+      const mergedVoters = [
+        ...teleVoters,
+        ...appVoters.map(name => ({
+          user_name: name,
+          option_ids: [1],
+          is_app: true
+        }))
+      ];
 
-      return NextResponse.json({ voters: voters || [] });
+      return NextResponse.json({
+        teleVoters,
+        appVoters,
+        voters: mergedVoters
+      });
     }
 
     // Handle fetching vote config

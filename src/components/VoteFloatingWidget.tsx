@@ -59,8 +59,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     try {
       const res = await fetch(`/api/tele-vote-config?action=voters&t=${Date.now()}`, { cache: 'no-store' });
       const data = await res.json();
-      const voters = (data.voters || []).map((v: { user_name: string }) => v.user_name);
-      setAppVoters(voters);
+      setAppVoters(data.appVoters || []);
     } catch (e) {
       console.error('Error loading config voters:', e);
     }
@@ -86,26 +85,25 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
         await loadConfigVoters();
 
         const provider = cfg?.provider || voteConfig?.provider;
-        if (provider === 'third_party') {
-          const vRes = await fetch(`/api/tele-vote-config?action=voters&provider=third_party&t=${Date.now()}`, { cache: 'no-store' });
-          const vData = await vRes.json();
-          const votersList = vData.voters || [];
-          const names: string[] = [];
-          votersList.forEach((v: { user_name: string; option_ids: number[] | string }) => {
-            let optionIds: number[] = [];
-            if (Array.isArray(v.option_ids)) optionIds = v.option_ids;
-            else if (typeof v.option_ids === 'string') {
-              try { optionIds = JSON.parse(v.option_ids); } catch (e) {}
-            }
-            const mainOptIndex = optionIds[0] ?? 1;
-            if (mainOptIndex === 0) return;
-            const count = mainOptIndex > 0 ? mainOptIndex : 1;
-            for (let i = 0; i < count; i++) {
-              names.push(i === 0 ? v.user_name : `${v.user_name} ${i}`);
-            }
-          });
-          if (isMounted) setThirdPartyVoters(names);
-        }
+        const vRes = await fetch(`/api/tele-vote-config?action=voters&provider=${provider || 'third_party'}&t=${Date.now()}`, { cache: 'no-store' });
+        const vData = await vRes.json();
+        const votersList = vData.teleVoters || vData.voters || [];
+        const names: string[] = [];
+        votersList.forEach((v: { user_name: string; option_ids: number[] | string; is_app?: boolean }) => {
+          if (v.is_app) return;
+          let optionIds: number[] = [];
+          if (Array.isArray(v.option_ids)) optionIds = v.option_ids;
+          else if (typeof v.option_ids === 'string') {
+            try { optionIds = JSON.parse(v.option_ids); } catch (e) {}
+          }
+          const mainOptIndex = optionIds[0] ?? 1;
+          if (mainOptIndex === 0) return;
+          const count = mainOptIndex > 0 ? mainOptIndex : 1;
+          for (let i = 0; i < count; i++) {
+            names.push(i === 0 ? v.user_name : `${v.user_name} ${i}`);
+          }
+        });
+        if (isMounted) setThirdPartyVoters(names);
       } catch (err) {
         console.error('Error fetching vote widget data:', err);
       } finally {

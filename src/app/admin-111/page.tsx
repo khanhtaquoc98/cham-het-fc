@@ -45,10 +45,11 @@ export default function VenuePage() {
   const [voteConfigSaving, setVoteConfigSaving] = useState(false);
   const [voteCreating, setVoteCreating] = useState(false);
   const [liveVotersNames, setLiveVotersNames] = useState<string[]>([]);
+  const [teleVotersNames, setTeleVotersNames] = useState<string[]>([]);
+  const [appVotersNames, setAppVotersNames] = useState<string[]>([]);
   const [loadingVotersList, setLoadingVotersList] = useState(false);
   const [editingTagIndex, setEditingTagIndex] = useState<number | null>(null);
   const [editingTagValue, setEditingTagValue] = useState<string>('');
-
 
   const loadLiveVoters = async (overrideProvider?: string) => {
     setLoadingVotersList(true);
@@ -58,9 +59,11 @@ export default function VenuePage() {
         cache: 'no-store',
       });
       const data = await res.json();
-      const votersList = data.voters || [];
-      const names: string[] = [];
-      votersList.forEach((v: { user_name: string; option_ids: number[] | string }) => {
+      
+      const rawTeleVoters = data.teleVoters || data.voters || [];
+      const teleNames: string[] = [];
+      rawTeleVoters.forEach((v: { user_name: string; option_ids: number[] | string; is_app?: boolean }) => {
+        if (v.is_app) return;
         let optionIds: number[] = [];
         if (Array.isArray(v.option_ids)) optionIds = v.option_ids;
         else if (typeof v.option_ids === 'string') {
@@ -70,10 +73,22 @@ export default function VenuePage() {
         if (mainOptIndex === 0) return;
         const count = mainOptIndex > 0 ? mainOptIndex : 1;
         for (let i = 0; i < count; i++) {
-          names.push(i === 0 ? v.user_name : `${v.user_name} ${i}`);
+          teleNames.push(i === 0 ? v.user_name : `${v.user_name} ${i}`);
         }
       });
-      setLiveVotersNames(names);
+
+      const appNames: string[] = data.appVoters || [];
+
+      setTeleVotersNames(teleNames);
+      setAppVotersNames(appNames);
+
+      const combined = [...teleNames];
+      appNames.forEach(an => {
+        if (!combined.some(tn => tn.trim().toLowerCase() === an.trim().toLowerCase())) {
+          combined.push(an);
+        }
+      });
+      setLiveVotersNames(combined);
     } catch (err) {
       console.error('Error loading live voters list:', err);
     } finally {
@@ -81,7 +96,7 @@ export default function VenuePage() {
     }
   };
 
-  const saveVotersToConfig = async (voters: string[]) => {
+  const saveAppVotersToConfig = async (voters: string[]) => {
     try {
       await fetch('/api/tele-vote-config', {
         method: 'POST',
@@ -94,8 +109,9 @@ export default function VenuePage() {
   };
 
   const handleClearLiveVotersConfig = async () => {
-    if (liveVotersNames.length === 0) return;
-    setLiveVotersNames([]);
+    if (appVotersNames.length === 0 && liveVotersNames.length === 0) return;
+    setAppVotersNames([]);
+    setLiveVotersNames(teleVotersNames);
     setEditingTagIndex(null);
     try {
       const res = await fetch('/api/tele-vote-config', {
@@ -105,7 +121,7 @@ export default function VenuePage() {
       });
       const data = await res.json();
       if (data.ok) {
-        toast.success('Đã xóa toàn bộ danh sách điểm danh trong config!');
+        toast.success('Đã xóa danh sách điểm danh trong App (vẫn giữ vote Tele)!');
       } else {
         toast.error('Lỗi khi xóa danh sách điểm danh');
       }
@@ -1265,17 +1281,26 @@ export default function VenuePage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
               <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary, #1e293b)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span>⚽ Danh sách cầu thủ đi đá ({liveVotersNames.length} suất)</span>
+                <span>⚽ Danh sách cầu thủ đi đá ({liveVotersNames.length} suất{teleVotersNames.length > 0 || appVotersNames.length > 0 ? `: ${teleVotersNames.length} Tele, ${appVotersNames.length} App` : ''})</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', maxWidth: '100%' }}>
                 <button
                   type="button"
                   onClick={() => {
-                    const newNames = [...liveVotersNames, `Cầu thủ ${liveVotersNames.length + 1}`];
-                    setLiveVotersNames(newNames);
-                    setEditingTagIndex(newNames.length - 1);
-                    setEditingTagValue(`Cầu thủ ${newNames.length}`);
-                    saveVotersToConfig(newNames);
+                    const newName = `Cầu thủ ${appVotersNames.length + 1}`;
+                    const updatedApp = [...appVotersNames, newName];
+                    setAppVotersNames(updatedApp);
+
+                    const combined = [...teleVotersNames];
+                    updatedApp.forEach(an => {
+                      if (!combined.some(tn => tn.trim().toLowerCase() === an.trim().toLowerCase())) {
+                        combined.push(an);
+                      }
+                    });
+                    setLiveVotersNames(combined);
+                    setEditingTagIndex(combined.length - 1);
+                    setEditingTagValue(newName);
+                    saveAppVotersToConfig(updatedApp);
                   }}
                   style={{ background: 'rgba(0, 136, 204, 0.08)', border: '1px solid rgba(0, 136, 204, 0.25)', color: '#0088cc', fontSize: '12px', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}
                 >
@@ -1300,7 +1325,7 @@ export default function VenuePage() {
                     alignItems: 'center',
                     gap: '4px'
                   }}
-                  title="Xóa toàn bộ danh sách điểm danh lưu ở config"
+                  title="Xóa danh sách điểm danh lưu ở config App (giữ vote Telegram)"
                 >
                   <Trash2 size={13} style={{ display: 'inline', verticalAlign: 'middle' }} />
                   Clear điểm danh
@@ -1351,17 +1376,19 @@ export default function VenuePage() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
                 {liveVotersNames.map((name, i) => {
                   const isEditing = editingTagIndex === i;
+                  const isAppVoter = appVotersNames.some(an => an.trim().toLowerCase() === name.trim().toLowerCase());
+                  
                   return (
                     <span
                       key={i}
                       style={{
-                        background: '#e8f5e9',
-                        border: '1px solid #a5d6a7',
+                        background: isAppVoter ? '#e8f5e9' : '#e0f2fe',
+                        border: isAppVoter ? '1px solid #a5d6a7' : '1px solid #7dd3fc',
                         borderRadius: '20px',
                         padding: '4px 10px',
                         fontSize: '12.5px',
                         fontWeight: 700,
-                        color: '#1b5e20',
+                        color: isAppVoter ? '#1b5e20' : '#0369a1',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '6px',
@@ -1369,7 +1396,7 @@ export default function VenuePage() {
                         transition: 'all 0.15s ease'
                       }}
                     >
-                      <span style={{ color: '#2e7d32', fontSize: '10px' }}>●</span>
+                      <span style={{ fontSize: '11px' }}>{isAppVoter ? '📱' : '✈️'}</span>
                       
                       {isEditing ? (
                         <input
@@ -1379,33 +1406,55 @@ export default function VenuePage() {
                           onChange={(e) => setEditingTagValue(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
-                              const updated = [...liveVotersNames];
-                              if (editingTagValue.trim()) {
-                                updated[i] = editingTagValue.trim();
+                              const oldName = liveVotersNames[i];
+                              const trimmed = editingTagValue.trim();
+                              if (trimmed) {
+                                const updatedLive = [...liveVotersNames];
+                                updatedLive[i] = trimmed;
+                                setLiveVotersNames(updatedLive);
+                                
+                                const appIdx = appVotersNames.findIndex(an => an.trim().toLowerCase() === oldName.trim().toLowerCase());
+                                let updatedApp = [...appVotersNames];
+                                if (appIdx !== -1) {
+                                  updatedApp[appIdx] = trimmed;
+                                } else {
+                                  updatedApp.push(trimmed);
+                                }
+                                setAppVotersNames(updatedApp);
+                                saveAppVotersToConfig(updatedApp);
                               }
-                              setLiveVotersNames(updated);
                               setEditingTagIndex(null);
-                              saveVotersToConfig(updated);
                             } else if (e.key === 'Escape') {
                               setEditingTagIndex(null);
                             }
                           }}
                           onBlur={() => {
-                            const updated = [...liveVotersNames];
-                            if (editingTagValue.trim()) {
-                              updated[i] = editingTagValue.trim();
+                            const oldName = liveVotersNames[i];
+                            const trimmed = editingTagValue.trim();
+                            if (trimmed) {
+                              const updatedLive = [...liveVotersNames];
+                              updatedLive[i] = trimmed;
+                              setLiveVotersNames(updatedLive);
+
+                              const appIdx = appVotersNames.findIndex(an => an.trim().toLowerCase() === oldName.trim().toLowerCase());
+                              let updatedApp = [...appVotersNames];
+                              if (appIdx !== -1) {
+                                updatedApp[appIdx] = trimmed;
+                              } else {
+                                updatedApp.push(trimmed);
+                              }
+                              setAppVotersNames(updatedApp);
+                              saveAppVotersToConfig(updatedApp);
                             }
-                            setLiveVotersNames(updated);
                             setEditingTagIndex(null);
-                            saveVotersToConfig(updated);
                           }}
                           style={{
-                            border: '1px solid #2e7d32',
+                            border: isAppVoter ? '1px solid #2e7d32' : '1px solid #0288d1',
                             borderRadius: '12px',
                             padding: '1px 6px',
                             fontSize: '12px',
                             fontWeight: 700,
-                            color: '#1b5e20',
+                            color: isAppVoter ? '#1b5e20' : '#0369a1',
                             background: '#ffffff',
                             outline: 'none',
                             width: '90px'
@@ -1441,10 +1490,14 @@ export default function VenuePage() {
                       <button
                         type="button"
                         onClick={() => {
-                          const updated = liveVotersNames.filter((_, idx) => idx !== i);
-                          setLiveVotersNames(updated);
+                          const nameToDelete = liveVotersNames[i];
+                          const updatedLive = liveVotersNames.filter((_, idx) => idx !== i);
+                          setLiveVotersNames(updatedLive);
                           if (editingTagIndex === i) setEditingTagIndex(null);
-                          saveVotersToConfig(updated);
+
+                          const updatedApp = appVotersNames.filter(an => an.trim().toLowerCase() !== nameToDelete.trim().toLowerCase());
+                          setAppVotersNames(updatedApp);
+                          saveAppVotersToConfig(updatedApp);
                         }}
                         style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#c62828', fontSize: '13px', fontWeight: 800, marginLeft: '2px', display: 'flex', alignItems: 'center' }}
                         title="Xóa suất này"
