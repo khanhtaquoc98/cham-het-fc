@@ -17,13 +17,13 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
   const [voteConfig, setVoteConfig] = useState<TeleVoteConfig | null>(initialVoteConfig || null);
   const [matchData, setMatchData] = useState<MatchData | null>(initialMatchData || null);
   const [hasDismissed, setHasDismissed] = useState(false);
-
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [thirdPartyVoters, setThirdPartyVoters] = useState<string[]>([]);
   const [inputName, setInputName] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [playerConfigs, setPlayerConfigs] = useState<{ id?: string; name: string; subNames?: string[] }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
+  const [appVoters, setAppVoters] = useState<string[]>([]);
 
   const filteredWidgetSuggestions = useMemo(() => {
     const query = inputName.trim().toLowerCase();
@@ -55,6 +55,17 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     }).slice(0, 8);
   }, [inputName, playerConfigs, matchData]);
 
+  const loadConfigVoters = async () => {
+    try {
+      const res = await fetch(`/api/tele-vote-config?action=voters&t=${Date.now()}`, { cache: 'no-store' });
+      const data = await res.json();
+      const voters = (data.voters || []).map((v: { user_name: string }) => v.user_name);
+      setAppVoters(voters);
+    } catch (e) {
+      console.error('Error loading config voters:', e);
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
@@ -71,6 +82,8 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
         const matchJson = await matchRes.json();
         if (isMounted && matchJson?.matchData) setMatchData(matchJson.matchData);
         if (isMounted && matchJson?.players) setPlayerConfigs(matchJson.players || []);
+
+        await loadConfigVoters();
 
         const provider = cfg?.provider || voteConfig?.provider;
         if (provider === 'third_party') {
@@ -111,6 +124,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
       if (customEvent.detail) {
         setMatchData((prev) => (prev ? { ...prev, bench: customEvent.detail } : prev));
       }
+      loadConfigVoters();
     };
     window.addEventListener('match-data-updated', handleDataUpdate);
     return () => window.removeEventListener('match-data-updated', handleDataUpdate);
@@ -137,12 +151,10 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     const norm = normalizeStr(rawName);
     if (!norm) return { isDuplicate: false };
 
-    // 1. Check App Bench
-    const benchMatch = (matchData?.bench || []).find(
-      p => normalizeStr(p.name) === norm || (p.telegramHandle && normalizeStr(p.telegramHandle) === norm)
-    );
-    if (benchMatch) {
-      return { isDuplicate: true, reason: `Cầu thủ "${benchMatch.name}" đã có trong điểm danh App!` };
+    // 1. Check App Voters in Config
+    const appMatch = appVoters.find(v => normalizeStr(v) === norm);
+    if (appMatch) {
+      return { isDuplicate: true, reason: `Cầu thủ "${appMatch}" đã có trong danh sách điểm danh!` };
     }
 
     // 2. Check Telegram Voters
@@ -163,7 +175,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     if (e) e.preventDefault();
     const trimmed = inputName.trim();
     if (!trimmed) {
-      toast.error('Vui lòng nhập tên cầu thủ!');
+      toast.error('Vui lòng nhập tên điểm danh!');
       return;
     }
 
@@ -172,7 +184,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
       return;
     }
 
-    // Check duplicates across App, Telegram, and Teams
+    // Check duplicates across App and Telegram
     const dupCheck = checkDuplicateName(trimmed);
     if (dupCheck.isDuplicate) {
       toast.error(dupCheck.reason || 'Tên này đã có trong danh sách!');
@@ -181,25 +193,18 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
 
     setIsSubmitting(true);
     try {
-      const currentBench = matchData?.bench || [];
-      const newPlayer: Player = { name: trimmed, telegramHandle: '' };
-      const newBench = [...currentBench, newPlayer];
-
-      const res = await fetch('/api/match/update', {
+      const newVoters = [...appVoters, trimmed];
+      const res = await fetch('/api/tele-vote-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bench: newBench }),
+        body: JSON.stringify({ action: 'save_voters', voters: newVoters }),
       });
 
       if (res.ok) {
-        const json = await res.json();
-        const updatedBench = json?.matchData?.bench || newBench;
-        setMatchData(prev => prev ? ({ ...prev, bench: updatedBench }) : ({
-          id: '1', bench: updatedBench, teams: [], venue: {}, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
-        }));
+        setAppVoters(newVoters);
         setInputName('');
-        toast.success(`Đã điểm danh cho: ${trimmed}`);
-        window.dispatchEvent(new CustomEvent('match-data-updated', { detail: updatedBench }));
+        toast.success(`Đã điểm danh cho: ${trimmed} (lưu tạm ở config)`);
+        window.dispatchEvent(new CustomEvent('match-data-updated'));
       } else {
         toast.error('Có lỗi xảy ra khi điểm danh');
       }
@@ -211,28 +216,20 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     }
   };
 
-  const handleDeleteAppPlayer = async (playerToDelete: Player) => {
-    const currentBench = matchData?.bench || [];
-    const indexToDelete = currentBench.findIndex(
-      item => item.name === playerToDelete.name && (item.playerId === playerToDelete.playerId || !playerToDelete.playerId)
-    );
-    if (indexToDelete === -1) return;
-
+  const handleDeleteAppPlayer = async (nameToDelete: string) => {
     setIsSubmitting(true);
     try {
-      const newBench = currentBench.filter((_, idx) => idx !== indexToDelete);
-      const res = await fetch('/api/match/update', {
+      const newVoters = appVoters.filter(name => name !== nameToDelete);
+      const res = await fetch('/api/tele-vote-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bench: newBench }),
+        body: JSON.stringify({ action: 'save_voters', voters: newVoters }),
       });
 
       if (res.ok) {
-        const json = await res.json();
-        const updatedBench = json?.matchData?.bench || newBench;
-        setMatchData(prev => prev ? ({ ...prev, bench: updatedBench }) : null);
-        toast.success(`Đã xoá ${playerToDelete.name} khỏi danh sách`);
-        window.dispatchEvent(new CustomEvent('match-data-updated', { detail: updatedBench }));
+        setAppVoters(newVoters);
+        toast.success(`Đã xoá ${nameToDelete} khỏi danh sách điểm danh`);
+        window.dispatchEvent(new CustomEvent('match-data-updated'));
       } else {
         toast.error('Lỗi khi xoá cầu thủ');
       }
@@ -244,13 +241,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     }
   };
 
-  const filteredAppBench = useMemo(() => {
-    const bench = matchData?.bench || [];
-    if (!thirdPartyVoters || thirdPartyVoters.length === 0) return bench;
-    return bench.filter(p => !isDuplicateWithTeleVoters(p, thirdPartyVoters, playerConfigs as any));
-  }, [matchData?.bench, thirdPartyVoters, playerConfigs]);
-
-  const benchCount = filteredAppBench.length;
+  const benchCount = appVoters.length;
   const pollTitle = voteConfig?.title || 'Điểm danh trận đấu';
   const teleCount = typeof voteConfig?.total_voters === 'number' ? voteConfig.total_voters : thirdPartyVoters.length;
 
@@ -545,9 +536,9 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
                   <div style={{ padding: '8px 0', fontSize: '12px', color: '#64748b', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Loader2 size={14} className="vote-spin-icon" color="#0284c7" /> Đang tải danh sách...
                   </div>
-                ) : filteredAppBench.length > 0 ? (
+                ) : appVoters.length > 0 ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', maxHeight: '140px', overflowY: 'auto', padding: '2px' }}>
-                    {filteredAppBench.map((p, idx) => (
+                    {appVoters.map((name, idx) => (
                       <div
                         key={idx}
                         style={{
@@ -563,12 +554,12 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
                           gap: '6px',
                         }}
                       >
-                        <span>⚽ {p.name}</span>
+                        <span>⚽ {name}</span>
                         <button
                           type="button"
-                          onClick={() => handleDeleteAppPlayer(p)}
+                          onClick={() => handleDeleteAppPlayer(name)}
                           disabled={isSubmitting}
-                          title={`Xoá ${p.name}`}
+                          title={`Xoá ${name}`}
                           style={{
                             background: 'transparent',
                             border: 'none',

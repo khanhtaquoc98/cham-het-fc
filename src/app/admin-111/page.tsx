@@ -81,6 +81,41 @@ export default function VenuePage() {
     }
   };
 
+  const saveVotersToConfig = async (voters: string[]) => {
+    try {
+      await fetch('/api/tele-vote-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_voters', voters }),
+      });
+    } catch (err) {
+      console.error('Error saving voters to config:', err);
+    }
+  };
+
+  const handleClearLiveVotersConfig = async () => {
+    if (liveVotersNames.length === 0) return;
+    setLiveVotersNames([]);
+    setEditingTagIndex(null);
+    try {
+      const res = await fetch('/api/tele-vote-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clear_voters' }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        toast.success('Đã xóa toàn bộ danh sách điểm danh trong config!');
+      } else {
+        toast.error('Lỗi khi xóa danh sách điểm danh');
+      }
+    } catch (err) {
+      console.error('Error clearing voters config:', err);
+      toast.error('Lỗi kết nối khi xóa điểm danh');
+    }
+  };
+
+
 
   
   // Players from DB for Modal
@@ -1236,13 +1271,39 @@ export default function VenuePage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setLiveVotersNames(names => [...names, `Cầu thủ ${names.length + 1}`]);
-                    setEditingTagIndex(liveVotersNames.length);
-                    setEditingTagValue(`Cầu thủ ${liveVotersNames.length + 1}`);
+                    const newNames = [...liveVotersNames, `Cầu thủ ${liveVotersNames.length + 1}`];
+                    setLiveVotersNames(newNames);
+                    setEditingTagIndex(newNames.length - 1);
+                    setEditingTagValue(`Cầu thủ ${newNames.length}`);
+                    saveVotersToConfig(newNames);
                   }}
                   style={{ background: 'rgba(0, 136, 204, 0.08)', border: '1px solid rgba(0, 136, 204, 0.25)', color: '#0088cc', fontSize: '12px', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}
                 >
                   ➕ Thêm người
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearLiveVotersConfig}
+                  disabled={liveVotersNames.length === 0}
+                  style={{
+                    background: '#ffebee',
+                    border: '1px solid #ffcdd2',
+                    color: '#c62828',
+                    fontSize: '12px',
+                    padding: '6px 12px',
+                    borderRadius: '6px',
+                    cursor: liveVotersNames.length === 0 ? 'not-allowed' : 'pointer',
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    opacity: liveVotersNames.length === 0 ? 0.5 : 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Xóa toàn bộ danh sách điểm danh lưu ở config"
+                >
+                  <Trash2 size={13} style={{ display: 'inline', verticalAlign: 'middle' }} />
+                  Clear điểm danh
                 </button>
                 <button
                   type="button"
@@ -1324,6 +1385,7 @@ export default function VenuePage() {
                               }
                               setLiveVotersNames(updated);
                               setEditingTagIndex(null);
+                              saveVotersToConfig(updated);
                             } else if (e.key === 'Escape') {
                               setEditingTagIndex(null);
                             }
@@ -1335,6 +1397,7 @@ export default function VenuePage() {
                             }
                             setLiveVotersNames(updated);
                             setEditingTagIndex(null);
+                            saveVotersToConfig(updated);
                           }}
                           style={{
                             border: '1px solid #2e7d32',
@@ -1378,8 +1441,10 @@ export default function VenuePage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setLiveVotersNames(names => names.filter((_, idx) => idx !== i));
+                          const updated = liveVotersNames.filter((_, idx) => idx !== i);
+                          setLiveVotersNames(updated);
                           if (editingTagIndex === i) setEditingTagIndex(null);
+                          saveVotersToConfig(updated);
                         }}
                         style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#c62828', fontSize: '13px', fontWeight: 800, marginLeft: '2px', display: 'flex', alignItems: 'center' }}
                         title="Xóa suất này"

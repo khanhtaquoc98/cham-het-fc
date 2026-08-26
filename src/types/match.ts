@@ -38,6 +38,7 @@ export interface TeleVoteConfig {
   show_vote?: boolean;
   provider?: 'internal' | 'third_party';
   total_voters?: number;
+  custom_voters?: string[];
 }
 
 

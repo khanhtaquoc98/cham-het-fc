@@ -114,6 +114,13 @@ export async function GET(request: Request) {
 
     // Handle fetching voters
     if (action === 'voters') {
+      if (Array.isArray(savedConfig.custom_voters)) {
+        const voters = savedConfig.custom_voters.map(name => ({
+          user_name: name,
+          option_ids: [1]
+        }));
+        return NextResponse.json({ voters });
+      }
 
       if (isThirdParty) {
         const thirdPartyData = await fetchThirdPartyData();
@@ -182,7 +189,8 @@ export async function GET(request: Request) {
           title: activeVote?.question || savedConfig.title || DEFAULT_VOTE_CONFIG.title,
           show_vote: savedConfig.show_vote ?? true,
           provider: 'third_party',
-          total_voters: totalSum
+          total_voters: totalSum,
+          custom_voters: savedConfig.custom_voters
         };
         return NextResponse.json({ data: configFromThirdParty });
       }
@@ -212,7 +220,8 @@ export async function GET(request: Request) {
         thread_id: String(latestPoll.thread_id || savedConfig.thread_id || DEFAULT_VOTE_CONFIG.thread_id),
         title: latestPoll.title || savedConfig.title || DEFAULT_VOTE_CONFIG.title,
         show_vote: savedConfig.show_vote ?? true,
-        provider: 'internal'
+        provider: 'internal',
+        custom_voters: savedConfig.custom_voters
       };
       return NextResponse.json({ data: configFromPolls });
     }
@@ -228,7 +237,57 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const action = body.action;
+
+    let savedConfig: TeleVoteConfig = { ...DEFAULT_VOTE_CONFIG };
+    const { data: dbData } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', VOTE_CONFIG_KEY)
+      .single();
+
+    if (dbData?.value) {
+      try {
+        savedConfig = { ...DEFAULT_VOTE_CONFIG, ...JSON.parse(dbData.value) };
+      } catch (e) {}
+    }
+
+    if (action === 'save_voters') {
+      const voters: string[] = Array.isArray(body.voters) ? body.voters : [];
+      savedConfig.custom_voters = voters;
+      const { error } = await supabase.from('app_settings').upsert(
+        {
+          key: VOTE_CONFIG_KEY,
+          value: JSON.stringify(savedConfig),
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'key' }
+      );
+      if (error) {
+        return NextResponse.json({ error: String(error) }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, voters, data: savedConfig });
+    }
+
+    if (action === 'clear_voters') {
+      savedConfig.custom_voters = [];
+      const { error } = await supabase.from('app_settings').upsert(
+        {
+          key: VOTE_CONFIG_KEY,
+          value: JSON.stringify(savedConfig),
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'key' }
+      );
+      if (error) {
+        return NextResponse.json({ error: String(error) }, { status: 500 });
+      }
+      return NextResponse.json({ ok: true, voters: [], data: savedConfig });
+    }
+
     const config: TeleVoteConfig = body.config || DEFAULT_VOTE_CONFIG;
+    if (savedConfig.custom_voters && !config.custom_voters) {
+      config.custom_voters = savedConfig.custom_voters;
+    }
 
     let telegramSent = false;
     let telegramError: string | null = null;
