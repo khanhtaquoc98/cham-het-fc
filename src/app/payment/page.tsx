@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { PaymentSummary, LosingTeam } from '@/types/payment';
 import { Team } from '@/types/match';
 import toast, { Toaster } from 'react-hot-toast';
-import { Clock, Info, XCircle, CheckCircle, Coins, CalendarDays, Handshake, Trophy, CreditCard, Loader2 } from 'lucide-react';
+import { Clock, Info, XCircle, CheckCircle, Coins, CalendarDays, Handshake, Trophy, CreditCard, Loader2, RefreshCw } from 'lucide-react';
 
 interface MatchInfo {
   id: string;
@@ -27,9 +27,29 @@ export default function PublicPaymentPage() {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
 
   const [checkPaidData, setCheckPaidData] = useState<CheckPaidData | null>(null);
   const [checkPaidLoading, setCheckPaidLoading] = useState(true);
+
+  const handleReconcile = async () => {
+    setReconciling(true);
+    const toastId = toast.loading('Đang đối soát thanh toán...');
+    try {
+      const res = await fetch('/api/payment/reconcile', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || 'Đối soát thành công!', { id: toastId });
+        await fetchData();
+      } else {
+        toast.error(data.error || 'Lỗi khi đối soát thanh toán', { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error('Lỗi kết nối khi đối soát', { id: toastId });
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     setCheckPaidLoading(true);
@@ -243,9 +263,32 @@ export default function PublicPaymentPage() {
             </div>
           ) : checkPaidData ? (
             <div style={{ padding: '16px 20px', borderRadius: 14, background: 'white', border: '1px solid rgba(198,40,40,0.1)', boxShadow: '0 2px 8px rgba(198,40,40,0.04)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 10, color: '#4a4a6a', fontWeight: 600 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, marginBottom: 10, color: '#4a4a6a', fontWeight: 600, flexWrap: 'wrap', gap: 8 }}>
                 <span>{checkPaidData.paidCount || 0}/{checkPaidData.totalCount || 0} đã thanh toán</span>
-                <span style={{ color: '#2e7d32' }}>{formatVND(checkPaidData.paidAmount || 0)} / {formatVND(checkPaidData.totalAmount || 0)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ color: '#2e7d32' }}>{formatVND(checkPaidData.paidAmount || 0)} / {formatVND(checkPaidData.totalAmount || 0)}</span>
+                  <button
+                    onClick={handleReconcile}
+                    disabled={reconciling}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: '#c62828',
+                      background: 'rgba(198,40,40,0.08)',
+                      border: '1px solid rgba(198,40,40,0.2)',
+                      borderRadius: 8,
+                      cursor: reconciling ? 'not-allowed' : 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {reconciling ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={12} />}
+                    Đối soát
+                  </button>
+                </div>
               </div>
               <div style={{ width: '100%', height: 6, background: '#f0f0f5', borderRadius: 3, overflow: 'hidden' }}>
                 <div style={{

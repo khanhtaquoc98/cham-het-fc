@@ -71,7 +71,6 @@ export async function POST(request: Request) {
       const uniqueContent = `CHAMHETFC ${orderCode}`;
       const callbackUrl = `${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}`;
       const cancelUrl = `${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}&status=cancelled`;
-      const webhookUrl = `${baseUrl}/api/payment/webhook`;
 
       try {
         const kosRes = await createKosPayment({
@@ -80,7 +79,6 @@ export async function POST(request: Request) {
           content: uniqueContent,
           callbackUrl,
           cancelUrl,
-          webhookUrl,
         });
 
         if (kosRes?.checkout_url) {
@@ -96,8 +94,7 @@ export async function POST(request: Request) {
           `&orderId=${orderData.id}` +
           `&orderCode=${orderCode}` +
           `&callback=${encodeURIComponent(callbackUrl)}` +
-          `&cancel_url=${encodeURIComponent(cancelUrl)}` +
-          `&webhook_url=${encodeURIComponent(webhookUrl)}`;
+          `&cancel_url=${encodeURIComponent(cancelUrl)}`;
       }
 
       // Cập nhật mô tả trong database thành uniqueContent cho khớp đối soát

@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import payos from '@/lib/payos';
+import { checkKosPayment } from '@/lib/kos';
 import { sendPaymentNotification } from '@/lib/payment';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 /**
- * API đối soát: kiểm tra tất cả đơn pending trên DB với PayOS,
- * nếu PayOS đã PAID thì update DB + gửi noti.
+ * API đối soát: kiểm tra tất cả đơn pending trên DB với KOS Gateway / PayOS,
+ * nếu Gateway báo đã PAID thì update DB + gửi noti.
  */
 export async function POST() {
   try {
+    const paymentType = process.env.PAYMENT_TYPE || 'PAYOS';
+
     // Lấy tất cả đơn chưa paid
     const { data: pendingOrders, error } = await supabase
       .from('payment_orders')
@@ -40,17 +43,42 @@ export async function POST() {
 
     for (const order of pendingOrders) {
       try {
-        const paymentInfo = await payos.paymentRequests.get(Number(order.order_code));
+        let isPaid = false;
+        let isCancelled = false;
+        let gatewayName = paymentType === 'KOS' ? 'kos' : 'payos';
+        let senderName: string | undefined = undefined;
+        let payStatusStr = 'UNKNOWN';
 
-        if (paymentInfo && paymentInfo.status === 'PAID') {
-          // PayOS đã PAID nhưng DB chưa → update
+        if (paymentType === 'KOS') {
+          // ── Đối soát qua KOS Gateway ──────────────────────────
+          const kosInfo = await checkKosPayment(order.id) || await checkKosPayment(String(order.order_code));
+          payStatusStr = kosInfo?.status || 'UNKNOWN';
+
+          if (kosInfo && (kosInfo.status === 'completed' || kosInfo.status === 'success' || kosInfo.status === 'paid')) {
+            isPaid = true;
+          } else if (kosInfo && (kosInfo.status === 'cancelled' || kosInfo.status === 'failed')) {
+            isCancelled = true;
+          }
+        } else {
+          // ── Đối soát qua PayOS ────────────────────────────────
+          const paymentInfo = await payos.paymentRequests.get(Number(order.order_code));
+          payStatusStr = paymentInfo?.status || 'UNKNOWN';
+
+          if (paymentInfo && paymentInfo.status === 'PAID') {
+            isPaid = true;
+            senderName = paymentInfo.transactions?.[0]?.counterAccountName || undefined;
+          } else if (paymentInfo && paymentInfo.status === 'CANCELLED') {
+            isCancelled = true;
+          }
+        }
+
+        if (isPaid) {
           const nowIso = new Date().toISOString();
           await supabase
             .from('payment_orders')
             .update({ status: 'paid', paid_at: nowIso })
             .eq('id', order.id);
 
-          // Update player_payments
           const playerPaymentIds: string[] = order.player_payment_ids || [];
           let playerNamesStr = '';
 
@@ -60,16 +88,14 @@ export async function POST() {
               .update({
                 is_paid: true,
                 paid_at: nowIso,
-                payment_method: 'payos',
+                payment_method: gatewayName,
               })
               .in('id', playerPaymentIds)
               .select('player_name');
 
             playerNamesStr = updatedPlayers?.map(p => p.player_name).join(', ') || '';
 
-            // Gửi noti Telegram
             if (playerNamesStr) {
-              const senderName = paymentInfo.transactions?.[0]?.counterAccountName || undefined;
               await sendPaymentNotification(playerNamesStr, order.amount, senderName);
             }
           }
@@ -78,13 +104,13 @@ export async function POST() {
             orderCode: order.order_code,
             orderId: order.id,
             dbStatus: order.status,
-            payosStatus: 'PAID',
-            action: '✅ Đã cập nhật DB + gửi noti',
+            payosStatus: payStatusStr,
+            action: `✅ Đã cập nhật DB (${gatewayName.toUpperCase()}) + gửi noti`,
             playerNames: playerNamesStr,
             amount: order.amount,
           });
 
-        } else if (paymentInfo && paymentInfo.status === 'CANCELLED') {
+        } else if (isCancelled) {
           await supabase
             .from('payment_orders')
             .update({ status: 'cancelled' })
@@ -94,8 +120,8 @@ export async function POST() {
             orderCode: order.order_code,
             orderId: order.id,
             dbStatus: order.status,
-            payosStatus: 'CANCELLED',
-            action: '❌ Đã chuyển sang cancelled',
+            payosStatus: payStatusStr,
+            action: `❌ Đã chuyển sang cancelled (${gatewayName.toUpperCase()})`,
           });
 
         } else {
@@ -103,8 +129,8 @@ export async function POST() {
             orderCode: order.order_code,
             orderId: order.id,
             dbStatus: order.status,
-            payosStatus: paymentInfo?.status || 'UNKNOWN',
-            action: '⏳ Giữ nguyên (chưa thanh toán trên PayOS)',
+            payosStatus: payStatusStr,
+            action: `⏳ Giữ nguyên (chưa thanh toán trên ${gatewayName.toUpperCase()})`,
           });
         }
       } catch (err: any) {
@@ -113,7 +139,7 @@ export async function POST() {
           orderId: order.id,
           dbStatus: order.status,
           payosStatus: 'ERROR',
-          action: '⚠️ Lỗi khi check PayOS',
+          action: '⚠️ Lỗi khi check payment gateway',
           error: err?.message || String(err),
         });
       }

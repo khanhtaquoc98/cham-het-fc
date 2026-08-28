@@ -93,7 +93,6 @@ describe('KOS Payment Gateway Integration Helper', () => {
         amount: 150000,
         content: 'CHAMHETFC 100',
         callbackUrl: 'https://app.com/result',
-        webhookUrl: 'https://app.com/api/webhook',
       });
 
       expect(global.fetch).toHaveBeenCalledWith(
@@ -106,7 +105,6 @@ describe('KOS Payment Gateway Integration Helper', () => {
             amount: 150000,
             content: 'CHAMHETFC 100',
             callback_url: 'https://app.com/result',
-            webhook_url: 'https://app.com/api/webhook',
           }),
         })
       );

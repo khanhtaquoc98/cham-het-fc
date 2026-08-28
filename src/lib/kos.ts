@@ -6,7 +6,6 @@ export interface KosCreatePaymentParams {
   content: string;
   callbackUrl?: string;
   cancelUrl?: string;
-  webhookUrl?: string;
 }
 
 export interface KosCreatePaymentResponse {
@@ -46,7 +45,6 @@ export async function createKosPayment(
       content: params.content,
       callback_url: params.callbackUrl,
       cancel_url: params.cancelUrl,
-      webhook_url: params.webhookUrl,
     }),
   });
 
