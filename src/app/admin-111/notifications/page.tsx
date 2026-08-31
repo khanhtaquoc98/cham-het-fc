@@ -195,30 +195,57 @@ export default function NotificationsPage() {
       } else {
         results.push(`📱 Push: ❌ ${pushData.error || 'Lỗi'}`);
       }
-    } catch {
-      results.push('📱 Push: ❌ Lỗi kết nối');
-    }
 
-    try {
-      // 2. Telegram notification
-      const tgRes = await fetch('/api/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, body: telegramBody }),
-      });
-      const tgData = await tgRes.json();
-      if (tgData.ok) {
-        results.push('💬 Telegram: ✅ Đã gửi');
-      } else {
-        results.push(`💬 Telegram: ❌ ${tgData.error || 'Lỗi'}`);
+      // 2. ChamhetFC Telegram Group / Channel Notification
+      if (enableGroupTelegram) {
+        try {
+          const groupRes = await fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, body: telegramBody }),
+          });
+          const groupData = await groupRes.json();
+          if (groupRes.ok && groupData.ok) {
+            results.push('📢 Nhóm Telegram: ✅ Đã gửi');
+          } else {
+            results.push(`📢 Nhóm Telegram: ❌ ${groupData.error || 'Lỗi'}`);
+          }
+        } catch {
+          results.push('📢 Nhóm Telegram: ❌ Lỗi kết nối');
+        }
       }
-    } catch {
-      results.push('💬 Telegram: ❌ Lỗi kết nối');
-    }
 
-    setAttendanceStatus(`✅ ${results.join(' | ')}`);
-    setTimeout(() => setAttendanceStatus(null), 8000);
-    setAttendanceSending(false);
+      // 3. Telegram direct messages to selected users
+      if (enableTelegram && selectedTeleIds.length > 0) {
+        try {
+          const teleRes = await fetch('/api/notify/telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title,
+              message: pushMessage,
+              telegramIds: selectedTeleIds,
+            }),
+          });
+          const teleData = await teleRes.json();
+          if (teleData.ok) {
+            results.push(`💬 Telegram riêng: ${teleData.sent}/${selectedTeleIds.length} người`);
+          } else {
+            results.push(`💬 Telegram riêng: ❌ ${teleData.error || 'Lỗi'}`);
+          }
+        } catch {
+          results.push('💬 Telegram riêng: ❌ Lỗi kết nối');
+        }
+      }
+
+      setAttendanceStatus(`✅ ${results.join(' | ')}`);
+      setTimeout(() => setAttendanceStatus(null), 8000);
+    } catch (err) {
+      console.error(err);
+      setAttendanceStatus('❌ Lỗi kết nối');
+    } finally {
+      setAttendanceSending(false);
+    }
   };
 
   return (
