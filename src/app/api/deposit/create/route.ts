@@ -49,12 +49,12 @@ export async function POST(request: Request) {
     if (paymentType === 'KOS') {
       const gatewayUrl = getKosGatewayUrl();
       const uniqueContent = `CHAMHETFC ${orderCode}`;
-      const callbackUrl = `${domain}/dashboard?status=success`;
-      const cancelUrl = `${domain}/dashboard?status=cancel`;
+      const callbackUrl = `${domain}/dashboard?status=success&orderCode=${orderCode}`;
+      const cancelUrl = `${domain}/dashboard?status=cancel&orderCode=${orderCode}`;
 
       try {
         const kosRes = await createKosPayment({
-          orderId: txData.id,
+          orderId: String(orderCode),
           amount,
           content: uniqueContent,
           callbackUrl,

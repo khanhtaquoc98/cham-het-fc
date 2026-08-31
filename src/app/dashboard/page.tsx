@@ -63,14 +63,14 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
     redirect("/dashboard");
   }
 
-  // Xử lý khi user quay về từ PayOS thành công
-  const isSuccess = urlStatus === "success" || urlStatus === "PAID";
+  // Xử lý khi user quay về từ PayOS/KOS thành công
+  const isSuccess = urlStatus === "success" || urlStatus === "completed" || urlStatus === "PAID" || urlStatus === "SUCCESS" || urlStatus === "COMPLETED";
   let depositConfirmed = false;
   if (isSuccess && searchParams?.orderCode) {
     // Kiểm tra xem webhook đã xử lý xong chưa
     const { data: allTxs } = await supabase
       .from("transactions")
-      .select("id, note, status")
+      .select("id, note, status, amount, account_id")
       .eq("account_id", session.id)
       .eq("type", "deposit");
       
@@ -84,7 +84,21 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
           return false;
         }
       });
-      depositConfirmed = target?.status === "success";
+      
+      if (target && target.status === "pending") {
+        const { checkKosPayment } = await import("@/lib/kos");
+        const kosStatus = await checkKosPayment(String(searchParams.orderCode));
+        if (kosStatus && (kosStatus.status === "completed" || kosStatus.status === "success")) {
+          await supabase.from("transactions").update({ status: "success" }).eq("id", target.id);
+          const { data: acc } = await supabase.from("accounts").select("balance").eq("id", session.id).single();
+          if (acc) {
+            await supabase.from("accounts").update({ balance: (acc.balance || 0) + target.amount }).eq("id", session.id);
+          }
+          depositConfirmed = true;
+        }
+      } else if (target && target.status === "success") {
+        depositConfirmed = true;
+      }
     }
   }
 
