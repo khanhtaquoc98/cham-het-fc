@@ -26,7 +26,37 @@ interface PlayerInstance {
   unloadModule?: (moduleName: string) => void;
   getSphericalProperties?: () => { yaw?: number; pitch?: number; roll?: number; fov?: number };
   setSphericalProperties?: (properties: { yaw?: number; pitch?: number; roll?: number; fov?: number }) => void;
+  getAvailableQualityLevels?: () => string[];
 }
+
+const QUALITY_LABELS: Record<string, string> = {
+  auto: 'Auto (Tự động - Mặc định)',
+  highres: '8K / Max (HighRes)',
+  hd4320: '8K (4320p Ultra HD)',
+  hd2880: '5K (2880p Ultra HD)',
+  hd2160: '4K (2160p Ultra HD)',
+  hd1440: '2K (1440p QHD)',
+  hd1080: '1080p (Full HD)',
+  hd720: '720p (HD)',
+  large: '480p',
+  medium: '360p',
+  small: '240p',
+  tiny: '144p',
+};
+
+const ALL_QUALITY_OPTIONS = [
+  'auto',
+  'highres',
+  'hd4320',
+  'hd2160',
+  'hd1440',
+  'hd1080',
+  'hd720',
+  'large',
+  'medium',
+  'small',
+  'tiny',
+];
 
 interface PlayerTimelineProps {
   slot: 1 | 2;
@@ -645,6 +675,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const [isMuted2, setIsMuted2] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [playbackQuality, setPlaybackQuality] = useState<string>('auto');
+  const [availableQualities, setAvailableQualities] = useState<string[]>([]);
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
   const [showSettingsPopover, setShowSettingsPopover] = useState(false);
   const settingsPopoverRef = useRef<HTMLDivElement>(null);
@@ -849,6 +880,12 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         const d1 = event.target.getDuration() || 0;
         if (d1 > 0) setDuration1(d1);
       }
+      if (typeof event.target.getAvailableQualityLevels === 'function') {
+        const levels = event.target.getAvailableQualityLevels() || [];
+        if (Array.isArray(levels) && levels.length > 0) {
+          setAvailableQualities(prev => Array.from(new Set([...prev, ...levels])));
+        }
+      }
       if (typeof event.target.setVolume === 'function') {
         event.target.setVolume(vol1);
       }
@@ -871,6 +908,12 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       if (typeof event.target.getDuration === 'function') {
         const d2 = event.target.getDuration() || 0;
         if (d2 > 0) setDuration2(d2);
+      }
+      if (typeof event.target.getAvailableQualityLevels === 'function') {
+        const levels = event.target.getAvailableQualityLevels() || [];
+        if (Array.isArray(levels) && levels.length > 0) {
+          setAvailableQualities(prev => Array.from(new Set([...prev, ...levels])));
+        }
       }
       if (typeof event.target.setVolume === 'function') {
         event.target.setVolume(vol2);
@@ -2454,6 +2497,11 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                         <Monitor size={14} style={{ color: '#2563eb' }} />
                         Độ phân giải
                       </span>
+                      {availableQualities.length > 0 && (
+                        <span style={{ fontSize: '10px', color: '#059669', fontWeight: 700, background: '#ecfdf5', padding: '2px 6px', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
+                          Auto-detect ({availableQualities.length})
+                        </span>
+                      )}
                     </div>
                     <select
                       value={playbackQuality}
@@ -2471,12 +2519,11 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                         outline: 'none'
                       }}
                     >
-                      <option value="auto">Auto (Tự động - Mặc định)</option>
-                      <option value="hd1080">1080p (HD)</option>
-                      <option value="hd720">720p (HD)</option>
-                      <option value="large">480p</option>
-                      <option value="medium">360p</option>
-                      <option value="small">240p</option>
+                      {Array.from(new Set(['auto', ...(availableQualities.length > 0 ? availableQualities : ALL_QUALITY_OPTIONS)])).map((qKey) => (
+                        <option key={qKey} value={qKey}>
+                          {QUALITY_LABELS[qKey] || qKey}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
