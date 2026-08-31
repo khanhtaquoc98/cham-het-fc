@@ -26,7 +26,8 @@ function PaymentResultContent() {
     searchParams.get('status')?.toUpperCase() === 'CANCELLED';
 
   useEffect(() => {
-    if (!orderId) {
+    const queryParam = orderCode ? `orderCode=${orderCode}` : `orderId=${orderId}`;
+    if (!orderCode && !orderId) {
       setLoading(false);
       return;
     }
@@ -37,7 +38,7 @@ function PaymentResultContent() {
 
     const fetchResult = async () => {
       try {
-        const res = await fetch(`/api/payment/result?orderId=${orderId}`);
+        const res = await fetch(`/api/payment/result?${queryParam}`);
         if (res.ok) {
           const data = await res.json();
           setResult(data);

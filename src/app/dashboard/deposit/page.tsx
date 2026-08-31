@@ -7,14 +7,15 @@ import Link from "next/link";
 import { CreditCard } from 'lucide-react';
 
 export default function DepositPage() {
-  const [vnd, setVND] = useState(100000); // Mặc định 100k
+  const MIN_AMOUNT = 2000;
+  const [vnd, setVND] = useState(2000); // Mặc định 2k VNĐ
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleDeposit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (vnd < 100000) {
-      toast.error("Vui lòng nhập tối thiểu 100,000 VNĐ");
+    if (vnd < MIN_AMOUNT) {
+      toast.error(`Vui lòng nhập tối thiểu ${MIN_AMOUNT.toLocaleString('vi-VN')} VNĐ`);
       return;
     }
     
@@ -28,7 +29,7 @@ export default function DepositPage() {
       const data = await res.json();
       
       if (res.ok && data.checkoutUrl) {
-        // Redirect to PayOS
+        // Redirect to PayOS / KOS
         window.location.href = data.checkoutUrl;
       } else {
         toast.error(data.error || "Gặp lỗi khi tạo mã thanh toán");
@@ -49,7 +50,7 @@ export default function DepositPage() {
           <h1 style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: 'var(--text-primary)', marginBottom: '8px' }}>
             Thêm Bóng
           </h1>
-          <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Thêm Bóng qua mã QR tự động.<br/><strong>1,000 VNĐ = 1,000 Bóng</strong>.</p>
+          <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>Thêm Bóng qua mã QR tự động.<br/><strong>1,000 VNĐ = 1,000 Bóng</strong> (Tối thiểu 2,000 VNĐ).</p>
         </div>
           
         <form onSubmit={handleDeposit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -69,8 +70,8 @@ export default function DepositPage() {
               }}
               onFocus={e => e.target.style.borderColor = 'var(--accent)'}
               onBlur={e => e.target.style.borderColor = 'var(--border-accent)'}
-              min="100000"
-              step="10000"
+              min="2000"
+              step="1000"
             />
           </div>
           
@@ -86,18 +87,18 @@ export default function DepositPage() {
           
           <button
             type="submit"
-            disabled={isLoading || vnd < 100000}
+            disabled={isLoading || vnd < MIN_AMOUNT}
             style={{
               width: '100%', padding: '16px', borderRadius: '12px', marginTop: '8px',
               background: 'linear-gradient(135deg, var(--field-accent-dark), var(--field-accent-light))',
               color: 'white', fontSize: '16px', fontWeight: 800, border: 'none', cursor: 'pointer',
               textTransform: 'uppercase', letterSpacing: '1px', boxShadow: '0 4px 16px rgba(198,40,40,0.2)',
               transition: 'all 0.2s ease',
-              opacity: (isLoading || vnd < 100000) ? 0.7 : 1
+              opacity: (isLoading || vnd < MIN_AMOUNT) ? 0.7 : 1
             }}
-            onMouseEnter={e => { if (!isLoading && vnd >= 100000) e.currentTarget.style.transform = 'translateY(-2px)' }}
-            onMouseLeave={e => { if (!isLoading && vnd >= 100000) e.currentTarget.style.transform = 'translateY(0)' }}
-            onMouseDown={e => { if (!isLoading && vnd >= 100000) e.currentTarget.style.transform = 'translateY(1px)' }}
+            onMouseEnter={e => { if (!isLoading && vnd >= MIN_AMOUNT) e.currentTarget.style.transform = 'translateY(-2px)' }}
+            onMouseLeave={e => { if (!isLoading && vnd >= MIN_AMOUNT) e.currentTarget.style.transform = 'translateY(0)' }}
+            onMouseDown={e => { if (!isLoading && vnd >= MIN_AMOUNT) e.currentTarget.style.transform = 'translateY(1px)' }}
           >
             {isLoading ? "Đang xử lý..." : "Tạo Mã QR Thêm Bóng"}
           </button>

@@ -41,6 +41,8 @@ export async function PUT(request: Request) {
     if (body.fieldCost !== undefined) updates.fieldCost = body.fieldCost;
     if (body.drinkCost !== undefined) updates.drinkCost = body.drinkCost;
     if (body.losingTeams !== undefined) updates.losingTeams = body.losingTeams;
+    if (body.vehicleCost !== undefined) updates.vehicleCost = body.vehicleCost;
+    if (body.vehiclePlayers !== undefined) updates.vehiclePlayers = body.vehiclePlayers;
 
     const updated = await updateMatchPayment(mp.id, updates);
     if (!updated) {

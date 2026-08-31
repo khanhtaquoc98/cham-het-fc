@@ -3,6 +3,8 @@ export interface MatchPayment {
   matchDataId: string;
   fieldCost: number;      // tiền sân (VND)
   drinkCost: number;      // tiền nước (VND)
+  vehicleCost: number;    // tiền xe (VND)
+  vehiclePlayers: string[]; // danh sách tên cầu thủ đi xe
   losingTeams: LosingTeam[];
   createdAt: string;
   updatedAt: string;
@@ -23,6 +25,7 @@ export interface PlayerPayment {
   teamName: string;
   fieldAmount: number;    // tiền sân (VND)
   drinkAmount: number;    // tiền nước (VND)
+  vehicleAmount: number;  // tiền xe (VND)
   totalAmount: number;
   isPaid: boolean;
   paidAt: string | null;

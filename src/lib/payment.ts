@@ -45,13 +45,15 @@ export async function getMatchPaymentByMatchId(matchDataId: string): Promise<Mat
 
 export async function updateMatchPayment(
   id: string,
-  updates: { fieldCost?: number; drinkCost?: number; losingTeams?: LosingTeam[] }
+  updates: { fieldCost?: number; drinkCost?: number; losingTeams?: LosingTeam[]; vehicleCost?: number; vehiclePlayers?: string[] }
 ): Promise<MatchPayment | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row: Record<string, any> = { updated_at: new Date().toISOString() };
   if (updates.fieldCost !== undefined) row.field_cost = updates.fieldCost;
   if (updates.drinkCost !== undefined) row.drink_cost = updates.drinkCost;
   if (updates.losingTeams !== undefined) row.losing_teams = updates.losingTeams;
+  if (updates.vehicleCost !== undefined) row.vehicle_cost = updates.vehicleCost;
+  if (updates.vehiclePlayers !== undefined) row.vehicle_players = updates.vehiclePlayers;
 
   const { data, error } = await supabase
     .from('match_payments')
@@ -169,7 +171,7 @@ export async function resetPaymentsForMatch(matchDataId: string): Promise<boolea
   const mp = await getMatchPaymentByMatchId(matchDataId);
   if (!mp) return false;
 
-  await updateMatchPayment(mp.id, { fieldCost: 0, drinkCost: 0, losingTeams: [] });
+  await updateMatchPayment(mp.id, { fieldCost: 0, drinkCost: 0, losingTeams: [], vehicleCost: 0, vehiclePlayers: [] });
   
   await supabase
     .from('player_payments')
@@ -226,15 +228,18 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
       team_name: string;
       field_amount: number;
       drink_amount: number;
+      vehicle_amount: number;
       total_amount: number;
     }> = [];
     
     for (const player of team.players) {
       const matched = findRegisteredPlayer(player.name, player.telegramHandle, allPlayers);
       const isExcluded = excludedPlayers.includes(player.name);
+      const hasVehicle = (matchPayment.vehiclePlayers || []).includes(player.name);
       
       const fieldAmount = fieldPerPerson; // Tất cả đều trả tiền sân
       const drinkAmount = isExcluded ? 0 : drinkPerPerson; // Chỉ người được tick trả tiền nước
+      const vehicleAmount = hasVehicle ? (matchPayment.vehicleCost || 0) : 0;
       
       rows.push({
         match_payment_id: matchPaymentId,
@@ -243,7 +248,8 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
         team_name: team.name,
         field_amount: fieldAmount,
         drink_amount: drinkAmount,
-        total_amount: fieldAmount + drinkAmount,
+        vehicle_amount: vehicleAmount,
+        total_amount: fieldAmount + drinkAmount + vehicleAmount,
       });
     }
     
@@ -279,6 +285,7 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
     team_name: string;
     field_amount: number;
     drink_amount: number;
+    vehicle_amount: number;
     total_amount: number;
   }> = [];
 
@@ -301,6 +308,8 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
 
       const isDrinking = !excludedPlayers.includes(player.name);
       const playerDrinkAmount = (drinkPercent > 0 && isDrinking) ? drinkPerPerson : 0;
+      const hasVehicle = (matchPayment.vehiclePlayers || []).includes(player.name);
+      const vehicleAmount = hasVehicle ? (matchPayment.vehicleCost || 0) : 0;
 
       rows.push({
         match_payment_id: matchPaymentId,
@@ -309,7 +318,8 @@ export async function calculateAndSavePlayerPayments(matchPaymentId: string): Pr
         team_name: team.name,
         field_amount: fieldPerPerson,
         drink_amount: playerDrinkAmount,
-        total_amount: fieldPerPerson + playerDrinkAmount,
+        vehicle_amount: vehicleAmount,
+        total_amount: fieldPerPerson + playerDrinkAmount + vehicleAmount,
       });
     }
   }
@@ -379,6 +389,8 @@ function mapRow(row: any): MatchPayment {
     matchDataId: row.match_data_id,
     fieldCost: row.field_cost || 0,
     drinkCost: row.drink_cost || 0,
+    vehicleCost: row.vehicle_cost || 0,
+    vehiclePlayers: row.vehicle_players || [],
     losingTeams: row.losing_teams || [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -395,6 +407,7 @@ function mapPlayerRow(row: any): PlayerPayment {
     teamName: row.team_name,
     fieldAmount: row.field_amount || 0,
     drinkAmount: row.drink_amount || 0,
+    vehicleAmount: row.vehicle_amount || 0,
     totalAmount: row.total_amount || 0,
     isPaid: row.is_paid || false,
     paidAt: row.paid_at,

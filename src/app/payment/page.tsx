@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { PaymentSummary, LosingTeam } from '@/types/payment';
 import { Team } from '@/types/match';
 import toast, { Toaster } from 'react-hot-toast';
-import { Clock, Info, XCircle, CheckCircle, Coins, CalendarDays, Handshake, Trophy, CreditCard, Loader2, RefreshCw } from 'lucide-react';
+import { Clock, Info, XCircle, CheckCircle, Coins, CalendarDays, Handshake, Trophy, CreditCard, Loader2 } from 'lucide-react';
 
 interface MatchInfo {
   id: string;
@@ -27,29 +27,8 @@ export default function PublicPaymentPage() {
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [paying, setPaying] = useState(false);
-  const [reconciling, setReconciling] = useState(false);
-
   const [checkPaidData, setCheckPaidData] = useState<CheckPaidData | null>(null);
   const [checkPaidLoading, setCheckPaidLoading] = useState(true);
-
-  const handleReconcile = async () => {
-    setReconciling(true);
-    const toastId = toast.loading('Đang đối soát thanh toán...');
-    try {
-      const res = await fetch('/api/payment/reconcile', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success(data.message || 'Đối soát thành công!', { id: toastId });
-        await fetchData();
-      } else {
-        toast.error(data.error || 'Lỗi khi đối soát thanh toán', { id: toastId });
-      }
-    } catch (err: any) {
-      toast.error('Lỗi kết nối khi đối soát', { id: toastId });
-    } finally {
-      setReconciling(false);
-    }
-  };
 
   const fetchData = useCallback(async () => {
     setCheckPaidLoading(true);
@@ -102,6 +81,7 @@ export default function PublicPaymentPage() {
   const invoiceTotal = selectedPlayers.reduce((s, p) => s + p.totalAmount, 0);
   const invoiceField = selectedPlayers.reduce((s, p) => s + p.fieldAmount, 0);
   const invoiceDrink = selectedPlayers.reduce((s, p) => s + p.drinkAmount, 0);
+  const invoiceVehicle = selectedPlayers.reduce((s, p) => s + p.vehicleAmount, 0);
 
   if (loading) {
     return (
@@ -247,6 +227,12 @@ export default function PublicPaymentPage() {
                 <div style={{ fontSize: 15, fontWeight: 700, color: '#1a1a2e' }}>{formatVND(summary!.matchPayment!.drinkCost)}</div>
               </div>
             )}
+            {summary!.matchPayment!.vehicleCost > 0 && (
+              <div>
+                <div style={{ fontSize: 10, color: '#8a8aaa', textTransform: 'uppercase', letterSpacing: 1 }}>Xe</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#1976d2' }}>{formatVND(summary!.matchPayment!.vehicleCost)}/ng</div>
+              </div>
+            )}
           </div>
           <div>
             <div style={{ fontSize: 10, color: '#8a8aaa', textTransform: 'uppercase', letterSpacing: 1 }}>Sân/người</div>
@@ -267,27 +253,6 @@ export default function PublicPaymentPage() {
                 <span>{checkPaidData.paidCount || 0}/{checkPaidData.totalCount || 0} đã thanh toán</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ color: '#2e7d32' }}>{formatVND(checkPaidData.paidAmount || 0)} / {formatVND(checkPaidData.totalAmount || 0)}</span>
-                  <button
-                    onClick={handleReconcile}
-                    disabled={reconciling}
-                    style={{
-                      padding: '4px 10px',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: '#c62828',
-                      background: 'rgba(198,40,40,0.08)',
-                      border: '1px solid rgba(198,40,40,0.2)',
-                      borderRadius: 8,
-                      cursor: reconciling ? 'not-allowed' : 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    {reconciling ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={12} />}
-                    Đối soát
-                  </button>
                 </div>
               </div>
               <div style={{ width: '100%', height: 6, background: '#f0f0f5', borderRadius: 3, overflow: 'hidden' }}>
@@ -410,6 +375,7 @@ export default function PublicPaymentPage() {
                             <div style={{ fontSize: 10, color: '#8a8aaa' }}>
                               Sân {formatVND(pp.fieldAmount)}
                               {pp.drinkAmount > 0 && ` + Nước ${formatVND(pp.drinkAmount)}`}
+                              {pp.vehicleAmount > 0 && ` + Xe ${formatVND(pp.vehicleAmount)}`}
                             </div>
                           </div>
                         </div>
@@ -451,6 +417,12 @@ export default function PublicPaymentPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#8a8aaa', marginBottom: 4 }}>
                     <span>Tiền nước</span>
                     <span>{formatVND(invoiceDrink)}</span>
+                  </div>
+                )}
+                {invoiceVehicle > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#8a8aaa', marginBottom: 4 }}>
+                    <span>Tiền xe</span>
+                    <span>{formatVND(invoiceVehicle)}</span>
                   </div>
                 )}
                 <div style={{

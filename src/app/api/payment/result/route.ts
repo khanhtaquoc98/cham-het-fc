@@ -9,20 +9,34 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    const orderCode = searchParams.get('orderCode');
     const orderId = searchParams.get('orderId');
 
-    if (!orderId) {
-      return NextResponse.json({ error: 'Missing orderId' }, { status: 400 });
+    if (!orderCode && !orderId) {
+      return NextResponse.json({ error: 'Missing orderCode or orderId' }, { status: 400 });
     }
 
     // Lấy order từ DB
-    const { data: order, error } = await supabase
-      .from('payment_orders')
-      .select('*')
-      .eq('id', orderId)
-      .single();
+    let order = null;
+    if (orderCode && !isNaN(Number(orderCode))) {
+      const { data } = await supabase
+        .from('payment_orders')
+        .select('*')
+        .eq('order_code', Number(orderCode))
+        .single();
+      order = data;
+    }
 
-    if (error || !order) {
+    if (!order && orderId) {
+      const { data } = await supabase
+        .from('payment_orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+      order = data;
+    }
+
+    if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
@@ -31,7 +45,7 @@ export async function GET(request: Request) {
     if (order.status !== 'paid') {
       if (paymentType === 'KOS') {
         // KOS Gateway verification
-        const kosStatus = await checkKosPayment(order.id);
+        const kosStatus = (await checkKosPayment(order.id)) || (await checkKosPayment(String(order.order_code)));
         if (kosStatus && (kosStatus.status === 'completed' || kosStatus.status === 'success')) {
           const nowIso = new Date().toISOString();
           await supabase

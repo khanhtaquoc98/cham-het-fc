@@ -69,12 +69,12 @@ export async function POST(request: Request) {
     if (paymentType === 'KOS') {
       const gatewayUrl = getKosGatewayUrl();
       const uniqueContent = `CHAMHETFC ${orderCode}`;
-      const callbackUrl = `${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}`;
-      const cancelUrl = `${baseUrl}/payment/result?orderCode=${orderCode}&orderId=${orderData.id}&status=cancelled`;
+      const callbackUrl = `${baseUrl}/payment/result?orderCode=${orderCode}`;
+      const cancelUrl = `${baseUrl}/payment/result?orderCode=${orderCode}&status=cancelled`;
 
       try {
         const kosRes = await createKosPayment({
-          orderId: orderData.id,
+          orderId: String(orderCode),
           amount: totalAmount,
           content: uniqueContent,
           callbackUrl,
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
         checkoutUrl = `${gatewayUrl}/checkout` +
           `?amount=${totalAmount}` +
           `&content=${encodeURIComponent(uniqueContent)}` +
-          `&orderId=${orderData.id}` +
+          `&orderId=${orderCode}` +
           `&orderCode=${orderCode}` +
           `&callback=${encodeURIComponent(callbackUrl)}` +
           `&cancel_url=${encodeURIComponent(cancelUrl)}`;

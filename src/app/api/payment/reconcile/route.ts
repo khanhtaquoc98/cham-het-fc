@@ -51,7 +51,7 @@ export async function POST() {
 
         if (paymentType === 'KOS') {
           // ── Đối soát qua KOS Gateway ──────────────────────────
-          const kosInfo = await checkKosPayment(order.id) || await checkKosPayment(String(order.order_code));
+          const kosInfo = (await checkKosPayment(String(order.order_code))) || (await checkKosPayment(order.id));
           payStatusStr = kosInfo?.status || 'UNKNOWN';
 
           if (kosInfo && (kosInfo.status === 'completed' || kosInfo.status === 'success' || kosInfo.status === 'paid')) {

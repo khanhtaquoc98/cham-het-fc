@@ -12,13 +12,14 @@ export async function POST(request: Request) {
     }
 
     const { amount } = await request.json();
-    if (!amount || amount < 100000) {
-      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    const paymentType = process.env.PAYMENT_TYPE || 'PAYOS';
+    const minAmount = paymentType === 'KOS' ? 2000 : 2000;
+
+    if (!amount || amount < minAmount) {
+      return NextResponse.json({ error: `Vui lòng nhập tối thiểu ${minAmount.toLocaleString('vi-VN')} VNĐ` }, { status: 400 });
     }
 
     const orderCode = Number(String(Date.now()).slice(-6) + Math.floor(Math.random() * 1000));
-    
-    const paymentType = process.env.PAYMENT_TYPE || 'PAYOS';
 
     // Create pending transaction
     const { data: txData, error } = await supabase

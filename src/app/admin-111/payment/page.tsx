@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { PlayerPayment, LosingTeam, PaymentSummary } from '@/types/payment';
 import { Team } from '@/types/match';
 import toast, { Toaster } from 'react-hot-toast';
+import { Loader2, RefreshCw } from 'lucide-react';
 
 interface MatchInfo {
   id: string;
@@ -17,8 +18,28 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sendingNoti, setSendingNoti] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [paymentModal, setPaymentModal] = useState<{ pp: PlayerPayment; mode: 'pay' | 'unpay'; method: string } | null>(null);
+
+  const handleReconcile = async () => {
+    setReconciling(true);
+    const toastId = toast.loading('Đang đối soát thanh toán...');
+    try {
+      const res = await fetch('/api/payment/reconcile', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || 'Đối soát thành công!', { id: toastId });
+        await fetchData();
+      } else {
+        toast.error(data.error || 'Lỗi khi đối soát thanh toán', { id: toastId });
+      }
+    } catch (err: unknown) {
+      toast.error('Lỗi kết nối khi đối soát', { id: toastId });
+    } finally {
+      setReconciling(false);
+    }
+  };
 
   // Editable fields
   const [fieldCost, setFieldCost] = useState('');
@@ -30,6 +51,22 @@ export default function PaymentPage() {
   const [showOneTeamModal, setShowOneTeamModal] = useState(false);
   const [showFinalCheckoutModal, setShowFinalCheckoutModal] = useState(false);
   const [excludedOneTeamPlayers, setExcludedOneTeamPlayers] = useState<string[]>([]);
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [vehicleCost, setVehicleCost] = useState('');
+  const [vehiclePlayers, setVehiclePlayers] = useState<string[]>([]);
+  const [pendingLosingTeams, setPendingLosingTeams] = useState<LosingTeam[]>([]);
+
+  // Format number with dots (e.g. 500000 -> "500.000")
+  const formatNumberInput = (value: string): string => {
+    const digits = value.replace(/\D/g, '');
+    if (!digits) return '';
+    return new Intl.NumberFormat('vi-VN').format(parseInt(digits));
+  };
+
+  // Parse formatted number back to raw digits (e.g. "500.000" -> "500000")
+  const parseFormattedNumber = (value: string): string => {
+    return value.replace(/\D/g, '');
+  };
   const fetchData = useCallback(async () => {
     try {
       const [matchRes, paymentRes] = await Promise.all([
@@ -46,8 +83,10 @@ export default function PaymentPage() {
       setSummary(paymentData);
 
       if (paymentData.matchPayment) {
-        setFieldCost(paymentData.matchPayment.fieldCost ? paymentData.matchPayment.fieldCost.toString() : '');
-        setDrinkCost(paymentData.matchPayment.drinkCost ? paymentData.matchPayment.drinkCost.toString() : '');
+        setFieldCost(paymentData.matchPayment.fieldCost ? formatNumberInput(paymentData.matchPayment.fieldCost.toString()) : '');
+        setDrinkCost(paymentData.matchPayment.drinkCost ? formatNumberInput(paymentData.matchPayment.drinkCost.toString()) : '');
+        setVehicleCost(paymentData.matchPayment.vehicleCost ? formatNumberInput(paymentData.matchPayment.vehicleCost.toString()) : '');
+        setVehiclePlayers(paymentData.matchPayment.vehiclePlayers || []);
         
         let lt = paymentData.matchPayment.losingTeams || [];
         if (lt.length === 0 && matchData?.teams?.length === 1) {
@@ -159,7 +198,7 @@ export default function PaymentPage() {
       setExcludedOneTeamPlayers(existingExcluded);
       setShowOneTeamModal(true);
     } else {
-      const dCost = parseInt(drinkCost) || 0;
+      const dCost = parseInt(parseFormattedNumber(drinkCost)) || 0;
       if (dCost > 0 && losingTeams.length > 0) {
         const existingExcluded: string[] = [];
         losingTeams.forEach(lt => {
@@ -168,7 +207,8 @@ export default function PaymentPage() {
         setExcludedDrinkPlayers(existingExcluded);
         setShowDrinkModal(true);
       } else {
-        executeSave(losingTeams);
+        setPendingLosingTeams(losingTeams);
+        setShowVehicleModal(true);
       }
     }
   };
@@ -181,7 +221,8 @@ export default function PaymentPage() {
       return { ...lt, excludedPlayers: teamExcluded };
     });
     setShowOneTeamModal(false);
-    executeSave(finalLosingTeams);
+    setPendingLosingTeams(finalLosingTeams);
+    setShowVehicleModal(true);
   };
 
   const handleConfirmDrinkModal = () => {
@@ -192,7 +233,20 @@ export default function PaymentPage() {
       return { ...lt, excludedPlayers: teamExcluded };
     });
     setShowDrinkModal(false);
-    executeSave(finalLosingTeams);
+    setPendingLosingTeams(finalLosingTeams);
+    setShowVehicleModal(true);
+  };
+
+  const handleConfirmVehicleModal = () => {
+    setShowVehicleModal(false);
+    executeSave(pendingLosingTeams);
+  };
+
+  const handleSkipVehicleModal = () => {
+    setShowVehicleModal(false);
+    setVehicleCost('');
+    setVehiclePlayers([]);
+    executeSave(pendingLosingTeams);
   };
 
   const executeSave = async (finalLosingTeams: LosingTeam[]) => {
@@ -202,8 +256,10 @@ export default function PaymentPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fieldCost: parseInt(fieldCost) || 0,
-          drinkCost: parseInt(drinkCost) || 0,
+          fieldCost: parseInt(parseFormattedNumber(fieldCost)) || 0,
+          drinkCost: parseInt(parseFormattedNumber(drinkCost)) || 0,
+          vehicleCost: parseInt(parseFormattedNumber(vehicleCost)) || 0,
+          vehiclePlayers: vehiclePlayers,
           losingTeams: finalLosingTeams,
         }),
       });
@@ -233,6 +289,8 @@ export default function PaymentPage() {
       setSummary(data);
       setFieldCost('');
       setDrinkCost('');
+      setVehicleCost('');
+      setVehiclePlayers([]);
       setScores({});
       setLosingTeams([]);
       toast.success('Đã xoá trắng dữ liệu!');
@@ -473,20 +531,22 @@ export default function PaymentPage() {
             <label style={labelStyle}>Tiền sân (VND)</label>
             <input
               style={inputStyle}
-              type="number"
-              placeholder="VD: 580000"
+              type="text"
+              inputMode="numeric"
+              placeholder="VD: 580.000"
               value={fieldCost}
-              onChange={e => setFieldCost(e.target.value)}
+              onChange={e => setFieldCost(formatNumberInput(e.target.value))}
             />
           </div>
           <div>
             <label style={labelStyle}>Tiền nước (VND) - optional</label>
             <input
               style={inputStyle}
-              type="number"
-              placeholder="VD: 160000"
+              type="text"
+              inputMode="numeric"
+              placeholder="VD: 160.000"
               value={drinkCost}
-              onChange={e => setDrinkCost(e.target.value)}
+              onChange={e => setDrinkCost(formatNumberInput(e.target.value))}
             />
           </div>
         </div>
@@ -586,10 +646,32 @@ export default function PaymentPage() {
               </span>
             </div>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleReconcile}
+                disabled={saving || sendingNoti || reconciling}
+                style={{
+                  ...btnPrimary,
+                  background: 'linear-gradient(135deg, #2e7d32, #43a047)',
+                  padding: '8px 16px',
+                  borderRadius: '12px',
+                  opacity: (saving || sendingNoti || reconciling) ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                {reconciling ? (
+                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                ) : (
+                  <RefreshCw size={14} />
+                )}
+                Đối soát
+              </button>
               {playerPayments.length > paidCount && (
                 <button
                   onClick={handleAutoCheckoutApp}
-                  disabled={saving || sendingNoti}
+                  disabled={saving || sendingNoti || reconciling}
                   style={{
                     ...btnPrimary,
                     background: 'linear-gradient(135deg, #1976d2, #2196f3)',
@@ -606,7 +688,7 @@ export default function PaymentPage() {
               )}
               <button
                 onClick={() => setShowFinalCheckoutModal(true)}
-                disabled={saving || sendingNoti}
+                disabled={saving || sendingNoti || reconciling}
                 style={{
                   ...btnPrimary,
                   background: sendingNoti
@@ -789,6 +871,7 @@ export default function PaymentPage() {
                         <div style={{ fontSize: 10, color: '#8a8aaa' }}>
                           Sân {formatVND(pp.fieldAmount)}
                           {pp.drinkAmount > 0 && ` + Nước ${formatVND(pp.drinkAmount)}`}
+                          {pp.vehicleAmount > 0 && ` + Xe ${formatVND(pp.vehicleAmount)}`}
                         </div>
                       </div>
                     </div>
@@ -857,6 +940,12 @@ export default function PaymentPage() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                       <span style={{ fontSize: 13, color: '#666' }}>Tiền nước</span>
                       <span style={{ fontSize: 13, fontWeight: 700, color: '#e65100' }}>{formatVND(paymentModal.pp.drinkAmount)}</span>
+                    </div>
+                  )}
+                  {paymentModal.pp.vehicleAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, color: '#666' }}>Tiền xe</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#1976d2' }}>{formatVND(paymentModal.pp.vehicleAmount)}</span>
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px dashed #e0e0e0', marginTop: 4 }}>
@@ -1075,6 +1164,92 @@ export default function PaymentPage() {
         </div>
       )}
 
+      {/* Vehicle Cost Modal */}
+      {showVehicleModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '440px', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', maxHeight: '90vh' }}>
+            <div style={{ padding: '20px', borderBottom: '1px solid #eee' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#1a1a2e' }}>🚗 Tiền xe</h3>
+              <p style={{ margin: '8px 0 0', fontSize: 13, color: '#666' }}>
+                Nhập số tiền xe và chọn những thành viên <b>đi xe</b>. Mỗi người được chọn sẽ cộng thêm số tiền này vào tổng thanh toán.
+              </p>
+            </div>
+
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0' }}>
+              <label style={labelStyle}>Tiền xe mỗi người (VND)</label>
+              <input
+                style={{ ...inputStyle, fontSize: '16px', fontWeight: 700 }}
+                type="text"
+                inputMode="numeric"
+                placeholder="VD: 20.000"
+                value={vehicleCost}
+                onChange={e => setVehicleCost(formatNumberInput(e.target.value))}
+              />
+              {vehicleCost && vehiclePlayers.length > 0 && (
+                <div style={{ marginTop: 8, fontSize: 12, color: '#e65100', fontWeight: 600 }}>
+                  🚗 {vehiclePlayers.length} người × {vehicleCost}đ = {formatNumberInput((parseInt(parseFormattedNumber(vehicleCost)) * vehiclePlayers.length).toString())}đ
+                </div>
+              )}
+            </div>
+            
+            <div style={{ padding: '0 20px', overflowY: 'auto', flex: 1 }}>
+              {(matchInfo?.teams || []).map(team => (
+                <div key={team.name} style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#1976d2', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {team.name === 'HOME' ? '⚪' : team.name === 'AWAY' ? '⚫' : '🟠'} {team.name} ({team.players.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {team.players.map(p => {
+                      const isSelected = vehiclePlayers.includes(p.name);
+                      return (
+                        <label key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: isSelected ? 'rgba(25,118,210,0.06)' : '#f5f5f5', borderRadius: 8, cursor: 'pointer', border: `1px solid ${isSelected ? 'rgba(25,118,210,0.2)' : '#eee'}`, transition: 'all 0.15s' }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setVehiclePlayers(prev => [...prev, p.name]);
+                              } else {
+                                setVehiclePlayers(prev => prev.filter(name => name !== p.name));
+                              }
+                            }}
+                            style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#1976d2' }}
+                          />
+                          <span style={{ fontSize: 14, fontWeight: isSelected ? 600 : 400, color: isSelected ? '#1565c0' : '#888' }}>
+                            {p.name}
+                          </span>
+                          {isSelected && vehicleCost && (
+                            <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 700, color: '#e65100' }}>
+                              +{vehicleCost}đ
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ padding: '20px', borderTop: '1px solid #eee', display: 'flex', gap: '12px', marginTop: 16 }}>
+              <button 
+                onClick={handleSkipVehicleModal}
+                style={{ flex: 1, padding: '12px', background: '#f5f5f5', border: '1px solid #ddd', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', color: '#4a4a6a' }}
+              >
+                Bỏ qua
+              </button>
+              <button 
+                onClick={handleConfirmVehicleModal}
+                disabled={!vehicleCost || vehiclePlayers.length === 0}
+                style={{ flex: 2, padding: '12px', background: (!vehicleCost || vehiclePlayers.length === 0) ? '#ccc' : 'linear-gradient(135deg, #1976d2, #2196f3)', border: 'none', borderRadius: '8px', fontWeight: 700, cursor: (!vehicleCost || vehiclePlayers.length === 0) ? 'not-allowed' : 'pointer', color: 'white', transition: 'all 0.2s' }}
+              >
+                Đồng ý & Lưu
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL CONFIRM CHỐT THANH TOÁN */}
       {showFinalCheckoutModal && (
         <div style={{
@@ -1157,7 +1332,7 @@ export default function PaymentPage() {
                 lineHeight: 1.7,
                 border: '1px solid #eee',
               }}>
-                <div><b>Tiền sân:</b> {formatVND(Number(fieldCost) || 0)} | <b>Tiền nước:</b> {formatVND(Number(drinkCost) || 0)}</div>
+                <div><b>Tiền sân:</b> {formatVND(parseInt(parseFormattedNumber(fieldCost)) || 0)} | <b>Tiền nước:</b> {formatVND(parseInt(parseFormattedNumber(drinkCost)) || 0)}{vehicleCost && ` | `}<b>{vehicleCost ? 'Tiền xe:' : ''}</b>{vehicleCost ? ` ${formatVND(parseInt(parseFormattedNumber(vehicleCost)) || 0)}/người` : ''}</div>
                 <div><b>Đã thanh toán:</b> {paidCount}/{playerPayments.length} người ({formatVND(paidAmount)})</div>
                 {playerPayments.length - paidCount > 0 && (
                   <div style={{ color: '#c62828', fontWeight: 700 }}>

@@ -41,19 +41,23 @@ export async function POST(request: Request) {
       if (isSuccess && targetOrderId) {
         // Giao dịch thành công!
         // 1. Thử tìm trong payment_orders trước (thanh toán trận đấu)
-        let { data: order } = await supabase
-          .from('payment_orders')
-          .select('*')
-          .eq('id', targetOrderId)
-          .single();
-
-        if (!order && !isNaN(Number(targetOrderId))) {
+        let order = null;
+        if (!isNaN(Number(targetOrderId))) {
           const { data: orderByCode } = await supabase
             .from('payment_orders')
             .select('*')
             .eq('order_code', Number(targetOrderId))
             .single();
           order = orderByCode;
+        }
+
+        if (!order) {
+          const { data: orderByUuid } = await supabase
+            .from('payment_orders')
+            .select('*')
+            .eq('id', targetOrderId)
+            .single();
+          order = orderByUuid;
         }
 
         if (order) {
