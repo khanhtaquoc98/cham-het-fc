@@ -26,9 +26,10 @@ export default function NotificationsPage() {
   const [attendanceSending, setAttendanceSending] = useState(false);
   const [attendanceStatus, setAttendanceStatus] = useState<string | null>(null);
 
-  // Telegram recipient state
+  // Telegram & Notification recipient state
   const [teleUsers, setTeleUsers] = useState<TeleUser[]>([]);
   const [teleUsersLoading, setTeleUsersLoading] = useState(true);
+  const [enablePushNotification, setEnablePushNotification] = useState(true);
   const [enableGroupTelegram, setEnableGroupTelegram] = useState(true);
   const [enableTelegram, setEnableTelegram] = useState(true);
   const [selectedTeleIds, setSelectedTeleIds] = useState<string[]>([]);
@@ -101,53 +102,62 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleSendNotification = async () => {
-    if (!notiTitle || !notiMessage) return;
-    setNotiSending(true);
-    setNotiStatus(null);
+  // Core helper to execute notifications across selected channels
+  const executeSendNotification = async (
+    title: string,
+    message: string,
+    telegramGroupBody?: string
+  ): Promise<string> => {
     const results: string[] = [];
+    const groupBody = telegramGroupBody || message;
 
-    try {
-      // 1. Web Push Notification
-      const pushRes = await fetch('/api/push/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: notiTitle, message: notiMessage }),
-      });
-      const pushData = await pushRes.json();
-      if (pushData.ok) {
-        results.push(`📱 Push: ${pushData.sent} thiết bị`);
-      } else {
-        results.push(`📱 Push: ❌ ${pushData.error || 'Lỗi'}`);
-      }
-
-      // 2. ChamhetFC Telegram Group / Channel Notification
-      if (enableGroupTelegram) {
-        try {
-          const groupRes = await fetch('/api/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: notiTitle, body: notiMessage }),
-          });
-          const groupData = await groupRes.json();
-          if (groupRes.ok && groupData.ok) {
-            results.push('📢 Nhóm Telegram: ✅ Đã gửi');
-          } else {
-            results.push(`📢 Nhóm Telegram: ❌ ${groupData.error || 'Lỗi'}`);
-          }
-        } catch {
-          results.push('📢 Nhóm Telegram: ❌ Lỗi kết nối');
+    // 1. Web Push Notification
+    if (enablePushNotification) {
+      try {
+        const pushRes = await fetch('/api/push/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, message }),
+        });
+        const pushData = await pushRes.json();
+        if (pushData.ok) {
+          results.push(`📱 Push: ${pushData.sent} thiết bị`);
+        } else {
+          results.push(`📱 Push: ❌ ${pushData.error || 'Lỗi'}`);
         }
+      } catch {
+        results.push('📱 Push: ❌ Lỗi kết nối');
       }
+    }
 
-      // 3. Telegram direct messages to selected users
-      if (enableTelegram && selectedTeleIds.length > 0) {
+    // 2. ChamhetFC Telegram Group / Channel Notification
+    if (enableGroupTelegram) {
+      try {
+        const groupRes = await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title, body: groupBody }),
+        });
+        const groupData = await groupRes.json();
+        if (groupRes.ok && groupData.ok) {
+          results.push('📢 Nhóm Telegram: ✅ Đã gửi');
+        } else {
+          results.push(`📢 Nhóm Telegram: ❌ ${groupData.error || 'Lỗi'}`);
+        }
+      } catch {
+        results.push('📢 Nhóm Telegram: ❌ Lỗi kết nối');
+      }
+    }
+
+    // 3. Telegram direct messages to selected users
+    if (enableTelegram && selectedTeleIds.length > 0) {
+      try {
         const teleRes = await fetch('/api/notify/telegram', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            title: notiTitle,
-            message: notiMessage,
+            title,
+            message,
             telegramIds: selectedTeleIds,
           }),
         });
@@ -157,10 +167,28 @@ export default function NotificationsPage() {
         } else {
           results.push(`💬 Telegram riêng: ❌ ${teleData.error || 'Lỗi'}`);
         }
+      } catch {
+        results.push('💬 Telegram riêng: ❌ Lỗi kết nối');
       }
+    }
 
-      setNotiStatus(`✅ ${results.join(' | ')}`);
-      setNotiMessage('');
+    if (results.length === 0) {
+      return '⚠️ Vui lòng chọn ít nhất 1 kênh thông báo (Push, Nhóm Telegram hoặc Telegram riêng)';
+    }
+    return `✅ ${results.join(' | ')}`;
+  };
+
+  const handleSendNotification = async () => {
+    if (!notiTitle || !notiMessage) return;
+    setNotiSending(true);
+    setNotiStatus(null);
+
+    try {
+      const statusText = await executeSendNotification(notiTitle, notiMessage);
+      setNotiStatus(statusText);
+      if (statusText.startsWith('✅')) {
+        setNotiMessage('');
+      }
       setTimeout(() => setNotiStatus(null), 6000);
     } catch (err) {
       console.error(err);
@@ -180,65 +208,9 @@ export default function NotificationsPage() {
     const pushMessage = `Anh em vào App điểm danh nhé!${venueInfo ? `\n${venueInfo}` : ''}\n\n👉 Vào App → Login → Điểm danh`;
     const telegramBody = `📋 *Thông báo điểm danh*\n\nAnh em vào App điểm danh nhé! ⚽${venueInfo ? `\n📍 ${venueInfo}` : ''}\n\n👉 Vào App → Login → Điểm danh\n🔗 Link: ${baseUrl}`;
 
-    const results: string[] = [];
-
     try {
-      // 1. Push notification
-      const pushRes = await fetch('/api/push/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, message: pushMessage }),
-      });
-      const pushData = await pushRes.json();
-      if (pushData.ok) {
-        results.push(`📱 Push: ${pushData.sent} thiết bị`);
-      } else {
-        results.push(`📱 Push: ❌ ${pushData.error || 'Lỗi'}`);
-      }
-
-      // 2. ChamhetFC Telegram Group / Channel Notification
-      if (enableGroupTelegram) {
-        try {
-          const groupRes = await fetch('/api/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, body: telegramBody }),
-          });
-          const groupData = await groupRes.json();
-          if (groupRes.ok && groupData.ok) {
-            results.push('📢 Nhóm Telegram: ✅ Đã gửi');
-          } else {
-            results.push(`📢 Nhóm Telegram: ❌ ${groupData.error || 'Lỗi'}`);
-          }
-        } catch {
-          results.push('📢 Nhóm Telegram: ❌ Lỗi kết nối');
-        }
-      }
-
-      // 3. Telegram direct messages to selected users
-      if (enableTelegram && selectedTeleIds.length > 0) {
-        try {
-          const teleRes = await fetch('/api/notify/telegram', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title,
-              message: pushMessage,
-              telegramIds: selectedTeleIds,
-            }),
-          });
-          const teleData = await teleRes.json();
-          if (teleData.ok) {
-            results.push(`💬 Telegram riêng: ${teleData.sent}/${selectedTeleIds.length} người`);
-          } else {
-            results.push(`💬 Telegram riêng: ❌ ${teleData.error || 'Lỗi'}`);
-          }
-        } catch {
-          results.push('💬 Telegram riêng: ❌ Lỗi kết nối');
-        }
-      }
-
-      setAttendanceStatus(`✅ ${results.join(' | ')}`);
+      const statusText = await executeSendNotification(title, pushMessage, telegramBody);
+      setAttendanceStatus(statusText);
       setTimeout(() => setAttendanceStatus(null), 8000);
     } catch (err) {
       console.error(err);
@@ -326,7 +298,7 @@ export default function NotificationsPage() {
     <div className="admin-card" style={cardStyle}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <h2 style={sectionTitleStyle}>
-          🔔 Gửi thông báo ({subscriberCount} thiết bị)
+          🔔 Gửi thông báo
         </h2>
         {notiStatus && <span style={statusStyle}>{notiStatus}</span>}
       </div>
@@ -348,8 +320,21 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      {/* ===== TELEGRAM RECIPIENTS SECTION ===== */}
+      {/* ===== NOTIFICATION CHANNELS SECTION ===== */}
       <div style={{ marginBottom: '16px', background: 'rgba(33, 150, 243, 0.04)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(33, 150, 243, 0.15)' }}>
+        {/* Option 0: Device Push Notification */}
+        <div style={{ marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px dashed rgba(33, 150, 243, 0.2)' }}>
+          <label style={{ fontSize: '13px', fontWeight: 700, color: '#1565c0', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={enablePushNotification} 
+              onChange={e => setEnablePushNotification(e.target.checked)}
+              style={{ width: 17, height: 17, accentColor: '#1976d2', cursor: 'pointer' }}
+            />
+            📱 Gửi thông báo Push đến thiết bị ({subscriberCount} thiết bị)
+          </label>
+        </div>
+
         {/* Option 1: Group / Channel Telegram */}
         <div style={{ marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px dashed rgba(33, 150, 243, 0.2)' }}>
           <label style={{ fontSize: '13px', fontWeight: 700, color: '#1565c0', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
