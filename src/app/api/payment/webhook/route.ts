@@ -88,11 +88,32 @@ export async function POST(request: Request) {
           }
         } else {
           // 2. Không thấy trong payment_orders -> Thử xử lý như deposit (thêm Bóng)
-          const { data: tx } = await supabase
+          let tx = null;
+          const { data: txById } = await supabase
             .from('transactions')
             .select('*')
             .eq('id', targetOrderId)
             .single();
+          tx = txById;
+
+          if (!tx) {
+            const { data: pendingTxs } = await supabase
+              .from('transactions')
+              .select('*')
+              .eq('status', 'pending')
+              .eq('type', 'deposit');
+
+            if (pendingTxs) {
+              tx = pendingTxs.find((t) => {
+                try {
+                  const parsed = JSON.parse(t.note);
+                  return String(parsed.orderCode) === String(targetOrderId);
+                } catch {
+                  return false;
+                }
+              }) || null;
+            }
+          }
 
           if (tx && tx.status === 'pending' && tx.type === 'deposit') {
             await supabase
@@ -112,7 +133,7 @@ export async function POST(request: Request) {
                 .update({ balance: (user.balance || 0) + tx.amount })
                 .eq('id', tx.account_id);
             }
-            console.log(`✅ KOS Gateway Deposit confirmed: txId=${targetOrderId}, amount=${tx.amount}, account=${tx.account_id}`);
+            console.log(`✅ KOS Gateway Deposit confirmed: txId=${tx.id}, amount=${tx.amount}, account=${tx.account_id}`);
           }
         }
       } else if (isFailed && targetOrderId) {

@@ -26,9 +26,7 @@ export async function POST() {
       return NextResponse.json({ error: 'DB query failed', detail: error.message }, { status: 500 });
     }
 
-    if (!pendingOrders || pendingOrders.length === 0) {
-      return NextResponse.json({ message: 'Không có đơn pending nào', reconciled: 0 });
-    }
+    const safePendingOrders = pendingOrders || [];
 
     const results: Array<{
       orderCode: number;
@@ -142,6 +140,48 @@ export async function POST() {
           action: '⚠️ Lỗi khi check payment gateway',
           error: err?.message || String(err),
         });
+      }
+    }
+
+    // Xử lý đối soát thêm các giao dịch nạp bóng (deposit) đang pending trong transactions
+    const { data: pendingTxs } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('status', 'pending')
+      .eq('type', 'deposit');
+
+    if (pendingTxs) {
+      for (const tx of pendingTxs) {
+        try {
+          let orderCode: number | null = null;
+          try {
+            const parsed = JSON.parse(tx.note);
+            orderCode = parsed.orderCode;
+          } catch {}
+
+          if (orderCode) {
+            const kosInfo = await checkKosPayment(String(orderCode));
+            if (kosInfo && (kosInfo.status === 'completed' || kosInfo.status === 'success')) {
+              await supabase.from('transactions').update({ status: 'success' }).eq('id', tx.id);
+
+              const { data: user } = await supabase
+                .from('accounts')
+                .select('balance')
+                .eq('id', tx.account_id)
+                .single();
+
+              if (user) {
+                await supabase
+                  .from('accounts')
+                  .update({ balance: (user.balance || 0) + tx.amount })
+                  .eq('id', tx.account_id);
+              }
+              console.log(`✅ Reconciled pending deposit tx ${tx.id}, added +${tx.amount} bóng`);
+            }
+          }
+        } catch (depositErr) {
+          console.error(`Error reconciling deposit tx ${tx.id}:`, depositErr);
+        }
       }
     }
 
