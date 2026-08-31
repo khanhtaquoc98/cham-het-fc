@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { RefreshCw } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function RefreshButton() {
   const router = useRouter();
@@ -10,17 +11,29 @@ export default function RefreshButton() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    router.refresh();
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 1000);
+    try {
+      const res = await fetch("/api/deposit/reconcile", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reconciledCount > 0) {
+          toast.success(`Đã cập nhật & đối soát ${data.reconciledCount} giao dịch!`);
+        }
+      }
+    } catch {
+      // Ignore network errors
+    } finally {
+      router.refresh();
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 1000);
+    }
   };
 
   return (
     <button
       onClick={handleRefresh}
       disabled={isRefreshing}
-      title="Làm mới lịch sử"
+      title="Làm mới & đối soát giao dịch"
       style={{
         background: 'rgba(255,255,255,0.1)',
         border: '1px solid var(--border-subtle)',
@@ -41,7 +54,7 @@ export default function RefreshButton() {
     >
       <RefreshCw size={14} style={{ 
         transition: 'transform 1s ease',
-        transform: isRefreshing ? 'rotate(360deg)' : 'rotate(0deg)'
+        animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
       }} />
     </button>
   );

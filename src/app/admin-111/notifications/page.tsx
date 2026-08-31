@@ -9,16 +9,28 @@ interface VenueInfo {
   googleMapLink: string;
 }
 
+interface TeleUser {
+  id: string;
+  username: string;
+  telegram_id: string;
+  displayName: string;
+}
+
 export default function NotificationsPage() {
   const [notiTitle, setNotiTitle] = useState('⚽ Chấm Hết FC');
   const [notiMessage, setNotiMessage] = useState('');
   const [notiSending, setNotiSending] = useState(false);
   const [notiStatus, setNotiStatus] = useState<string | null>(null);
   const [subscriberCount, setSubscriberCount] = useState(0);
-  const [autoNotifyStatus, setAutoNotifyStatus] = useState<string | null>(null);
   const [venue, setVenue] = useState<VenueInfo>({ date: '', time: '', venue: '', googleMapLink: '' });
   const [attendanceSending, setAttendanceSending] = useState(false);
   const [attendanceStatus, setAttendanceStatus] = useState<string | null>(null);
+
+  // Telegram recipient state
+  const [teleUsers, setTeleUsers] = useState<TeleUser[]>([]);
+  const [teleUsersLoading, setTeleUsersLoading] = useState(true);
+  const [enableTelegram, setEnableTelegram] = useState(true);
+  const [selectedTeleIds, setSelectedTeleIds] = useState<string[]>([]);
 
   // Ticker state
   const [tickerText, setTickerText] = useState('');
@@ -32,6 +44,18 @@ export default function NotificationsPage() {
       venue: data.venue || '', googleMapLink: data.googleMapLink || '',
     })).catch(() => {});
     fetch('/api/ticker').then(r => r.json()).then(d => setTickerText(d.ticker || '')).catch(() => {});
+    
+    // Fetch users linked with Telegram
+    fetch('/api/notify/telegram')
+      .then(r => r.json())
+      .then(d => {
+        if (d.ok && Array.isArray(d.users)) {
+          setTeleUsers(d.users);
+          setSelectedTeleIds(d.users.map((u: TeleUser) => u.telegram_id));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setTeleUsersLoading(false));
   }, []);
 
   const handleSaveTicker = async () => {
@@ -80,35 +104,49 @@ export default function NotificationsPage() {
     if (!notiTitle || !notiMessage) return;
     setNotiSending(true);
     setNotiStatus(null);
+    const results: string[] = [];
+
     try {
-      const res = await fetch('/api/push/send', {
+      // 1. Web Push Notification
+      const pushRes = await fetch('/api/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: notiTitle, message: notiMessage }),
       });
-      const data = await res.json();
-      if (data.ok) {
-        setNotiStatus(`✅ Đã gửi ${data.sent} thiết bị` + (data.failed > 0 ? ` (${data.failed} lỗi)` : ''));
-        setNotiMessage('');
+      const pushData = await pushRes.json();
+      if (pushData.ok) {
+        results.push(`📱 Push: ${pushData.sent} thiết bị`);
       } else {
-        setNotiStatus('❌ Lỗi: ' + (data.error || 'Không rõ'));
+        results.push(`📱 Push: ❌ ${pushData.error || 'Lỗi'}`);
       }
-      setTimeout(() => setNotiStatus(null), 5000);
+
+      // 2. Telegram direct messages to selected users
+      if (enableTelegram && selectedTeleIds.length > 0) {
+        const teleRes = await fetch('/api/notify/telegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: notiTitle,
+            message: notiMessage,
+            telegramIds: selectedTeleIds,
+          }),
+        });
+        const teleData = await teleRes.json();
+        if (teleData.ok) {
+          results.push(`💬 Telegram: ${teleData.sent}/${selectedTeleIds.length} người`);
+        } else {
+          results.push(`💬 Telegram: ❌ ${teleData.error || 'Lỗi'}`);
+        }
+      }
+
+      setNotiStatus(`✅ ${results.join(' | ')}`);
+      setNotiMessage('');
+      setTimeout(() => setNotiStatus(null), 6000);
     } catch (err) {
       console.error(err);
       setNotiStatus('❌ Lỗi kết nối');
-    } finally { setNotiSending(false); }
-  };
-
-  const handleAutoNotify = async () => {
-    setAutoNotifyStatus('Đang kiểm tra...');
-    try {
-      const res = await fetch('/api/push/auto-notify');
-      const data = await res.json();
-      setAutoNotifyStatus(data.sent ? `✅ ${data.reason}` : `ℹ️ ${data.reason}`);
-      setTimeout(() => setAutoNotifyStatus(null), 5000);
-    } catch {
-      setAutoNotifyStatus('❌ Lỗi');
+    } finally {
+      setNotiSending(false);
     }
   };
 
@@ -263,6 +301,74 @@ export default function NotificationsPage() {
         </div>
       </div>
 
+      {/* ===== TELEGRAM RECIPIENTS SECTION ===== */}
+      <div style={{ marginBottom: '16px', background: 'rgba(33, 150, 243, 0.04)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(33, 150, 243, 0.15)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: enableTelegram && teleUsers.length > 0 ? '10px' : '0', flexWrap: 'wrap', gap: '8px' }}>
+          <label style={{ fontSize: '13px', fontWeight: 700, color: '#1565c0', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={enableTelegram} 
+              onChange={e => setEnableTelegram(e.target.checked)}
+              style={{ width: 17, height: 17, accentColor: '#1976d2', cursor: 'pointer' }}
+            />
+            💬 Gửi tin nhắn qua Telegram ({selectedTeleIds.length}/{teleUsers.length} tài khoản)
+          </label>
+
+          {enableTelegram && teleUsers.length > 0 && (
+            <div style={{ display: 'flex', gap: '12px', fontSize: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setSelectedTeleIds(teleUsers.map(u => u.telegram_id))}
+                style={{ background: 'none', border: 'none', color: '#1976d2', cursor: 'pointer', fontWeight: 700 }}
+              >
+                ✅ Chọn tất cả
+              </button>
+              <span style={{ color: '#ccc' }}>|</span>
+              <button
+                type="button"
+                onClick={() => setSelectedTeleIds([])}
+                style={{ background: 'none', border: 'none', color: '#e53935', cursor: 'pointer', fontWeight: 700 }}
+              >
+                ❌ Bỏ chọn tất cả
+              </button>
+            </div>
+          )}
+        </div>
+
+        {enableTelegram && (
+          teleUsersLoading ? (
+            <div style={{ fontSize: '12px', color: '#8a8aaa', fontStyle: 'italic', marginTop: '6px' }}>Đang tải danh sách tài khoản Telegram...</div>
+          ) : teleUsers.length === 0 ? (
+            <div style={{ fontSize: '12px', color: '#8a8aaa', fontStyle: 'italic', marginTop: '6px' }}>Chưa có tài khoản nào liên kết Telegram.</div>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 12px', maxHeight: '150px', overflowY: 'auto', padding: '6px 0 0' }}>
+              {teleUsers.map(u => {
+                const isChecked = selectedTeleIds.includes(u.telegram_id);
+                return (
+                  <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer', background: isChecked ? '#e3f2fd' : '#f5f5f5', padding: '5px 10px', borderRadius: '8px', border: `1px solid ${isChecked ? '#90caf9' : '#e0e0e0'}`, transition: 'all 0.15s' }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedTeleIds(prev => [...prev, u.telegram_id]);
+                        } else {
+                          setSelectedTeleIds(prev => prev.filter(id => id !== u.telegram_id));
+                        }
+                      }}
+                      style={{ accentColor: '#1976d2', cursor: 'pointer', width: 15, height: 15 }}
+                    />
+                    <span style={{ fontWeight: isChecked ? 600 : 400, color: isChecked ? '#0d47a1' : '#666' }}>
+                      {u.displayName}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          )
+        )}
+      </div>
+
       <div className="admin-noti-buttons" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <button
           style={{
@@ -274,13 +380,6 @@ export default function NotificationsPage() {
           disabled={notiSending || !notiTitle || !notiMessage}
         >
           {notiSending ? 'Đang gửi...' : '📤 Gửi thông báo'}
-        </button>
-
-        <button
-          style={{ ...btnBase, padding: '10px 24px', borderRadius: '10px', background: '#fff3e0', color: '#e65100', fontSize: '14px' }}
-          onClick={handleAutoNotify}
-        >
-          ⏰ Kiểm tra tự động
         </button>
 
         <button
@@ -305,12 +404,6 @@ export default function NotificationsPage() {
       {attendanceStatus && (
         <div style={{ marginTop: '10px', fontSize: '13px', color: '#2e7d32', fontWeight: 600, background: 'rgba(46,125,50,0.06)', padding: '8px 12px', borderRadius: '8px' }}>
           {attendanceStatus}
-        </div>
-      )}
-
-      {autoNotifyStatus && (
-        <div style={{ marginTop: '10px', fontSize: '13px', color: '#4a4a6a', fontStyle: 'italic' }}>
-          {autoNotifyStatus}
         </div>
       )}
 

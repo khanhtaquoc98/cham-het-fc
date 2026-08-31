@@ -102,6 +102,10 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
     }
   }
 
+  // Auto-reconcile any pending deposit transactions for this user
+  const { reconcileAccountPendingDeposits } = await import("@/lib/deposit");
+  await reconcileAccountPendingDeposits(session.id);
+
   // Fetch latest user data
   const { data: user } = await supabase
     .from("accounts")
