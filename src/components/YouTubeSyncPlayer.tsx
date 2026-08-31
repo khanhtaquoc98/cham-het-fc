@@ -3,7 +3,7 @@ import YouTube, { YouTubeProps } from 'react-youtube';
 import { MatchCaption, YouTubeVideoConfig } from '@/types/youtube';
 import { extractYouTubeId, formatSecondsToHHMMSS, parseTimeToSeconds, parseYouTubeTimestamp } from '@/lib/youtube-utils';
 import { supabase } from '@/lib/supabase';
-import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Settings, Gauge, Monitor, MessageSquareText, Link as LinkIcon, Unlink, AlertCircle, Copy, Check } from 'lucide-react';
+import { Play, Pause, Sliders, Video, RefreshCw, CheckCircle2, Undo2, Redo2, SkipBack, SkipForward, Plus, Sparkles, Clock, Volume2, VolumeX, Settings, Gauge, Monitor, MessageSquareText, Link as LinkIcon, Unlink, AlertCircle, Copy, Check, Maximize2, Minimize2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface PlayerInstance {
@@ -21,6 +21,7 @@ interface PlayerInstance {
   setPlaybackRate?: (suggestedRate: number) => void;
   getPlaybackRate?: () => number;
   setPlaybackQuality?: (suggestedQuality: string) => void;
+  setPlaybackQualityRange?: (suggestedQuality: string, highestQuality: string) => void;
   getPlaybackQuality?: () => string;
   loadModule?: (moduleName: string) => void;
   unloadModule?: (moduleName: string) => void;
@@ -517,8 +518,14 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   }, [spherical1, spherical2]);
 
   const changeZoom = useCallback((slot: 1 | 2 | 0, zoomLevel: number) => {
-    const clampedZoom = Math.max(1, Math.min(3, Math.round(zoomLevel * 100) / 100));
-    const fov = Math.round(90 - (clampedZoom - 1) * 30);
+    // zoomLevel from 0.5 to 3.0 (1.0 = 100% default)
+    const clampedZoom = Math.max(0.5, Math.min(3.0, Math.round(zoomLevel * 100) / 100));
+
+    // Native YouTube 360 Spherical FOV (Field of View angle in degrees):
+    // 0.5x -> fov 120° (Wide angle fisheye perspective like native YouTube 360)
+    // 1.0x -> fov 75° (Default)
+    // 2.0x -> fov 37.5° (Close up zoom in)
+    const fov = Math.round(Math.max(25, Math.min(120, 75 / clampedZoom)));
 
     const slotsToUpdate = slot === 0 ? [1, 2] : [slot];
 
@@ -531,10 +538,14 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       const setSpherical = s === 1 ? setSpherical1 : setSpherical2;
 
       if (player && typeof player.setSphericalProperties === 'function') {
+        const liveProps = typeof player.getSphericalProperties === 'function'
+          ? player.getSphericalProperties() || currentSpherical
+          : currentSpherical;
+
         const updated = {
-          yaw: currentSpherical.yaw || 0,
-          pitch: currentSpherical.pitch || 0,
-          roll: currentSpherical.roll || 0,
+          yaw: liveProps.yaw || 0,
+          pitch: liveProps.pitch || 0,
+          roll: liveProps.roll || 0,
           fov,
         };
         player.setSphericalProperties(updated);
@@ -562,6 +573,85 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       }
     });
   }, []);
+
+  // Smooth WASD animation loop state
+  const activeKeysRef = useRef<{ w: boolean; a: boolean; s: boolean; d: boolean }>({ w: false, a: false, s: false, d: false });
+  const animFrameIdRef = useRef<number | null>(null);
+
+  const startSmoothPanLoop = useCallback(() => {
+    if (animFrameIdRef.current !== null) return;
+
+    const animate = () => {
+      const { w, a, s, d } = activeKeysRef.current;
+
+      let deltaYaw = 0;
+      let deltaPitch = 0;
+      const speed = 3.2; // Degrees per 60fps frame (~190 deg/sec for fast & responsive panning)
+
+      if (w) deltaPitch += speed;
+      if (s) deltaPitch -= speed;
+      if (a) deltaYaw += speed;   // Turn Left
+      if (d) deltaYaw -= speed;   // Turn Right
+
+      if (deltaYaw !== 0 || deltaPitch !== 0) {
+        rotateCamera(target360Slot, deltaYaw, deltaPitch);
+        animFrameIdRef.current = requestAnimationFrame(animate);
+      } else {
+        animFrameIdRef.current = null;
+      }
+    };
+
+    animFrameIdRef.current = requestAnimationFrame(animate);
+  }, [rotateCamera, target360Slot]);
+
+  const stopSmoothPanLoop = useCallback(() => {
+    if (animFrameIdRef.current !== null) {
+      cancelAnimationFrame(animFrameIdRef.current);
+      animFrameIdRef.current = null;
+    }
+  }, []);
+
+  // Keyboard shortcut listener for WASD (smooth rotate) and [ ] (zoom)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (targetTag === 'input' || targetTag === 'textarea' || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      let handled = false;
+      if (key === 'w') { activeKeysRef.current.w = true; handled = true; }
+      else if (key === 's') { activeKeysRef.current.s = true; handled = true; }
+      else if (key === 'a') { activeKeysRef.current.a = true; handled = true; }
+      else if (key === 'd') { activeKeysRef.current.d = true; handled = true; }
+      else if (e.key === '[' || key === '-') {
+        changeZoom(target360Slot, (target360Slot === 2 ? zoomScale2 : zoomScale1) - 0.15);
+      } else if (e.key === ']' || key === '=' || key === '+') {
+        changeZoom(target360Slot, (target360Slot === 2 ? zoomScale2 : zoomScale1) + 0.15);
+      }
+
+      if (handled) {
+        startSmoothPanLoop();
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+      if (key === 'w') activeKeysRef.current.w = false;
+      else if (key === 's') activeKeysRef.current.s = false;
+      else if (key === 'a') activeKeysRef.current.a = false;
+      else if (key === 'd') activeKeysRef.current.d = false;
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      stopSmoothPanLoop();
+    };
+  }, [rotateCamera, changeZoom, target360Slot, zoomScale1, zoomScale2, startSmoothPanLoop, stopSmoothPanLoop]);
 
   useEffect(() => {
     if (propsCaptions) {
@@ -678,7 +768,13 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   const [availableQualities, setAvailableQualities] = useState<string[]>([]);
   const [showSubtitles, setShowSubtitles] = useState<boolean>(true);
   const [showSettingsPopover, setShowSettingsPopover] = useState(false);
+  const [showFullscreenPopover, setShowFullscreenPopover] = useState(false);
   const settingsPopoverRef = useRef<HTMLDivElement>(null);
+  const fullscreenPopoverRef = useRef<HTMLDivElement>(null);
+
+  const slot1ContainerRef = useRef<HTMLDivElement>(null);
+  const slot2ContainerRef = useRef<HTMLDivElement>(null);
+  const gridContainerRef = useRef<HTMLDivElement>(null);
 
   const currentActiveCaption1 = React.useMemo(() => {
     if (!showSubtitles || !captionsList || captionsList.length === 0) return null;
@@ -728,14 +824,17 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       if (settingsPopoverRef.current && !settingsPopoverRef.current.contains(e.target as Node)) {
         setShowSettingsPopover(false);
       }
+      if (fullscreenPopoverRef.current && !fullscreenPopoverRef.current.contains(e.target as Node)) {
+        setShowFullscreenPopover(false);
+      }
     };
-    if (showSettingsPopover) {
+    if (showSettingsPopover || showFullscreenPopover) {
       document.addEventListener('mousedown', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showSettingsPopover]);
+  }, [showSettingsPopover, showFullscreenPopover]);
 
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
@@ -751,14 +850,60 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
   const handleQualityChange = (quality: string) => {
     setPlaybackQuality(quality);
+
+    const applyQuality = (player: PlayerInstance | null) => {
+      if (!player) return;
+      try {
+        if (typeof player.setPlaybackQualityRange === 'function') {
+          player.setPlaybackQualityRange(quality, quality);
+        }
+        if (typeof player.setPlaybackQuality === 'function') {
+          player.setPlaybackQuality(quality);
+        }
+        if (typeof player.getCurrentTime === 'function' && typeof player.seekTo === 'function') {
+          const currentTime = player.getCurrentTime() || 0;
+          player.seekTo(currentTime, true);
+        }
+      } catch (err) {
+        console.warn('Error setting playback quality:', err);
+      }
+    };
+
+    applyQuality(player1Ref.current);
+    applyQuality(player2Ref.current);
+
+    const label = QUALITY_LABELS[quality] || quality;
+    toast.success(`Đã đổi độ phân giải: ${label}`);
+  };
+
+  const handleFullscreenRequest = (targetRef: React.RefObject<HTMLDivElement | null>) => {
+    setShowFullscreenPopover(false);
+    const elem = targetRef.current as (HTMLDivElement & {
+      webkitRequestFullscreen?: () => Promise<void>;
+      msRequestFullscreen?: () => Promise<void>;
+    }) | null;
+
+    if (!elem) return;
+
     try {
-      if (player1Ref.current && typeof player1Ref.current.setPlaybackQuality === 'function') {
-        player1Ref.current.setPlaybackQuality(quality);
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+      } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
       }
-      if (player2Ref.current && typeof player2Ref.current.setPlaybackQuality === 'function') {
-        player2Ref.current.setPlaybackQuality(quality);
-      }
-    } catch {}
+    } catch {
+      toast.error('Không thể mở toàn màn hình trên thiết bị này');
+    }
+  };
+
+  const handleFullscreenButtonClick = () => {
+    if (!cfg2.youtube_id) {
+      handleFullscreenRequest(slot1ContainerRef);
+    } else {
+      setShowFullscreenPopover(prev => !prev);
+    }
   };
 
   const handleVol1Change = (newVol: number) => {
@@ -895,8 +1040,13 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       if (playbackSpeed !== 1 && typeof event.target.setPlaybackRate === 'function') {
         event.target.setPlaybackRate(playbackSpeed);
       }
-      if (playbackQuality !== 'auto' && typeof event.target.setPlaybackQuality === 'function') {
-        event.target.setPlaybackQuality(playbackQuality);
+      if (playbackQuality !== 'auto') {
+        if (typeof event.target.setPlaybackQualityRange === 'function') {
+          event.target.setPlaybackQualityRange(playbackQuality, playbackQuality);
+        }
+        if (typeof event.target.setPlaybackQuality === 'function') {
+          event.target.setPlaybackQuality(playbackQuality);
+        }
       }
     } catch {}
     setIsPlayer1Ready(true);
@@ -924,8 +1074,13 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
       if (playbackSpeed !== 1 && typeof event.target.setPlaybackRate === 'function') {
         event.target.setPlaybackRate(playbackSpeed);
       }
-      if (playbackQuality !== 'auto' && typeof event.target.setPlaybackQuality === 'function') {
-        event.target.setPlaybackQuality(playbackQuality);
+      if (playbackQuality !== 'auto') {
+        if (typeof event.target.setPlaybackQualityRange === 'function') {
+          event.target.setPlaybackQualityRange(playbackQuality, playbackQuality);
+        }
+        if (typeof event.target.setPlaybackQuality === 'function') {
+          event.target.setPlaybackQuality(playbackQuality);
+        }
       }
     } catch {}
     setIsPlayer2Ready(true);
@@ -1793,26 +1948,32 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
         justifyContent: 'center',
         width: '100%'
       }}>
-        <div style={{
-          position: 'relative',
-          display: 'grid',
-          gridTemplateColumns: (cfg1.youtube_id && cfg2.youtube_id) ? 'repeat(auto-fit, minmax(300px, 1fr))' : '1fr',
-          gap: '16px',
-          width: (cfg1.youtube_id && cfg2.youtube_id) ? '100%' : 'min(780px, 100%)',
-          maxWidth: '100%',
-          boxSizing: 'border-box'
-        }}>
+        <div
+          ref={gridContainerRef}
+          style={{
+            position: 'relative',
+            display: 'grid',
+            gridTemplateColumns: (cfg1.youtube_id && cfg2.youtube_id) ? 'repeat(auto-fit, minmax(300px, 1fr))' : '1fr',
+            gap: '16px',
+            width: (cfg1.youtube_id && cfg2.youtube_id) ? '100%' : 'min(780px, 100%)',
+            maxWidth: '100%',
+            boxSizing: 'border-box'
+          }}
+        >
           {/* Video Slot 1 */}
-          <div style={{
-            background: '#0f172a',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            border: activeTargetSlot === 1 ? '2px solid #ef4444' : '1px solid #cbd5e1',
-            display: 'flex',
-            flexDirection: 'column',
-            width: '100%',
-            position: 'relative'
-          }}>
+          <div
+            ref={slot1ContainerRef}
+            style={{
+              background: '#0f172a',
+              borderRadius: '12px',
+              overflow: 'hidden',
+              border: activeTargetSlot === 1 ? '2px solid #ef4444' : '1px solid #cbd5e1',
+              display: 'flex',
+              flexDirection: 'column',
+              width: '100%',
+              position: 'relative'
+            }}
+          >
             <div style={{
               padding: '8px 14px',
               background: '#f8fafc',
@@ -1850,7 +2011,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                   left: 0,
                   width: '100%',
                   height: '100%',
-                  transform: `scale(${zoomScale1})`,
+                  transform: `scale(${Math.max(1, zoomScale1)})`,
                   transformOrigin: 'center center',
                   transition: 'transform 0.15s ease-out',
                   overflow: 'hidden'
@@ -1900,6 +2061,77 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                       cursor: 'grab'
                     }}
                   >
+                    {/* Top-Left Native YouTube 360 Navigation Compass */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '10px',
+                      left: '10px',
+                      zIndex: 25,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'rgba(15, 23, 42, 0.75)',
+                      backdropFilter: 'blur(6px)',
+                      border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                      borderRadius: '50%',
+                      width: '46px',
+                      height: '46px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                      userSelect: 'none'
+                    }}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => { e.stopPropagation(); activeKeysRef.current.w = true; startSmoothPanLoop(); }}
+                        onMouseUp={(e) => { e.stopPropagation(); activeKeysRef.current.w = false; }}
+                        onMouseLeave={(e) => { e.stopPropagation(); activeKeysRef.current.w = false; }}
+                        onTouchStart={(e) => { e.stopPropagation(); activeKeysRef.current.w = true; startSmoothPanLoop(); }}
+                        onTouchEnd={(e) => { e.stopPropagation(); activeKeysRef.current.w = false; }}
+                        style={{ border: 'none', background: 'none', color: '#ffffff', cursor: 'pointer', padding: 0, fontSize: '10px', lineHeight: 1, marginTop: '2px' }}
+                        title="Xoay lên"
+                      >
+                        ▲
+                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 4px' }}>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => { e.stopPropagation(); activeKeysRef.current.a = true; startSmoothPanLoop(); }}
+                          onMouseUp={(e) => { e.stopPropagation(); activeKeysRef.current.a = false; }}
+                          onMouseLeave={(e) => { e.stopPropagation(); activeKeysRef.current.a = false; }}
+                          onTouchStart={(e) => { e.stopPropagation(); activeKeysRef.current.a = true; startSmoothPanLoop(); }}
+                          onTouchEnd={(e) => { e.stopPropagation(); activeKeysRef.current.a = false; }}
+                          style={{ border: 'none', background: 'none', color: '#ffffff', cursor: 'pointer', padding: 0, fontSize: '10px', lineHeight: 1 }}
+                          title="Xoay trái"
+                        >
+                          ◀
+                        </button>
+                        <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#38bdf8' }} />
+                        <button
+                          type="button"
+                          onMouseDown={(e) => { e.stopPropagation(); activeKeysRef.current.d = true; startSmoothPanLoop(); }}
+                          onMouseUp={(e) => { e.stopPropagation(); activeKeysRef.current.d = false; }}
+                          onMouseLeave={(e) => { e.stopPropagation(); activeKeysRef.current.d = false; }}
+                          onTouchStart={(e) => { e.stopPropagation(); activeKeysRef.current.d = true; startSmoothPanLoop(); }}
+                          onTouchEnd={(e) => { e.stopPropagation(); activeKeysRef.current.d = false; }}
+                          style={{ border: 'none', background: 'none', color: '#ffffff', cursor: 'pointer', padding: 0, fontSize: '10px', lineHeight: 1 }}
+                          title="Xoay phải"
+                        >
+                          ▶
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => { e.stopPropagation(); activeKeysRef.current.s = true; startSmoothPanLoop(); }}
+                        onMouseUp={(e) => { e.stopPropagation(); activeKeysRef.current.s = false; }}
+                        onMouseLeave={(e) => { e.stopPropagation(); activeKeysRef.current.s = false; }}
+                        onTouchStart={(e) => { e.stopPropagation(); activeKeysRef.current.s = true; startSmoothPanLoop(); }}
+                        onTouchEnd={(e) => { e.stopPropagation(); activeKeysRef.current.s = false; }}
+                        style={{ border: 'none', background: 'none', color: '#ffffff', cursor: 'pointer', padding: 0, fontSize: '10px', lineHeight: 1, marginBottom: '2px' }}
+                        title="Xoay xuống"
+                      >
+                        ▼
+                      </button>
+                    </div>
                     {/* Badge indicating 360° drag & zoom control */}
                     <div style={{
                       position: 'absolute',
@@ -1976,16 +2208,19 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
 
           {/* Video Slot 2 */}
           {cfg2.youtube_id && (
-            <div style={{
-              background: '#0f172a',
-              borderRadius: '12px',
-              overflow: 'hidden',
-              border: activeTargetSlot === 2 ? '2px solid #ef4444' : '1px solid #cbd5e1',
-              display: 'flex',
-              flexDirection: 'column',
-              width: '100%',
-              position: 'relative'
-            }}>
+            <div
+              ref={slot2ContainerRef}
+              style={{
+                background: '#0f172a',
+                borderRadius: '12px',
+                overflow: 'hidden',
+                border: activeTargetSlot === 2 ? '2px solid #ef4444' : '1px solid #cbd5e1',
+                display: 'flex',
+                flexDirection: 'column',
+                width: '100%',
+                position: 'relative'
+              }}
+            >
               <div style={{
                 padding: '8px 14px',
                 background: '#f8fafc',
@@ -2022,7 +2257,7 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                   left: 0,
                   width: '100%',
                   height: '100%',
-                  transform: `scale(${zoomScale2})`,
+                  transform: `scale(${Math.max(1, zoomScale2)})`,
                   transformOrigin: 'center center',
                   transition: 'transform 0.15s ease-out',
                   overflow: 'hidden'
@@ -2655,56 +2890,93 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                       </div>
                     )}
 
-                    {/* Direction Pad to rotate 360° camera */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '10px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                    {/* WASD Direction Pad to rotate 360° camera */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: '#f8fafc', padding: '10px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
                       <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '2px' }}>
-                        Xoay Camera 360°
+                        Xoay Camera 360° (WASD)
                       </span>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 32px)', gridGap: '4px' }}>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 34px)', gridGap: '5px' }}>
+                        {/* Row 1: Empty - W - Empty */}
                         <div />
                         <button
                           type="button"
+                          onMouseDown={() => { activeKeysRef.current.w = true; startSmoothPanLoop(); }}
+                          onMouseUp={() => { activeKeysRef.current.w = false; }}
+                          onMouseLeave={() => { activeKeysRef.current.w = false; }}
+                          onTouchStart={() => { activeKeysRef.current.w = true; startSmoothPanLoop(); }}
+                          onTouchEnd={() => { activeKeysRef.current.w = false; }}
                           onClick={() => rotateCamera(target360Slot, 0, 15)}
-                          title="Xoay lên (Look Up)"
-                          style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer', fontWeight: 800, fontSize: '12px' }}
+                          title="W - Xoay lên (Giữ phím hoặc nhấn)"
+                          style={{
+                            padding: '6px 0', borderRadius: '6px', border: '1.5px solid #cbd5e1',
+                            background: '#ffffff', color: '#0f172a', cursor: 'pointer', fontWeight: 800,
+                            fontSize: '13px', fontFamily: 'monospace', boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            userSelect: 'none'
+                          }}
                         >
-                          ⬆️
+                          W
                         </button>
                         <div />
 
+                        {/* Row 2: A - Empty Center - D */}
                         <button
                           type="button"
-                          onClick={() => rotateCamera(target360Slot, -20, 0)}
-                          title="Xoay trái (Turn Left)"
-                          style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer', fontWeight: 800, fontSize: '12px' }}
+                          onMouseDown={() => { activeKeysRef.current.a = true; startSmoothPanLoop(); }}
+                          onMouseUp={() => { activeKeysRef.current.a = false; }}
+                          onMouseLeave={() => { activeKeysRef.current.a = false; }}
+                          onTouchStart={() => { activeKeysRef.current.a = true; startSmoothPanLoop(); }}
+                          onTouchEnd={() => { activeKeysRef.current.a = false; }}
+                          onClick={() => rotateCamera(target360Slot, 15, 0)}
+                          title="A - Xoay trái (Giữ phím hoặc nhấn)"
+                          style={{
+                            padding: '6px 0', borderRadius: '6px', border: '1.5px solid #cbd5e1',
+                            background: '#ffffff', color: '#0f172a', cursor: 'pointer', fontWeight: 800,
+                            fontSize: '13px', fontFamily: 'monospace', boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            userSelect: 'none'
+                          }}
                         >
-                          ⬅️
+                          A
                         </button>
+                        <div style={{ borderRadius: '6px', background: 'transparent' }} />
                         <button
                           type="button"
-                          onClick={() => resetCamera(target360Slot)}
-                          title="Trở về trung tâm (Reset View)"
-                          style={{ padding: '6px', borderRadius: '6px', border: '1px solid #0284c7', background: '#e0f2fe', color: '#0369a1', cursor: 'pointer', fontWeight: 800, fontSize: '11px' }}
+                          onMouseDown={() => { activeKeysRef.current.d = true; startSmoothPanLoop(); }}
+                          onMouseUp={() => { activeKeysRef.current.d = false; }}
+                          onMouseLeave={() => { activeKeysRef.current.d = false; }}
+                          onTouchStart={() => { activeKeysRef.current.d = true; startSmoothPanLoop(); }}
+                          onTouchEnd={() => { activeKeysRef.current.d = false; }}
+                          onClick={() => rotateCamera(target360Slot, -15, 0)}
+                          title="D - Xoay phải (Giữ phím hoặc nhấn)"
+                          style={{
+                            padding: '6px 0', borderRadius: '6px', border: '1.5px solid #cbd5e1',
+                            background: '#ffffff', color: '#0f172a', cursor: 'pointer', fontWeight: 800,
+                            fontSize: '13px', fontFamily: 'monospace', boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            userSelect: 'none'
+                          }}
                         >
-                          🔄
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => rotateCamera(target360Slot, 20, 0)}
-                          title="Xoay phải (Turn Right)"
-                          style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer', fontWeight: 800, fontSize: '12px' }}
-                        >
-                          ➡️
+                          D
                         </button>
 
+                        {/* Row 3: Empty - S - Empty */}
                         <div />
                         <button
                           type="button"
+                          onMouseDown={() => { activeKeysRef.current.s = true; startSmoothPanLoop(); }}
+                          onMouseUp={() => { activeKeysRef.current.s = false; }}
+                          onMouseLeave={() => { activeKeysRef.current.s = false; }}
+                          onTouchStart={() => { activeKeysRef.current.s = true; startSmoothPanLoop(); }}
+                          onTouchEnd={() => { activeKeysRef.current.s = false; }}
                           onClick={() => rotateCamera(target360Slot, 0, -15)}
-                          title="Xoay xuống (Look Down)"
-                          style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer', fontWeight: 800, fontSize: '12px' }}
+                          title="S - Xoay xuống (Giữ phím hoặc nhấn)"
+                          style={{
+                            padding: '6px 0', borderRadius: '6px', border: '1.5px solid #cbd5e1',
+                            background: '#ffffff', color: '#0f172a', cursor: 'pointer', fontWeight: 800,
+                            fontSize: '13px', fontFamily: 'monospace', boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            userSelect: 'none'
+                          }}
                         >
-                          ⬇️
+                          S
                         </button>
                         <div />
                       </div>
