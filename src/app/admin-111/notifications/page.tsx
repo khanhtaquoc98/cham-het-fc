@@ -29,6 +29,7 @@ export default function NotificationsPage() {
   // Telegram recipient state
   const [teleUsers, setTeleUsers] = useState<TeleUser[]>([]);
   const [teleUsersLoading, setTeleUsersLoading] = useState(true);
+  const [enableGroupTelegram, setEnableGroupTelegram] = useState(true);
   const [enableTelegram, setEnableTelegram] = useState(true);
   const [selectedTeleIds, setSelectedTeleIds] = useState<string[]>([]);
 
@@ -120,7 +121,26 @@ export default function NotificationsPage() {
         results.push(`📱 Push: ❌ ${pushData.error || 'Lỗi'}`);
       }
 
-      // 2. Telegram direct messages to selected users
+      // 2. ChamhetFC Telegram Group / Channel Notification
+      if (enableGroupTelegram) {
+        try {
+          const groupRes = await fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: notiTitle, body: notiMessage }),
+          });
+          const groupData = await groupRes.json();
+          if (groupRes.ok && groupData.ok) {
+            results.push('📢 Nhóm Telegram: ✅ Đã gửi');
+          } else {
+            results.push(`📢 Nhóm Telegram: ❌ ${groupData.error || 'Lỗi'}`);
+          }
+        } catch {
+          results.push('📢 Nhóm Telegram: ❌ Lỗi kết nối');
+        }
+      }
+
+      // 3. Telegram direct messages to selected users
       if (enableTelegram && selectedTeleIds.length > 0) {
         const teleRes = await fetch('/api/notify/telegram', {
           method: 'POST',
@@ -133,9 +153,9 @@ export default function NotificationsPage() {
         });
         const teleData = await teleRes.json();
         if (teleData.ok) {
-          results.push(`💬 Telegram: ${teleData.sent}/${selectedTeleIds.length} người`);
+          results.push(`💬 Telegram riêng: ${teleData.sent}/${selectedTeleIds.length} người`);
         } else {
-          results.push(`💬 Telegram: ❌ ${teleData.error || 'Lỗi'}`);
+          results.push(`💬 Telegram riêng: ❌ ${teleData.error || 'Lỗi'}`);
         }
       }
 
@@ -303,6 +323,20 @@ export default function NotificationsPage() {
 
       {/* ===== TELEGRAM RECIPIENTS SECTION ===== */}
       <div style={{ marginBottom: '16px', background: 'rgba(33, 150, 243, 0.04)', padding: '14px 16px', borderRadius: '12px', border: '1px solid rgba(33, 150, 243, 0.15)' }}>
+        {/* Option 1: Group / Channel Telegram */}
+        <div style={{ marginBottom: '12px', paddingBottom: '10px', borderBottom: '1px dashed rgba(33, 150, 243, 0.2)' }}>
+          <label style={{ fontSize: '13px', fontWeight: 700, color: '#1565c0', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input 
+              type="checkbox" 
+              checked={enableGroupTelegram} 
+              onChange={e => setEnableGroupTelegram(e.target.checked)}
+              style={{ width: 17, height: 17, accentColor: '#1976d2', cursor: 'pointer' }}
+            />
+            📢 Gửi vào Nhóm / Kênh Telegram ChamhetFC (`/api/notify`)
+          </label>
+        </div>
+
+        {/* Option 2: Individual Linked Accounts */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: enableTelegram && teleUsers.length > 0 ? '10px' : '0', flexWrap: 'wrap', gap: '8px' }}>
           <label style={{ fontSize: '13px', fontWeight: 700, color: '#1565c0', margin: 0, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
             <input 
@@ -311,7 +345,7 @@ export default function NotificationsPage() {
               onChange={e => setEnableTelegram(e.target.checked)}
               style={{ width: 17, height: 17, accentColor: '#1976d2', cursor: 'pointer' }}
             />
-            💬 Gửi tin nhắn qua Telegram ({selectedTeleIds.length}/{teleUsers.length} tài khoản)
+            💬 Gửi tin nhắn riêng ({selectedTeleIds.length}/{teleUsers.length} tài khoản liên kết)
           </label>
 
           {enableTelegram && teleUsers.length > 0 && (
