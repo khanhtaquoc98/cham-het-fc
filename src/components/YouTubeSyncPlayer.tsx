@@ -24,6 +24,8 @@ interface PlayerInstance {
   getPlaybackQuality?: () => string;
   loadModule?: (moduleName: string) => void;
   unloadModule?: (moduleName: string) => void;
+  getSphericalProperties?: () => { yaw?: number; pitch?: number; roll?: number; fov?: number };
+  setSphericalProperties?: (properties: { yaw?: number; pitch?: number; roll?: number; fov?: number }) => void;
 }
 
 interface PlayerTimelineProps {
@@ -442,6 +444,94 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
   }, []);
 
   const effectiveMatchId = matchId || cfg1.match_id || cfg2.match_id || '';
+
+  // 360° Camera View State & Zoom
+  const [spherical1, setSpherical1] = useState<{ yaw: number; pitch: number; roll: number; fov: number }>({ yaw: 0, pitch: 0, roll: 0, fov: 60 });
+  const [spherical2, setSpherical2] = useState<{ yaw: number; pitch: number; roll: number; fov: number }>({ yaw: 0, pitch: 0, roll: 0, fov: 60 });
+  const [zoomScale1, setZoomScale1] = useState<number>(1);
+  const [zoomScale2, setZoomScale2] = useState<number>(1);
+  const [target360Slot, setTarget360Slot] = useState<1 | 2 | 0>(1);
+
+  const isDragging360Ref1 = useRef(false);
+  const isDragging360Ref2 = useRef(false);
+  const lastMousePosRef1 = useRef<{ x: number; y: number } | null>(null);
+  const lastMousePosRef2 = useRef<{ x: number; y: number } | null>(null);
+
+  const rotateCamera = useCallback((slot: 1 | 2 | 0, deltaYaw: number, deltaPitch: number) => {
+    const slotsToUpdate = slot === 0 ? [1, 2] : [slot];
+
+    slotsToUpdate.forEach((s) => {
+      const player = s === 1 ? player1Ref.current : player2Ref.current;
+      const currentSpherical = s === 1 ? spherical1 : spherical2;
+      const setSpherical = s === 1 ? setSpherical1 : setSpherical2;
+
+      if (player && typeof player.setSphericalProperties === 'function') {
+        const liveProps = typeof player.getSphericalProperties === 'function'
+          ? player.getSphericalProperties() || currentSpherical
+          : currentSpherical;
+
+        let newYaw = ((liveProps.yaw || 0) + deltaYaw + 180) % 360 - 180;
+        if (newYaw < -180) newYaw += 360;
+        const newPitch = Math.max(-90, Math.min(90, (liveProps.pitch || 0) + deltaPitch));
+
+        const updated = {
+          yaw: Math.round(newYaw),
+          pitch: Math.round(newPitch),
+          roll: liveProps.roll || 0,
+          fov: liveProps.fov || 60,
+        };
+        player.setSphericalProperties(updated);
+        setSpherical(updated);
+      }
+    });
+  }, [spherical1, spherical2]);
+
+  const changeZoom = useCallback((slot: 1 | 2 | 0, zoomLevel: number) => {
+    const clampedZoom = Math.max(1, Math.min(3, Math.round(zoomLevel * 100) / 100));
+    const fov = Math.round(90 - (clampedZoom - 1) * 30);
+
+    const slotsToUpdate = slot === 0 ? [1, 2] : [slot];
+
+    slotsToUpdate.forEach((s) => {
+      if (s === 1) setZoomScale1(clampedZoom);
+      if (s === 2) setZoomScale2(clampedZoom);
+
+      const player = s === 1 ? player1Ref.current : player2Ref.current;
+      const currentSpherical = s === 1 ? spherical1 : spherical2;
+      const setSpherical = s === 1 ? setSpherical1 : setSpherical2;
+
+      if (player && typeof player.setSphericalProperties === 'function') {
+        const updated = {
+          yaw: currentSpherical.yaw || 0,
+          pitch: currentSpherical.pitch || 0,
+          roll: currentSpherical.roll || 0,
+          fov,
+        };
+        player.setSphericalProperties(updated);
+        setSpherical(updated);
+      }
+    });
+  }, [spherical1, spherical2]);
+
+  const resetCamera = useCallback((slot: 1 | 2 | 0) => {
+    const slotsToUpdate = slot === 0 ? [1, 2] : [slot];
+
+    slotsToUpdate.forEach((s) => {
+      if (s === 1) {
+        setZoomScale1(1);
+        setSpherical1({ yaw: 0, pitch: 0, roll: 0, fov: 60 });
+      }
+      if (s === 2) {
+        setZoomScale2(1);
+        setSpherical2({ yaw: 0, pitch: 0, roll: 0, fov: 60 });
+      }
+
+      const player = s === 1 ? player1Ref.current : player2Ref.current;
+      if (player && typeof player.setSphericalProperties === 'function') {
+        player.setSphericalProperties({ yaw: 0, pitch: 0, roll: 0, fov: 60 });
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (propsCaptions) {
@@ -1711,7 +1801,17 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
               background: '#000000'
             }}>
               {cfg1.youtube_id ? (
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  transform: `scale(${zoomScale1})`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.15s ease-out',
+                  overflow: 'hidden'
+                }}>
                   <YouTube
                     videoId={extractYouTubeId(cfg1.youtube_id)}
                     opts={opts1}
@@ -1720,8 +1820,32 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     onStateChange={onPlayerStateChange1}
                     style={{ width: '100%', height: '100%' }}
                   />
-                  {/* Overlay to block any direct user interaction / clicking on Video 1 */}
+                  {/* Interactive Overlay for 360° Drag Panning & Zooming */}
                   <div
+                    onMouseDown={(e) => {
+                      if (e.button !== 0) return;
+                      isDragging360Ref1.current = true;
+                      lastMousePosRef1.current = { x: e.clientX, y: e.clientY };
+                    }}
+                    onMouseMove={(e) => {
+                      if (!isDragging360Ref1.current || !lastMousePosRef1.current) return;
+                      const deltaX = e.clientX - lastMousePosRef1.current.x;
+                      const deltaY = e.clientY - lastMousePosRef1.current.y;
+                      lastMousePosRef1.current = { x: e.clientX, y: e.clientY };
+                      rotateCamera(1, -deltaX * 0.4, deltaY * 0.4);
+                    }}
+                    onMouseUp={() => {
+                      isDragging360Ref1.current = false;
+                      lastMousePosRef1.current = null;
+                    }}
+                    onMouseLeave={() => {
+                      isDragging360Ref1.current = false;
+                      lastMousePosRef1.current = null;
+                    }}
+                    onWheel={(e) => {
+                      const step = e.deltaY > 0 ? -0.15 : 0.15;
+                      changeZoom(1, zoomScale1 + step);
+                    }}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -1730,9 +1854,30 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                       height: '100%',
                       zIndex: 10,
                       background: 'transparent',
-                      cursor: 'default'
+                      cursor: 'grab'
                     }}
-                  />
+                  >
+                    {/* Badge indicating 360° drag & zoom control */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '8px',
+                      right: '8px',
+                      background: 'rgba(15, 23, 42, 0.75)',
+                      backdropFilter: 'blur(4px)',
+                      color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.4)',
+                      borderRadius: '12px',
+                      padding: '3px 8px',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      pointerEvents: 'none'
+                    }}>
+                      <span>🎥 360° Drag & Scroll Zoom</span>
+                    </div>
+                  </div>
                   {/* Subtitle / 2nike Caption Overlay on Video 1 */}
                   {showSubtitles && currentActiveCaption1 && (
                     <div style={{
@@ -1828,7 +1973,17 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                 minHeight: '180px',
                 background: '#000000'
               }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}>
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  transform: `scale(${zoomScale2})`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.15s ease-out',
+                  overflow: 'hidden'
+                }}>
                   <YouTube
                     videoId={extractYouTubeId(cfg2.youtube_id)}
                     opts={opts2}
@@ -1837,8 +1992,32 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                     onStateChange={onPlayerStateChange2}
                     style={{ width: '100%', height: '100%' }}
                   />
-                  {/* Overlay to block any direct user interaction / clicking on Video 2 */}
+                  {/* Interactive Overlay for 360° Drag Panning & Zooming */}
                   <div
+                    onMouseDown={(e) => {
+                      if (e.button !== 0) return;
+                      isDragging360Ref2.current = true;
+                      lastMousePosRef2.current = { x: e.clientX, y: e.clientY };
+                    }}
+                    onMouseMove={(e) => {
+                      if (!isDragging360Ref2.current || !lastMousePosRef2.current) return;
+                      const deltaX = e.clientX - lastMousePosRef2.current.x;
+                      const deltaY = e.clientY - lastMousePosRef2.current.y;
+                      lastMousePosRef2.current = { x: e.clientX, y: e.clientY };
+                      rotateCamera(2, -deltaX * 0.4, deltaY * 0.4);
+                    }}
+                    onMouseUp={() => {
+                      isDragging360Ref2.current = false;
+                      lastMousePosRef2.current = null;
+                    }}
+                    onMouseLeave={() => {
+                      isDragging360Ref2.current = false;
+                      lastMousePosRef2.current = null;
+                    }}
+                    onWheel={(e) => {
+                      const step = e.deltaY > 0 ? -0.15 : 0.15;
+                      changeZoom(2, zoomScale2 + step);
+                    }}
                     style={{
                       position: 'absolute',
                       top: 0,
@@ -1847,9 +2026,30 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                       height: '100%',
                       zIndex: 10,
                       background: 'transparent',
-                      cursor: 'default'
+                      cursor: 'grab'
                     }}
-                  />
+                  >
+                    {/* Badge indicating 360° drag & zoom control */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '8px',
+                      right: '8px',
+                      background: 'rgba(15, 23, 42, 0.75)',
+                      backdropFilter: 'blur(4px)',
+                      color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.4)',
+                      borderRadius: '12px',
+                      padding: '3px 8px',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      pointerEvents: 'none'
+                    }}>
+                      <span>🎥 360° Drag & Scroll Zoom</span>
+                    </div>
+                  </div>
                   {/* Subtitle / 2nike Caption Overlay on Video 2 */}
                   {showSubtitles && currentActiveCaption2 && (
                     <div style={{
@@ -2348,6 +2548,156 @@ export const YouTubeSyncPlayer = forwardRef<YouTubeSyncPlayerRef, Props>(({
                         }} />
                         {showSubtitles ? 'Bật (ON)' : 'Tắt (OFF)'}
                       </button>
+                    </div>
+                  </div>
+
+                  {/* 5. Góc nhìn Camera 360° & Zoom */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #f1f5f9', paddingTop: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Sparkles size={14} style={{ color: '#0284c7' }} />
+                        Góc nhìn 360° & Zoom Camera
+                      </span>
+                    </div>
+
+                    {/* Camera Selector (Cam 1 / Cam 2 / Cả 2 Cam) */}
+                    {cfg2.youtube_id && (
+                      <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setTarget360Slot(1)}
+                          style={{
+                            flex: 1, padding: '4px 0', borderRadius: '6px', border: 'none',
+                            fontSize: '11px', fontWeight: target360Slot === 1 ? 800 : 600,
+                            background: target360Slot === 1 ? '#ffffff' : 'transparent',
+                            color: target360Slot === 1 ? '#0284c7' : '#64748b',
+                            boxShadow: target360Slot === 1 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Cam 1
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTarget360Slot(2)}
+                          style={{
+                            flex: 1, padding: '4px 0', borderRadius: '6px', border: 'none',
+                            fontSize: '11px', fontWeight: target360Slot === 2 ? 800 : 600,
+                            background: target360Slot === 2 ? '#ffffff' : 'transparent',
+                            color: target360Slot === 2 ? '#0284c7' : '#64748b',
+                            boxShadow: target360Slot === 2 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Cam 2
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTarget360Slot(0)}
+                          style={{
+                            flex: 1, padding: '4px 0', borderRadius: '6px', border: 'none',
+                            fontSize: '11px', fontWeight: target360Slot === 0 ? 800 : 600,
+                            background: target360Slot === 0 ? '#ffffff' : 'transparent',
+                            color: target360Slot === 0 ? '#0284c7' : '#64748b',
+                            boxShadow: target360Slot === 0 ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Cả 2 Cam
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Direction Pad to rotate 360° camera */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', background: '#f8fafc', padding: '10px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '2px' }}>
+                        Xoay Camera 360°
+                      </span>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 32px)', gridGap: '4px' }}>
+                        <div />
+                        <button
+                          type="button"
+                          onClick={() => rotateCamera(target360Slot, 0, 15)}
+                          title="Xoay lên (Look Up)"
+                          style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer', fontWeight: 800, fontSize: '12px' }}
+                        >
+                          ⬆️
+                        </button>
+                        <div />
+
+                        <button
+                          type="button"
+                          onClick={() => rotateCamera(target360Slot, -20, 0)}
+                          title="Xoay trái (Turn Left)"
+                          style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer', fontWeight: 800, fontSize: '12px' }}
+                        >
+                          ⬅️
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => resetCamera(target360Slot)}
+                          title="Trở về trung tâm (Reset View)"
+                          style={{ padding: '6px', borderRadius: '6px', border: '1px solid #0284c7', background: '#e0f2fe', color: '#0369a1', cursor: 'pointer', fontWeight: 800, fontSize: '11px' }}
+                        >
+                          🔄
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => rotateCamera(target360Slot, 20, 0)}
+                          title="Xoay phải (Turn Right)"
+                          style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer', fontWeight: 800, fontSize: '12px' }}
+                        >
+                          ➡️
+                        </button>
+
+                        <div />
+                        <button
+                          type="button"
+                          onClick={() => rotateCamera(target360Slot, 0, -15)}
+                          title="Xoay xuống (Look Down)"
+                          style={{ padding: '6px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', cursor: 'pointer', fontWeight: 800, fontSize: '12px' }}
+                        >
+                          ⬇️
+                        </button>
+                        <div />
+                      </div>
+                    </div>
+
+                    {/* Zoom In / Zoom Out Controls */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: '#f8fafc', padding: '10px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11.5px', fontWeight: 700 }}>
+                        <span style={{ color: '#475569' }}>Thu phóng (Zoom):</span>
+                        <span style={{ color: '#0284c7', fontFamily: 'monospace' }}>
+                          {Math.round((target360Slot === 2 ? zoomScale2 : zoomScale1) * 100)}%
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => changeZoom(target360Slot, (target360Slot === 2 ? zoomScale2 : zoomScale1) - 0.25)}
+                          style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', fontWeight: 800, fontSize: '12px', cursor: 'pointer' }}
+                          title="Thu nhỏ (Zoom Out)"
+                        >
+                          ➖
+                        </button>
+                        <input
+                          type="range"
+                          min="1"
+                          max="3"
+                          step="0.05"
+                          value={target360Slot === 2 ? zoomScale2 : zoomScale1}
+                          onChange={(e) => changeZoom(target360Slot, parseFloat(e.target.value))}
+                          style={{ flex: 1, accentColor: '#0284c7', cursor: 'pointer' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => changeZoom(target360Slot, (target360Slot === 2 ? zoomScale2 : zoomScale1) + 0.25)}
+                          style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#ffffff', fontWeight: 800, fontSize: '12px', cursor: 'pointer' }}
+                          title="Phóng to (Zoom In)"
+                        >
+                          ➕
+                        </button>
+                      </div>
                     </div>
                   </div>
 
