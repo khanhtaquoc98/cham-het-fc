@@ -254,7 +254,8 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     setTimeout(() => setCopiedZaloCmd(false), 2000);
   };
 
-  if (hasDismissed || voteConfig?.show_vote === false) return null;
+  // Mặc định lúc init là không show, khi nào get config có hiển thị (show_vote === true) thì mới show
+  if (hasDismissed || !voteConfig || voteConfig.show_vote !== true) return null;
 
   return (
     <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 99999, fontFamily: 'var(--font-main, sans-serif)' }}>
@@ -603,7 +604,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
             {(isThirdParty || activeTab === 'all' || activeTab === 'telegram') && (
               <div style={{ marginBottom: '12px' }}>
                 <div style={{ fontSize: '12px', color: '#0088cc', fontWeight: 800, marginBottom: '6px' }}>
-                  ✈️ BÌNH CHỌN TELEGRAM ({teleCount})
+                  Điểm danh ({teleCount})
                 </div>
                 {isLoading ? (
                   <div style={{ padding: '8px 0', fontSize: '12px', color: '#64748b', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
