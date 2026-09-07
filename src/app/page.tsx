@@ -618,12 +618,6 @@ export default function Home() {
 
     if ('Notification' in window) {
       setNotifPermission(Notification.permission);
-      // Show noti popup after 3s if not yet granted
-      const notiDismissed = localStorage.getItem('noti-dismissed-at');
-      const notiSkipped = notiDismissed && (Date.now() - parseInt(notiDismissed)) < 3 * 24 * 60 * 60 * 1000;
-      if (Notification.permission === 'default' && !notiSkipped) {
-        setTimeout(() => setShowNotiModal(true), 3000);
-      }
     }
 
     // Detect mobile browser - multiple methods for reliability

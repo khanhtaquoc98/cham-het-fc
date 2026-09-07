@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { TeleVoteConfig, MatchData, Player } from '@/types/match';
 import { isDuplicateWithTeleVoters } from '@/lib/players';
-import { Vote, X, MapPin, Calendar, Clock, Users, ExternalLink, Sparkles, Send, Loader2, Plus, Trash2, Smartphone, CheckCircle2 } from 'lucide-react';
+import { Vote, X, MapPin, Calendar, Clock, Users, ExternalLink, Sparkles, Send, Loader2, Plus, Trash2, Smartphone, CheckCircle2, Copy, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface VoteFloatingWidgetProps {
@@ -24,6 +24,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
   const [playerConfigs, setPlayerConfigs] = useState<{ id?: string; name: string; subNames?: string[] }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [appVoters, setAppVoters] = useState<string[]>([]);
+  const [copiedZaloCmd, setCopiedZaloCmd] = useState<boolean>(false);
 
   const filteredWidgetSuggestions = useMemo(() => {
     const query = inputName.trim().toLowerCase();
@@ -239,9 +240,19 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
     }
   };
 
-  const benchCount = appVoters.length;
+  const isThirdParty = Boolean(voteConfig && voteConfig.provider === 'third_party');
+  const benchCount = isThirdParty ? 0 : appVoters.length;
   const pollTitle = voteConfig?.title || 'Điểm danh trận đấu';
   const teleCount = typeof voteConfig?.total_voters === 'number' ? voteConfig.total_voters : thirdPartyVoters.length;
+  const totalCount = isThirdParty ? teleCount : (benchCount + teleCount);
+
+  const handleCopyZaloCmd = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    navigator.clipboard.writeText('/subscribe');
+    setCopiedZaloCmd(true);
+    toast.success('Đã sao chép: /subscribe');
+    setTimeout(() => setCopiedZaloCmd(false), 2000);
+  };
 
   if (hasDismissed || voteConfig?.show_vote === false) return null;
 
@@ -299,7 +310,9 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
                 <div style={{ fontSize: '13px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   ĐIỂM DANH & BÌNH CHỌN
                 </div>
-                <div style={{ fontSize: '11px', opacity: 0.9 }}>Điểm danh trên App hoặc Vote Telegram</div>
+                <div style={{ fontSize: '11px', opacity: 0.9 }}>
+                  {isThirdParty ? 'Bình chọn qua Telegram' : 'Điểm danh trên App hoặc Vote Telegram'}
+                </div>
               </div>
             </div>
             <button
@@ -347,183 +360,187 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
               </div>
             </div>
 
-            {/* Input form to add name on App */}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                setShowSuggestions(false);
-                handleAddAppPlayer(e);
-              }}
-              style={{ display: 'flex', gap: '6px', marginBottom: '14px', position: 'relative', zIndex: 50 }}
-            >
-              <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
-                <input
-                  type="text"
-                  placeholder="Nhập tên điểm danh..."
-                  value={inputName}
-                  onChange={(e) => {
-                    setInputName(e.target.value);
-                    setShowSuggestions(true);
-                  }}
-                  onFocus={() => setShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                  disabled={isSubmitting}
-                  style={{
-                    width: '100%',
-                    padding: '9px 12px',
-                    borderRadius: '10px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '13px',
-                    outline: 'none',
-                    background: '#ffffff',
-                    color: '#0f172a',
-                  }}
-                />
-                {showSuggestions && filteredWidgetSuggestions.length > 0 && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '100%',
-                      left: 0,
-                      right: 0,
-                      marginTop: '4px',
-                      background: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '10px',
-                      boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-                      maxHeight: '180px',
-                      overflowY: 'auto',
-                      zIndex: 100,
+            {/* Input form to add name on App - Hidden if 3rd party */}
+            {!isThirdParty && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setShowSuggestions(false);
+                  handleAddAppPlayer(e);
+                }}
+                style={{ display: 'flex', gap: '6px', marginBottom: '14px', position: 'relative', zIndex: 50 }}
+              >
+                <div style={{ position: 'relative', flex: 1, display: 'flex' }}>
+                  <input
+                    type="text"
+                    placeholder="Nhập tên điểm danh..."
+                    value={inputName}
+                    onChange={(e) => {
+                      setInputName(e.target.value);
+                      setShowSuggestions(true);
                     }}
-                  >
-                    {filteredWidgetSuggestions.map((item, idx) => (
-                      <div
-                        key={idx}
-                        onMouseDown={() => {
-                          setInputName(item.name);
-                          setShowSuggestions(false);
-                        }}
-                        style={{
-                          padding: '9px 12px',
-                          fontSize: '12.5px',
-                          cursor: 'pointer',
-                          borderBottom: idx < filteredWidgetSuggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: '8px',
-                          color: '#0f172a',
-                          background: '#ffffff',
-                          transition: 'background 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
-                      >
-                        <span style={{ fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>👤 {item.name}</span>
-                        {item.subNames && item.subNames.length > 0 && (
-                          <span
-                            title={item.subNames.join(', ')}
-                            style={{
-                              fontSize: '11px',
-                              color: '#64748b',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              textAlign: 'right',
-                              minWidth: 0,
-                            }}
-                          >
-                            ({item.subNames.join(', ')})
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    disabled={isSubmitting}
+                    style={{
+                      width: '100%',
+                      padding: '9px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13px',
+                      outline: 'none',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                    }}
+                  />
+                  {showSuggestions && filteredWidgetSuggestions.length > 0 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        marginTop: '4px',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '10px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                        maxHeight: '180px',
+                        overflowY: 'auto',
+                        zIndex: 100,
+                      }}
+                    >
+                      {filteredWidgetSuggestions.map((item, idx) => (
+                        <div
+                          key={idx}
+                          onMouseDown={() => {
+                            setInputName(item.name);
+                            setShowSuggestions(false);
+                          }}
+                          style={{
+                            padding: '9px 12px',
+                            fontSize: '12.5px',
+                            cursor: 'pointer',
+                            borderBottom: idx < filteredWidgetSuggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: '8px',
+                            color: '#0f172a',
+                            background: '#ffffff',
+                            transition: 'background 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
+                        >
+                          <span style={{ fontWeight: 600, flexShrink: 0, whiteSpace: 'nowrap' }}>👤 {item.name}</span>
+                          {item.subNames && item.subNames.length > 0 && (
+                            <span
+                              title={item.subNames.join(', ')}
+                              style={{
+                                fontSize: '11px',
+                                color: '#64748b',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                textAlign: 'right',
+                                minWidth: 0,
+                              }}
+                            >
+                              ({item.subNames.join(', ')})
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !inputName.trim()}
+                  style={{
+                    background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '9px 16px',
+                    borderRadius: '10px',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: isSubmitting || !inputName.trim() ? 'not-allowed' : 'pointer',
+                    opacity: isSubmitting || !inputName.trim() ? 0.6 : 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <Plus size={15} /> Điểm danh
+                </button>
+              </form>
+            )}
+
+            {/* Filter Tabs: Tất cả, App, Telegram - Hidden if 3rd party */}
+            {!isThirdParty && (
+              <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '12px', marginBottom: '14px' }}>
+                <button
+                  onClick={() => setActiveTab('all')}
+                  style={{
+                    flex: 1,
+                    padding: '7px 8px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: activeTab === 'all' ? '#ffffff' : 'transparent',
+                    color: activeTab === 'all' ? '#0f172a' : '#64748b',
+                    fontWeight: 700,
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    boxShadow: activeTab === 'all' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  Tất cả ({benchCount + teleCount})
+                </button>
+                <button
+                  onClick={() => setActiveTab('app')}
+                  style={{
+                    flex: 1,
+                    padding: '7px 8px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: activeTab === 'app' ? '#ffffff' : 'transparent',
+                    color: activeTab === 'app' ? '#0284c7' : '#64748b',
+                    fontWeight: 700,
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    boxShadow: activeTab === 'app' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  📱 App ({benchCount})
+                </button>
+                <button
+                  onClick={() => setActiveTab('telegram')}
+                  style={{
+                    flex: 1,
+                    padding: '7px 8px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: activeTab === 'telegram' ? '#ffffff' : 'transparent',
+                    color: activeTab === 'telegram' ? '#0088cc' : '#64748b',
+                    fontWeight: 700,
+                    fontSize: '11.5px',
+                    cursor: 'pointer',
+                    boxShadow: activeTab === 'telegram' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  ✈️ Tele ({teleCount})
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={isSubmitting || !inputName.trim()}
-                style={{
-                  background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '9px 16px',
-                  borderRadius: '10px',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: isSubmitting || !inputName.trim() ? 'not-allowed' : 'pointer',
-                  opacity: isSubmitting || !inputName.trim() ? 0.6 : 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                <Plus size={15} /> Điểm danh
-              </button>
-            </form>
+            )}
 
-            {/* Filter Tabs: Tất cả, App, Telegram */}
-            <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '12px', marginBottom: '14px' }}>
-              <button
-                onClick={() => setActiveTab('all')}
-                style={{
-                  flex: 1,
-                  padding: '7px 8px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: activeTab === 'all' ? '#ffffff' : 'transparent',
-                  color: activeTab === 'all' ? '#0f172a' : '#64748b',
-                  fontWeight: 700,
-                  fontSize: '11.5px',
-                  cursor: 'pointer',
-                  boxShadow: activeTab === 'all' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                Tất cả ({benchCount + teleCount})
-              </button>
-              <button
-                onClick={() => setActiveTab('app')}
-                style={{
-                  flex: 1,
-                  padding: '7px 8px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: activeTab === 'app' ? '#ffffff' : 'transparent',
-                  color: activeTab === 'app' ? '#0284c7' : '#64748b',
-                  fontWeight: 700,
-                  fontSize: '11.5px',
-                  cursor: 'pointer',
-                  boxShadow: activeTab === 'app' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                📱 App ({benchCount})
-              </button>
-              <button
-                onClick={() => setActiveTab('telegram')}
-                style={{
-                  flex: 1,
-                  padding: '7px 8px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: activeTab === 'telegram' ? '#ffffff' : 'transparent',
-                  color: activeTab === 'telegram' ? '#0088cc' : '#64748b',
-                  fontWeight: 700,
-                  fontSize: '11.5px',
-                  cursor: 'pointer',
-                  boxShadow: activeTab === 'telegram' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                ✈️ Tele ({teleCount})
-              </button>
-            </div>
-
-            {/* List 1: Điểm danh trên App */}
-            {(activeTab === 'all' || activeTab === 'app') && (
+            {/* List 1: Điểm danh trên App - Hidden if 3rd party */}
+            {!isThirdParty && (activeTab === 'all' || activeTab === 'app') && (
               <div style={{ marginBottom: activeTab === 'all' ? '16px' : '0' }}>
                 <div style={{ fontSize: '12px', color: '#0284c7', fontWeight: 800, marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>📱 ĐIỂM DANH TRÊN APP ({benchCount})</span>
@@ -583,8 +600,8 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
             )}
 
             {/* List 2: Bình chọn trên Telegram */}
-            {(activeTab === 'all' || activeTab === 'telegram') && (
-              <div>
+            {(isThirdParty || activeTab === 'all' || activeTab === 'telegram') && (
+              <div style={{ marginBottom: '12px' }}>
                 <div style={{ fontSize: '12px', color: '#0088cc', fontWeight: 800, marginBottom: '6px' }}>
                   ✈️ BÌNH CHỌN TELEGRAM ({teleCount})
                 </div>
@@ -619,63 +636,238 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
               </div>
             )}
 
-            {/* 2 Separate Action Buttons */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexShrink: 0 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab('app');
-                  const el = document.querySelector<HTMLInputElement>('input[placeholder="Nhập tên điểm danh..."]');
-                  if (el) el.focus();
-                }}
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  padding: '10px 8px',
-                  background: 'linear-gradient(135deg, #0284c7, #0369a1)',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontWeight: 700,
-                  fontSize: '12.5px',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <Smartphone size={15} />
-                <span>Điểm danh App</span>
-              </button>
+            {/* Zalo Match Notification / Subscribe Guide */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #f0f7ff 0%, #ffffff 100%)',
+                border: '1px solid #bae6fd',
+                borderRadius: '14px',
+                padding: '12px 14px',
+                marginTop: '10px',
+                marginBottom: '4px',
+                boxShadow: '0 2px 8px rgba(0, 104, 255, 0.06)',
+              }}
+            >
+              {/* Zalo Card Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '7px',
+                      background: '#0068FF',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      fontWeight: 900,
+                      fontSize: '10px',
+                      letterSpacing: '0.2px',
+                      boxShadow: '0 2px 6px rgba(0, 104, 255, 0.3)',
+                    }}
+                  >
+                    Zalo
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: '#0369a1' }}>
+                      NHẬN THÔNG BÁO QUA ZALO
+                    </div>
+                    <div style={{ fontSize: '10.5px', color: '#64748b' }}>
+                      Đăng ký bot tự động nhắc giờ đá & vote trận
+                    </div>
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    color: '#0284c7',
+                    background: '#e0f2fe',
+                    padding: '2px 7px',
+                    borderRadius: '20px',
+                  }}
+                >
+                  Official Bot
+                </span>
+              </div>
 
+              {/* Instructions Steps */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', color: '#1e293b' }}>
+                {/* Step 1 */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <span
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      borderRadius: '50%',
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      flexShrink: 0,
+                      marginTop: '1px',
+                    }}
+                  >
+                    1
+                  </span>
+                  <div style={{ flex: 1, lineHeight: 1.4 }}>
+                    Ấn vào link:{' '}
+                    <a
+                      href="https://zalo.me/2463631660391568328"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: '#0068FF',
+                        fontWeight: 700,
+                        textDecoration: 'underline',
+                        wordBreak: 'break-all',
+                      }}
+                    >
+                      zalo.me/2463631660391568328 <ExternalLink size={11} style={{ display: 'inline', verticalAlign: 'middle' }} />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <span
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      borderRadius: '50%',
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      flexShrink: 0,
+                      marginTop: '1px',
+                    }}
+                  >
+                    2
+                  </span>
+                  <div style={{ flex: 1, lineHeight: 1.4 }}>
+                    Bấm <strong style={{ color: '#0f172a' }}>Quan tâm</strong> (hoặc Nhắn tin)
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      borderRadius: '50%',
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      flexShrink: 0,
+                    }}
+                  >
+                    3
+                  </span>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                    <span>Nhập cú pháp:</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyZaloCmd}
+                      title="Nhấn để copy cú pháp"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        background: '#e0f2fe',
+                        border: '1px dashed #0284c7',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        color: '#0369a1',
+                        fontWeight: 800,
+                        fontSize: '12px',
+                        fontFamily: 'monospace',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {copiedZaloCmd ? <Check size={13} color="#16a34a" /> : <Copy size={13} />}
+                      <span>/subscribe</span>
+                      <span style={{ fontSize: '10px', fontWeight: 600, color: '#0284c7', textDecoration: 'underline' }}>
+                        {copiedZaloCmd ? 'Đã chép!' : 'Copy'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick CTA to open Zalo */}
               <a
-                href={getTelegramUrl()}
+                href="https://zalo.me/2463631660391568328"
                 target="_blank"
                 rel="noopener noreferrer"
-                onClick={() => setIsOpen(false)}
                 style={{
-                  flex: 1,
+                  marginTop: '10px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  padding: '10px 8px',
-                  background: 'linear-gradient(135deg, #0088cc 0%, #2AABEE 100%)',
+                  padding: '8px 12px',
+                  background: 'linear-gradient(135deg, #0068FF 0%, #0084FF 100%)',
                   color: '#ffffff',
-                  borderRadius: '12px',
+                  borderRadius: '10px',
+                  fontSize: '12px',
                   fontWeight: 700,
-                  fontSize: '12.5px',
                   textDecoration: 'none',
-                  boxShadow: '0 4px 12px rgba(0, 136, 204, 0.3)',
+                  boxShadow: '0 3px 10px rgba(0, 104, 255, 0.25)',
                   transition: 'all 0.2s ease',
                 }}
               >
-                <span>Telegram Poll</span>
-                <ExternalLink size={14} />
+                <span>Mở Zalo để Quan tâm & Đăng ký</span>
+                <ExternalLink size={13} />
               </a>
             </div>
+
+            {/* Action Buttons */}
+            {!isThirdParty && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('app');
+                    const el = document.querySelector<HTMLInputElement>('input[placeholder="Nhập tên điểm danh..."]');
+                    if (el) el.focus();
+                  }}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '10px 8px',
+                    background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontWeight: 700,
+                    fontSize: '12.5px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  <Smartphone size={15} />
+                  <span>Điểm danh App</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -740,7 +932,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
               ) : (
                 <Send size={22} style={{ transform: 'translate(-1px, 1px)' }} />
               )}
-              {!isLoading && (benchCount + teleCount) > 0 && (
+              {!isLoading && totalCount > 0 && (
                 <span
                   style={{
                     position: 'absolute',
@@ -760,7 +952,7 @@ export default function VoteFloatingWidget({ initialVoteConfig, initialMatchData
                     boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
                   }}
                 >
-                  {benchCount + teleCount}
+                  {totalCount}
                 </span>
               )}
             </>
