@@ -11,11 +11,20 @@
   padding: 4px;
   border: 1px solid rgba(198,40,40,0.1);
   box-shadow: 0 2px 8px rgba(198,40,40,0.05);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+
+.admin-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .admin-nav-link {
-  flex: 1;
-  padding: 12px 10px;
+  flex: 1 0 auto;
+  min-width: max-content;
+  padding: 12px 12px;
   border-radius: 10px;
   border: none;
   font-size: 13px;
@@ -81,6 +90,22 @@
   gap: 8px;
 }
 
+/* --- Cards Studio: 3D Preview + Controls --- */
+.admin-card-studio {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
 /* --- Responsive table wrapper --- */
 .admin-table-wrap {
   overflow-x: auto;
@@ -126,6 +151,30 @@
   /* --- Card padding --- */
   .admin-card {
     padding: 16px 14px !important;
+  }
+
+  /* --- Cards Studio on Mobile --- */
+  .admin-card-studio {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    padding: 16px 12px !important;
+  }
+
+  .admin-card-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .admin-card-header > div:last-child {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .admin-card-modal-content {
+    padding: 16px 12px !important;
   }
 
   /* --- Form grids → stack on mobile --- */
@@ -254,7 +303,119 @@
   }
 }
 
+/* ============================================
+   MEDIUM / TABLET BREAKPOINT: ≤ 960px
+   ============================================ */
+@media (max-width: 960px) {
+  .admin-card-studio {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(-360deg); }
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ============================================
+   MODERN PLAYER CARD ACTION BUTTONS
+   ============================================ */
+.player-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+
+.player-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justifyContent: center;
+  gap: 4px;
+  padding: 8px 2px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  user-select: none;
+}
+
+.player-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.player-action-btn:active {
+  transform: translateY(0);
+}
+
+/* 1. Ảnh (Refresh avatar) */
+.player-action-btn-avatar {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+}
+.player-action-btn-avatar:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+/* 2. Thẻ / Card (EA FC 26 Card Studio) */
+.player-action-btn-card {
+  background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  border: 1px solid #fecdd3;
+  color: #e11d48;
+}
+.player-action-btn-card:hover {
+  background: linear-gradient(135deg, #ffe4e6 0%, #fecdd3 100%);
+  border-color: #fda4af;
+  color: #be123c;
+  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
+}
+
+/* 3. Sửa (Edit Info) */
+.player-action-btn-edit {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+}
+.player-action-btn-edit:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+/* 4. Xoá (Delete) */
+.player-action-btn-delete {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+.player-action-btn-delete:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+

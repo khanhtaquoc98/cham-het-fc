@@ -242,6 +242,36 @@ export default function UserProfileSection({ user, linkedPlayer, recentMatches =
               </div>
             </div>
           )}
+
+          {/* Shortcut to EA FC Card Editor */}
+          {linkedPlayer && (
+            <div style={{ marginTop: '10px' }}>
+              <a
+                href="#fut-card-section"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#fef2f2',
+                  border: '1px solid #fca5a5',
+                  color: '#dc2626',
+                  padding: '5px 12px',
+                  borderRadius: '8px',
+                  fontSize: '11.5px',
+                  fontWeight: 800,
+                  textDecoration: 'none',
+                  boxShadow: '0 2px 6px rgba(220, 38, 38, 0.08)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>🃏</span>
+                <span>Thẻ cầu thủ Của Tôi</span>
+                <span style={{ fontSize: '9.5px', background: '#dc2626', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 900 }}>
+                  CHỈNH SỬA
+                </span>
+              </a>
+            </div>
+          )}
         </div>
       </div>
 
@@ -265,26 +295,26 @@ export default function UserProfileSection({ user, linkedPlayer, recentMatches =
           </p>
           <div style={{ marginTop: '2px' }}>
             <a
-              href={`https://t.me/${botName}`}
+              href="https://zalo.me/0934860931"
               target="_blank"
               rel="noopener noreferrer"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                background: '#ea580c',
+                background: '#0068ff',
                 color: '#ffffff',
                 padding: '7px 14px',
                 borderRadius: '8px',
                 fontSize: '12px',
                 fontWeight: 800,
                 textDecoration: 'none',
-                boxShadow: '0 2px 8px rgba(234, 88, 12, 0.25)',
+                boxShadow: '0 2px 8px rgba(0, 104, 255, 0.28)',
                 transition: 'all 0.15s ease'
               }}
             >
-              <Send size={13} />
-              Liên Hệ Admin Thêm Hồ Sơ
+              <MessageSquare size={13} />
+              Liên Hệ Zalo Admin (0934.860.931)
             </a>
           </div>
         </div>

@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import Image from 'next/image';
+import FutCardPreview from './FutCardPreview';
+import {
+  PlayerCardCustomState,
+  calculateFutStatsFromPlayer,
+  DEFAULT_PLAYER_AVATAR,
+} from '@/lib/fut-card-config';
 
 export interface PlayerCardData {
   playerName: string;
@@ -18,256 +23,193 @@ export interface PlayerCardData {
   updatedAt?: string | number | Date | null;
   avatarVersion?: string | number | null;
   avatarUrl?: string | null;
+  cardConfig?: PlayerCardCustomState | null;
 }
 
 /* =============================================
-   WC26 PLAYER CARD (Panini WC26 Sticker Style)
+   EA FC 26 PLAYER CARD COMPONENT
    ============================================= */
 
-export function PlayerCard({ player, style, className, externalRotate }: {
+export function PlayerCard({
+  player,
+  cardConfig,
+  cardWidth = 260,
+  hidePillBar = false,
+  interactive = true,
+  className,
+  style,
+}: {
   player: PlayerCardData;
-  style?: React.CSSProperties;
+  cardConfig?: PlayerCardCustomState | null;
+  cardWidth?: number;
+  hidePillBar?: boolean;
+  interactive?: boolean;
   className?: string;
+  style?: React.CSSProperties;
   externalRotate?: { x: number; y: number } | null;
 }) {
-  const [imgError, setImgError] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [rotate, setRotate] = useState({ x: 0, y: 0 });
-  const [isHovered, setIsHovered] = useState(false);
+  // Determine avatar URL
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://udlhudfxwuwbecjqvvhv.supabase.co';
+  const versionParam = player?.avatarVersion ? `?v=${player.avatarVersion}` : '';
+  let resolvedAvatar = player?.avatarUrl;
+  if (!resolvedAvatar && player?.jerseyNumber != null) {
+    resolvedAvatar = `${supabaseUrl}/storage/v1/object/public/players/${player.jerseyNumber}.webp${versionParam}`;
+  } else if (!resolvedAvatar && player?.playerId) {
+    resolvedAvatar = `${supabaseUrl}/storage/v1/object/public/players/${player.playerId}.webp${versionParam}`;
+  }
+  if (!resolvedAvatar) {
+    resolvedAvatar = DEFAULT_PLAYER_AVATAR;
+  }
 
-  const [cacheBuster, setCacheBuster] = useState(() => Date.now());
-  const filename = player?.jerseyNumber != null ? player.jerseyNumber : (player?.playerId || 'unknown');
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // Use provided cardConfig, or compute default EA FC card from stats
+  const effectiveConfig: PlayerCardCustomState = React.useMemo(() => {
+    const rawAvatar = cardConfig?.avatarUrl || player.cardConfig?.avatarUrl || resolvedAvatar;
+    const isWrong10 =
+      player?.jerseyNumber !== 10 &&
+      !player?.playerName?.toUpperCase().includes('NGHĨA') &&
+      (rawAvatar?.includes('/10.webp') || rawAvatar === '/player/10.webp');
+    const finalAvatar = isWrong10 || !rawAvatar ? DEFAULT_PLAYER_AVATAR : rawAvatar;
+    const isDefaultAvatar = !finalAvatar || finalAvatar === DEFAULT_PLAYER_AVATAR || finalAvatar.includes('unknown.webp');
 
-  const versionParam = player?.updatedAt
-    ? `?v=${new Date(player.updatedAt).getTime()}`
-    : player?.avatarVersion
-    ? `?v=${player.avatarVersion}`
-    : `?v=${cacheBuster}`;
+    if (cardConfig) {
+      return {
+        ...cardConfig,
+        avatarUrl: finalAvatar,
+        showPlayStyle: false,
+        scale: isDefaultAvatar && (cardConfig.scale === 1.05 || cardConfig.scale === 1.0 || !cardConfig.scale) ? 0.85 : cardConfig.scale,
+        offsetX: isDefaultAvatar && cardConfig.offsetX === 0 ? 6 : cardConfig.offsetX,
+        offsetY: isDefaultAvatar && cardConfig.offsetY === 0 ? 22 : cardConfig.offsetY,
+      };
+    }
+    if (player.cardConfig) {
+      return {
+        ...player.cardConfig,
+        avatarUrl: finalAvatar,
+        showPlayStyle: false,
+        scale: isDefaultAvatar && (player.cardConfig.scale === 1.05 || player.cardConfig.scale === 1.0 || !player.cardConfig.scale) ? 0.85 : player.cardConfig.scale,
+        offsetX: isDefaultAvatar && player.cardConfig.offsetX === 0 ? 6 : player.cardConfig.offsetX,
+        offsetY: isDefaultAvatar && player.cardConfig.offsetY === 0 ? 22 : player.cardConfig.offsetY,
+      };
+    }
 
-  const rawImgSrc = player?.avatarUrl
-    ? player.avatarUrl
-    : supabaseUrl
-    ? `${supabaseUrl}/storage/v1/object/public/players/${filename}.webp`
-    : `/player/${filename}.webp`;
+    const calculated = calculateFutStatsFromPlayer({
+      name: player.playerName,
+      wins: player.wins,
+      draws: player.draws,
+      losses: player.losses,
+      totalMatches: player.totalMatches,
+      winRate: player.winRate,
+      isInjuryProne: Boolean(player.isInjuryProne),
+      birthYear: 1998,
+    });
 
-  const imgSrc = rawImgSrc.startsWith('data:')
-    ? rawImgSrc
-    : rawImgSrc.includes('?')
-    ? `${rawImgSrc}&t=${cacheBuster}`
-    : `${rawImgSrc}${versionParam}`;
+    const isGk = player.playerName.toLowerCase().includes('gk');
+    const position = isGk ? 'GK' : 'RW';
+    const templateId = calculated.rating >= 88 ? 'toty' : calculated.rating >= 82 ? 'champions_red' : 'rare_gold';
 
-  const fallbackSrc = supabaseUrl
-    ? `${supabaseUrl}/storage/v1/object/public/players/unknown.webp`
-    : `/player/unknown.webp`;
-  const hasImage = !imgError;
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoaded(false);
-    setImgError(false);
-    setCacheBuster(Date.now());
-  }, [player?.avatarVersion, player?.avatarUrl, player?.updatedAt, player?.jerseyNumber, player?.playerId]);
-
-  const winRateColor = player.winRate >= 50 ? '#4CAF50' : player.winRate >= 30 ? '#FF9800' : '#F44336';
-  const winRateBg = player.winRate >= 50 ? 'rgba(76,175,80,0.15)' : player.winRate >= 30 ? 'rgba(255,152,0,0.15)' : 'rgba(244,67,54,0.15)';
-
-  // Random WC26 color tint per player (stable by name)
-  const WC26_TINTS = [
-    'rgba(0,137,123,0.25)',    // teal
-    'rgba(21,101,192,0.2)',   // blue
-    'rgba(233,30,99,0.2)',    // coral/pink
-    'rgba(46,125,50,0.2)',    // green
-    'rgba(130,119,23,0.2)',   // lime
-    'rgba(13,27,42,0.2)',     // navy
-    'rgba(0,105,92,0.2)',     // dark teal
-    'rgba(183,28,28,0.2)',    // red
-  ];
-  const nameHash = player.playerName.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const tintColor = WC26_TINTS[nameHash % WC26_TINTS.length];
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (externalRotate !== undefined) return;
-    if (!cardRef.current) return;
-    const card = cardRef.current;
-    const rect = card.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const px = (x / rect.width) - 0.5;
-    const py = (y / rect.height) - 0.5;
-
-    // Maximum tilt angles (20 degrees)
-    const maxRotate = 20;
-    const rotateY = px * maxRotate; 
-    const rotateX = -py * maxRotate; 
-
-    setRotate({ x: rotateX, y: rotateY });
-  };
-
-  const handleMouseEnter = () => {
-    if (externalRotate !== undefined) return;
-    setIsHovered(true);
-  };
-
-  const handleMouseLeave = () => {
-    if (externalRotate !== undefined) return;
-    setIsHovered(false);
-    setRotate({ x: 0, y: 0 });
-  };
-
-  const backgroundSrc = supabaseUrl
-    ? `${supabaseUrl}/storage/v1/object/public/players/background.png`
-    : `/player/background.png`;
-
-  const activeRotate = externalRotate !== undefined
-    ? (externalRotate || { x: 0, y: 0 })
-    : rotate;
-
-  const activeHovered = externalRotate !== undefined
-    ? !!externalRotate
-    : isHovered;
-
-  const currentTransform = activeHovered
-    ? `perspective(1000px) translateY(0) scale(1.05) rotateX(${activeRotate.x}deg) rotateY(${activeRotate.y}deg)`
-    : `perspective(1000px) translateY(0) scale(1) rotateX(0deg) rotateY(0deg)`;
+    return {
+      templateId,
+      rating: calculated.rating,
+      position,
+      roleIntensity: (calculated.rating >= 85 ? '++' : '+') as '' | '+' | '++',
+      altPositions: isGk ? [] : ['CAM', 'LW'],
+      playerName: player.playerName.toUpperCase(),
+      jerseyNumber: player.jerseyNumber != null && player.jerseyNumber !== 0 ? player.jerseyNumber : '?',
+      isInjuryProne: Boolean(player.isInjuryProne),
+      avatarUrl: finalAvatar,
+      scale: isDefaultAvatar ? 0.85 : 1.05,
+      offsetX: isDefaultAvatar ? 6 : 0,
+      offsetY: isDefaultAvatar ? 22 : 0,
+      faceStats: calculated.faceStats,
+      skills: 4,
+      weakFoot: 4,
+      preferredFoot: 'R',
+      ratingScore: calculated.ratingScore,
+      nationId: 'vietnam',
+      clubId: 'cham_het',
+      leagueId: 'cham_het_league',
+      playStylePlusId: 'technical',
+      showClub: false,
+      showNation: true,
+      showLeague: false,
+      showStats: true,
+      showPlayStyle: false,
+      showAltPositions: true,
+      altPositionTextColor: '#ffffff',
+      altPositionBorderColor: '#ffffff',
+      altPositionBgColor: '#623B91',
+    };
+  }, [cardConfig, player, resolvedAvatar]);
 
   return (
-    <div 
-      ref={cardRef}
-      className={`panini-card ${className || ''}`} 
-      style={{ ...style, transform: currentTransform }}
-      onMouseMove={handleMouseMove}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {/* === CARD BODY (background.webp + color tint) === */}
-      <div className="panini-card-body" style={{
-        backgroundImage: `linear-gradient(${tintColor}, ${tintColor}), url(${backgroundSrc})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}>
-        {/* Player image */}
-        <div className="panini-player-img">
-          {hasImage ? (
-            <Image
-              unoptimized
-              src={imgSrc}
-              alt={player.playerName}
-              width={200}
-              height={220}
-              onError={() => setImgError(true)}
-              onLoad={() => setIsLoaded(true)}
-              loading="lazy"
-              style={{
-                objectFit: 'cover',
-                objectPosition: 'top center',
-                opacity: isLoaded ? 1 : 0,
-                transition: 'opacity 0.25s ease-in-out',
-              }}
-              draggable={false}
-            />
-          ) : (
-          <div className="panini-placeholder">
-            <Image
-              unoptimized
-              src={fallbackSrc}
-              alt="Unknown player"
-              width={200}
-              height={220}
-              onLoad={() => setIsLoaded(true)}
-              loading="lazy"
-              style={{
-                objectFit: 'cover',
-                objectPosition: 'top center',
-                opacity: isLoaded ? 1 : 0,
-                transition: 'opacity 0.25s ease-in-out',
-              }}
-              draggable={false}
-            />
-          </div>
-          )}
-        </div>
-      </div>
-
-      {/* === INFO STRIP (dark teal) === */}
-      <div className="panini-info">
-        {/* Jersey number badge */}
-        {player.jerseyNumber && (
-          <div className="panini-jersey">#{player.jerseyNumber}</div>
-        )}
-
-        {/* Name bar */}
-        <div className="panini-name-bar">
-          <span className="panini-name">
-            {player.playerName}
-            {player.isInjuryProne && (
-              <span
-                title="Cầu thủ dễ chấn thương (Injury Prone)"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '18px',
-                  height: '18px',
-                  borderRadius: '4px',
-                  background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
-                  border: '1px solid rgba(255, 255, 255, 0.8)',
-                  marginLeft: '6px',
-                  verticalAlign: 'middle',
-                  boxShadow: '0 2px 5px rgba(220, 38, 38, 0.5)',
-                  flexShrink: 0,
-                }}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="#ffffff">
-                  <path d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7V2z" />
-                </svg>
-              </span>
-            )}
-          </span>
-        </div>
-
-        {/* Telegram handle */}
-        {/* {player.telegramHandle && (
-          <div className="panini-telegram">{player.telegramHandle}</div>
-        )} */}
-
-        {/* Stats row */}
-        <div className="panini-stats">
-          <span className="panini-winrate" style={{ color: winRateColor, background: winRateBg }}>
-            {player.winRate}%
-          </span>
-          <span className="panini-matches">{player.totalMatches} trận</span>
-          <span className="panini-wdl">
-            <span style={{ color: '#66BB6A' }}>{player.wins}W</span>{' '}
-            <span style={{ color: '#90A4AE' }}>{player.draws}D</span>{' '}
-            <span style={{ color: '#EF5350' }}>{player.losses}L</span>
-          </span>
-        </div>
-      </div>
-    </div>
+    <FutCardPreview
+      state={effectiveConfig}
+      cardWidth={cardWidth}
+      hidePillBar={hidePillBar}
+      interactive={interactive}
+      className={className}
+      style={style}
+    />
   );
 }
 
 /* =============================================
-   PLAYER CARD CAROUSEL (for empty state)
+   PLAYER CARD CAROUSEL (Showcase Grid)
    ============================================= */
 
-export function PlayerCardCarousel({ playerStats, playerConfigs }: {
+export function PlayerCardCarousel({
+  playerStats,
+  playerConfigs,
+  cardConfigs: propCardConfigs,
+}: {
   playerStats: PlayerCardData[];
-  playerConfigs: { id: string; name: string; jerseyNumber: number | null; isInjuryProne?: boolean | null; telegramHandle?: string | null; updatedAt?: string | number | Date | null; avatarVersion?: string | number | null; avatarUrl?: string | null }[];
+  playerConfigs: {
+    id: string;
+    name: string;
+    jerseyNumber: number | null;
+    isInjuryProne?: boolean | null;
+    telegramHandle?: string | null;
+    updatedAt?: string | number | Date | null;
+    avatarVersion?: string | number | null;
+    avatarUrl?: string | null;
+  }[];
+  cardConfigs?: Record<string, PlayerCardCustomState>;
 }) {
+  const [dbCardConfigs, setDbCardConfigs] = useState<Record<string, PlayerCardCustomState>>(propCardConfigs || {});
+
+  // Fetch card configs from DB if not passed in props
+  useEffect(() => {
+    if (propCardConfigs && Object.keys(propCardConfigs).length > 0) {
+      setDbCardConfigs(propCardConfigs);
+      return;
+    }
+
+    fetch('/api/card-config')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.configs) {
+          setDbCardConfigs(data.configs);
+        }
+      })
+      .catch(() => {});
+  }, [propCardConfigs]);
+
   const allPlayers = playerConfigs
-    .filter(config => {
+    .filter((config) => {
       const num = config.jerseyNumber;
       return num !== null && num !== undefined && !isNaN(Number(num)) && Number(num) > 0 && Number(num) !== 19;
     })
-    .map(config => {
-      const stat = playerStats.find(s =>
-        s.playerId === config.id ||
-        s.playerName.trim().toLowerCase() === config.name.trim().toLowerCase()
+    .map((config) => {
+      const stat = playerStats.find(
+        (s) =>
+          s.playerId === config.id ||
+          s.playerName.trim().toLowerCase() === config.name.trim().toLowerCase()
       );
+
+      const savedConfig =
+        dbCardConfigs[config.id] ||
+        dbCardConfigs[config.name.trim().toLowerCase()] ||
+        null;
 
       return {
         playerName: config.name,
@@ -283,6 +225,7 @@ export function PlayerCardCarousel({ playerStats, playerConfigs }: {
         updatedAt: config.updatedAt || null,
         avatarVersion: config.avatarVersion || null,
         avatarUrl: config.avatarUrl || null,
+        cardConfig: savedConfig,
       };
     });
 
@@ -300,18 +243,50 @@ export function PlayerCardCarousel({ playerStats, playerConfigs }: {
   });
 
   return (
-    <div className="wc26-players-section">
-      <div className="wc26-players-header">
-        <span className="wc26-carousel-badge mt-4">⭐ Cầu thủ nổi bật</span>
+    <div className="wc26-players-section" style={{ padding: '24px 0 16px' }}>
+      <div className="wc26-players-header" style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <span
+          className="wc26-carousel-badge"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 20px',
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 27, 75, 0.9) 100%)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: '9999px',
+            fontSize: '13.5px',
+            fontWeight: 800,
+            color: '#ffffff',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+          }}
+        >
+          <span>🃏</span>
+          <span>Thẻ Cầu Thủ EA FC 26 - Chấm Hết FC</span>
+        </span>
       </div>
-      <div className="wc26-players-grid">
+
+      <div
+        className="wc26-players-grid"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '24px',
+          justifyContent: 'center',
+          alignItems: 'flex-start',
+        }}
+      >
         {allPlayers.map((p, i) => (
           <div
             key={p.playerName}
             className="wc26-grid-item"
             style={{ animationDelay: `${i * 0.05}s` }}
           >
-            <PlayerCard player={p} />
+            <PlayerCard
+              player={p}
+              cardConfig={p.cardConfig}
+              cardWidth={260}
+            />
           </div>
         ))}
       </div>
@@ -320,11 +295,17 @@ export function PlayerCardCarousel({ playerStats, playerConfigs }: {
 }
 
 /* =============================================
-   HOVER CARD (tooltip popup on player)
+   HOVER CARD (Tooltip Popup on Player Name)
    ============================================= */
 
-export function PlayerHoverCard({ player, children, style }: {
+export function PlayerHoverCard({
+  player,
+  cardConfig,
+  children,
+  style,
+}: {
   player: PlayerCardData | null;
+  cardConfig?: PlayerCardCustomState | null;
   children: React.ReactNode;
   style?: React.CSSProperties;
 }) {
@@ -335,56 +316,46 @@ export function PlayerHoverCard({ player, children, style }: {
     left: number;
     placement: 'right' | 'left' | 'top' | 'bottom';
   } | null>(null);
-  const [rotate, setRotate] = useState<{ x: number; y: number } | null>(null);
-  
+
   const triggerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
   const updatePosition = () => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    
-    const tooltipWidth = 170;
-    const tooltipHeight = 310;
+
+    const tooltipWidth = 220;
+    const tooltipHeight = 350;
     const padding = 12;
 
-    // Default: position on the right, centered vertically
     let placement: 'right' | 'left' | 'top' | 'bottom' = 'right';
     let left = rect.right + padding;
     let top = rect.top + rect.height / 2 - tooltipHeight / 2;
 
-    // If it overflows right edge
     if (left + tooltipWidth > window.innerWidth) {
-      // Try left
       placement = 'left';
       left = rect.left - tooltipWidth - padding;
     }
 
-    // If it also overflows left edge, or if screen is small (mobile layout)
     if (left < 0 || window.innerWidth <= 768) {
-      // Place above
       placement = 'top';
       left = rect.left + rect.width / 2 - tooltipWidth / 2;
       top = rect.top - tooltipHeight - padding;
 
-      // If it overflows top edge, place below
       if (top < 0) {
         placement = 'bottom';
         top = rect.bottom + padding;
       }
     }
 
-    // Keep it vertically within viewport if placing left/right
     if (placement === 'right' || placement === 'left') {
       const minTop = 10;
       const maxTop = window.innerHeight - tooltipHeight - 10;
       top = Math.max(minTop, Math.min(maxTop, top));
     } else {
-      // Keep it horizontally within viewport if placing top/bottom
       const minLeft = 10;
       const maxLeft = window.innerWidth - tooltipWidth - 10;
       left = Math.max(minLeft, Math.min(maxLeft, left));
@@ -398,29 +369,10 @@ export function PlayerHoverCard({ player, children, style }: {
     setShow(true);
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const px = (x / rect.width) - 0.5;
-    const py = (y / rect.height) - 0.5;
-
-    // Maximum tilt angles (20 degrees)
-    const maxRotate = 20;
-    const rotateY = px * maxRotate; 
-    const rotateX = -py * maxRotate; 
-
-    setRotate({ x: rotateX, y: rotateY });
-  };
-
   const handleMouseLeave = () => {
     setShow(false);
-    setRotate(null);
   };
 
-  // Hide on scroll/resize to keep UI clean
   useEffect(() => {
     if (!show) return;
     const handleScrollOrResize = () => {
@@ -438,23 +390,31 @@ export function PlayerHoverCard({ player, children, style }: {
     return <>{children}</>;
   }
 
-  const tooltipElement = show && mounted && coords ? (
-    createPortal(
-      <div
-        className={`wc26-hover-portal-popup placement-${coords.placement}`}
-        style={{
-          position: 'fixed',
-          top: `${coords.top}px`,
-          left: `${coords.left}px`,
-          zIndex: 999999,
-          pointerEvents: 'none',
-        }}
-      >
-        <PlayerCard player={player} className="wc26-hover-card" externalRotate={rotate} />
-      </div>,
-      document.body
-    )
-  ) : null;
+  const tooltipElement =
+    show && mounted && coords
+      ? createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              top: `${coords.top}px`,
+              left: `${coords.left}px`,
+              zIndex: 999999,
+              pointerEvents: 'none',
+              filter: 'drop-shadow(0 15px 35px rgba(0, 0, 0, 0.6))',
+              animation: 'wc26-card-appear 0.2s ease-out both',
+            }}
+          >
+            <PlayerCard
+              player={player}
+              cardConfig={cardConfig || player.cardConfig}
+              cardWidth={220}
+              hidePillBar={false}
+              interactive={false}
+            />
+          </div>,
+          document.body
+        )
+      : null;
 
   const handleClick = () => {
     if (!show) {
@@ -471,7 +431,6 @@ export function PlayerHoverCard({ player, children, style }: {
       className="wc26-hover-wrapper"
       style={style}
       onMouseEnter={handleMouseEnter}
-      onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={handleClick}
     >

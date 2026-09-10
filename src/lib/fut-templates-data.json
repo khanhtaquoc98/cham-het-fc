@@ -1,0 +1,226 @@
+[
+  {
+    "id": "rare_gold",
+    "name": "Gold Rare (Vàng Hiếm)",
+    "fileName": "rare_gold.png",
+    "src": "/fut-cards/templates/rare_gold.png",
+    "category": "base",
+    "textTheme": "dark"
+  },
+  {
+    "id": "gold",
+    "name": "Gold Thường (Non-Rare)",
+    "fileName": "gold.png",
+    "src": "/fut-cards/templates/gold.png",
+    "category": "base",
+    "textTheme": "dark"
+  },
+  {
+    "id": "silver_rare",
+    "name": "Silver Rare (Bạc Hiếm)",
+    "fileName": "silver_rare.png",
+    "src": "/fut-cards/templates/silver_rare.png",
+    "category": "base",
+    "textTheme": "dark"
+  },
+  {
+    "id": "bronze_rare",
+    "name": "Bronze Rare (Đồng Hiếm)",
+    "fileName": "bronze_rare.png",
+    "src": "/fut-cards/templates/bronze_rare.png",
+    "category": "base",
+    "textTheme": "dark"
+  },
+  {
+    "id": "toty",
+    "name": "Team of the Year (TOTY)",
+    "fileName": "toty.png",
+    "src": "/fut-cards/templates/toty.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "tots",
+    "name": "Team of the Season (TOTS)",
+    "fileName": "tots.png",
+    "src": "/fut-cards/templates/tots.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "totw",
+    "name": "Team of the Week (TOTW)",
+    "fileName": "totw.png",
+    "src": "/fut-cards/templates/totw.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "champions_red",
+    "name": "Champions Red (Siêu Đỏ)",
+    "fileName": "champions_red.png",
+    "src": "/fut-cards/templates/champions_red.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "centurions",
+    "name": "Centurions (Sấm Sét)",
+    "fileName": "centurions.png",
+    "src": "/fut-cards/templates/centurions.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "16_futties",
+    "name": "Futties Hồng Rực Lửa",
+    "fileName": "16_futties.png",
+    "src": "/fut-cards/templates/16_futties.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "future_star",
+    "name": "Future Stars (Ngôi Sao Trẻ)",
+    "fileName": "future_star.png",
+    "src": "/fut-cards/templates/future_star.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "107_path_to_glory",
+    "name": "Path To Glory Cúp Vàng",
+    "fileName": "107_path_to_glory.png",
+    "src": "/fut-cards/templates/107_path_to_glory.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "111_fantasy_fc",
+    "name": "Fantasy FC Neon",
+    "fileName": "111_fantasy_fc.png",
+    "src": "/fut-cards/templates/111_fantasy_fc.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "124_ucl_rttf",
+    "name": "UEFA Champions League RTTF",
+    "fileName": "124_ucl_rttf.png",
+    "src": "/fut-cards/templates/124_ucl_rttf.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "63_showdown_upgrade",
+    "name": "Showdown Upgrade Quyết Đấu",
+    "fileName": "63_showdown_upgrade.png",
+    "src": "/fut-cards/templates/63_showdown_upgrade.png",
+    "category": "popular",
+    "textTheme": "light"
+  },
+  {
+    "id": "icon",
+    "name": "Icon Huyền Thoại (White Gold)",
+    "fileName": "icon.png",
+    "src": "/fut-cards/templates/icon.png",
+    "category": "icons_heroes",
+    "textTheme": "dark"
+  },
+  {
+    "id": "21_prime_heroes",
+    "name": "Prime Heroes FC 26",
+    "fileName": "21_prime_heroes.png",
+    "src": "/fut-cards/templates/21_prime_heroes.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "130_greats_of_the_game_hero",
+    "name": "Greats Of The Game Hero",
+    "fileName": "130_greats_of_the_game_hero.png",
+    "src": "/fut-cards/templates/130_greats_of_the_game_hero.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "131_greats_of_the_game_icon",
+    "name": "Greats Of The Game Icon",
+    "fileName": "131_greats_of_the_game_icon.png",
+    "src": "/fut-cards/templates/131_greats_of_the_game_icon.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "148_fut_birthday_hero",
+    "name": "FUT Birthday Hero",
+    "fileName": "148_fut_birthday_hero.png",
+    "src": "/fut-cards/templates/148_fut_birthday_hero.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "149_fut_birthday_icon",
+    "name": "FUT Birthday Icon",
+    "fileName": "149_fut_birthday_icon.png",
+    "src": "/fut-cards/templates/149_fut_birthday_icon.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "76_trophy_titans_icon",
+    "name": "Trophy Titans Icon",
+    "fileName": "76_trophy_titans_icon.png",
+    "src": "/fut-cards/templates/76_trophy_titans_icon.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "77_trophy_titans_hero",
+    "name": "Trophy Titans Hero",
+    "fileName": "77_trophy_titans_hero.png",
+    "src": "/fut-cards/templates/77_trophy_titans_hero.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "116_captains_icon",
+    "name": "Captains Icon (Thủ Lĩnh)",
+    "fileName": "116_captains_icon.png",
+    "src": "/fut-cards/templates/116_captains_icon.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "139_futties_icon",
+    "name": "Futties Icon Hồng",
+    "fileName": "139_futties_icon.png",
+    "src": "/fut-cards/templates/139_futties_icon.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "14_knockout_royalty_hero",
+    "name": "Knockout Royalty Hero",
+    "fileName": "14_knockout_royalty_hero.png",
+    "src": "/fut-cards/templates/14_knockout_royalty_hero.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "15_knockout_royalty_icon",
+    "name": "Knockout Royalty Icon",
+    "fileName": "15_knockout_royalty_icon.png",
+    "src": "/fut-cards/templates/15_knockout_royalty_icon.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  },
+  {
+    "id": "135_fantasy_fc_hero",
+    "name": "Fantasy FC Hero",
+    "fileName": "135_fantasy_fc_hero.png",
+    "src": "/fut-cards/templates/135_fantasy_fc_hero.png",
+    "category": "icons_heroes",
+    "textTheme": "light"
+  }
+]

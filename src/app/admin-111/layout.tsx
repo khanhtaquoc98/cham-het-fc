@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import './admin-responsive.css';
-import { Landmark, Bell, User, BarChart3, Coins, Users, ArrowLeft, Video, LayoutGrid, RotateCcw } from 'lucide-react';
+import { Landmark, Bell, User, BarChart3, Coins, Users, ArrowLeft, Video, LayoutGrid, RotateCcw, Sparkles } from 'lucide-react';
 
 const navItems = [
   { href: '/admin-111', label: 'Sân bóng', icon: <Landmark size={16} /> },
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/admin-111/highlight', label: 'Highlight', icon: <Video size={16} /> },
   { href: '/admin-111/notifications', label: 'Thông báo', icon: <Bell size={16} /> },
   { href: '/admin-111/players', label: 'Cầu thủ', icon: <User size={16} /> },
+  { href: '/admin-111/cards', label: 'Thẻ FC 26', icon: <Sparkles size={16} /> },
   { href: '/admin-111/history', label: 'Lịch sử', icon: <BarChart3 size={16} /> },
   { href: '/admin-111/payment', label: 'Thanh toán', icon: <Coins size={16} /> },
   { href: '/admin-111/users', label: 'Tài khoản', icon: <Users size={16} /> },
@@ -98,7 +99,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Navigation */}
       <div className="admin-content" style={{ maxWidth: '100%', width: '100%', margin: '0 auto', padding: '16px 20px 0', boxSizing: 'border-box' }}>
-        <div className="admin-nav">
+        <div
+          className="admin-nav"
+          onWheel={(e) => {
+            if (e.deltaY !== 0 && e.currentTarget.scrollWidth > e.currentTarget.clientWidth) {
+              e.currentTarget.scrollLeft += e.deltaY;
+            }
+          }}
+        >
           {navItems.map(item => {
             const isActive = item.href === '/admin-111'
               ? pathname === '/admin-111'

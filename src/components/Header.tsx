@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { toast } from 'react-hot-toast';
-import { Settings, Coins, LogOut, Video, LayoutGrid, Menu, X, ChevronRight } from 'lucide-react';
+import { Settings, Coins, LogOut, Video, LayoutGrid, Menu, X, ChevronRight, Sparkles } from 'lucide-react';
 
 interface User {
   username: string;
@@ -262,13 +262,25 @@ export default function Header() {
                     <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Số bóng</div>
                     <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--accent)' }}>{user.balance.toLocaleString()} Bóng</div>
                   </div>
-                  <Link href="/tactical-board" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px' }}>
-                    <LayoutGrid size={16} /> Chiến thuật
-                  </Link>
-                  <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setShowUserMenu(false)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}
+                  >
                     <Settings size={16} /> Tài khoản
                   </Link>
-                  <Link href="/dashboard/deposit" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}>
+                  <Link
+                    href="/dashboard#fut-card-section"
+                    onClick={() => setShowUserMenu(false)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}
+                  >
+                    <Sparkles size={16} style={{ color: '#ef4444' }} /> Quản lý thẻ
+                  </Link>
+                  <Link
+                    href="/dashboard/deposit"
+                    onClick={() => setShowUserMenu(false)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 12px', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: 600, borderRadius: '8px', marginTop: '2px' }}
+                  >
                     <Coins size={16} /> Thêm bóng
                   </Link>
                   <div 
@@ -447,6 +459,25 @@ export default function Header() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '6px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle, rgba(255, 255, 255, 0.08))' }}>
                   <Link
+                    href="/tactical-board"
+                    onClick={() => setMobileMenuOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      color: 'var(--text-primary)',
+                      textDecoration: 'none',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><LayoutGrid size={15} /> Chiến thuật</span>
+                    <ChevronRight size={14} style={{ opacity: 0.5 }} />
+                  </Link>
+
+                  <Link
                     href="/dashboard"
                     onClick={() => setMobileMenuOpen(false)}
                     style={{
@@ -462,6 +493,25 @@ export default function Header() {
                     }}
                   >
                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Settings size={15} /> Tài khoản</span>
+                    <ChevronRight size={14} style={{ opacity: 0.5 }} />
+                  </Link>
+
+                  <Link
+                    href="/dashboard#fut-card-section"
+                    onClick={() => setMobileMenuOpen(false)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 10px',
+                      color: 'var(--text-primary)',
+                      textDecoration: 'none',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Sparkles size={15} style={{ color: '#ef4444' }} /> Quản lý thẻ</span>
                     <ChevronRight size={14} style={{ opacity: 0.5 }} />
                   </Link>
 
@@ -607,6 +657,7 @@ export default function Header() {
               </div>
               <ChevronRight size={16} style={{ opacity: 0.5 }} />
             </Link>
+
           </div>
 
         </div>

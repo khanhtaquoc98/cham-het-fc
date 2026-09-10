@@ -189,7 +189,7 @@ function JerseyIcon({ label, team, isDark, siteTheme = 'default' }: { label: str
    TEAM CARD
    ============================================= */
 
-function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoading, siteTheme = 'default' }: { team: Team; index: number; playerConfigs: PlayerConfig[]; isDark: boolean; playerStats: PlayerStatsSummary[]; statsLoading: boolean; siteTheme?: string }) {
+function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoading, siteTheme = 'default', cardConfigs }: { team: Team; index: number; playerConfigs: PlayerConfig[]; isDark: boolean; playerStats: PlayerStatsSummary[]; statsLoading: boolean; siteTheme?: string; cardConfigs?: Record<string, any> }) {
   const color = getTeamColor(team.name);
   const borderClass = getTeamBorderClass(team.name);
   const tooltip = getTeamTooltip(team.name);
@@ -241,6 +241,8 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
           // Find stats for this player
           const stat = findPlayerStat(player.name, player.telegramHandle, player.playerId, playerConfigs, playerStats);
 
+          const savedCardConfig = cardConfigs?.[matched?.id || ''] || cardConfigs?.[player.name.trim().toLowerCase()] || null;
+
           const cardData: PlayerCardData = {
             playerName: player.name,
             playerId: player.playerId || matched?.id || null,
@@ -255,10 +257,11 @@ function TeamCard({ team, index, playerConfigs, isDark, playerStats, statsLoadin
             updatedAt: matched?.updatedAt || null,
             avatarVersion: matched?.avatarVersion || null,
             avatarUrl: matched?.avatarUrl || null,
+            cardConfig: savedCardConfig,
           };
 
           return (
-            <PlayerHoverCard key={i} player={cardData} style={{ display: 'block', width: '100%' }}>
+            <PlayerHoverCard key={i} player={cardData} cardConfig={savedCardConfig} style={{ display: 'block', width: '100%' }}>
               <div className="player-item" style={{ animationDelay: `${(index * 0.08) + (i * 0.04)}s` }}>
                 <div className="player-number">{i + 1}</div>
                 <JerseyIcon label={jerseyLabel} team={color} isDark={isDark} siteTheme={siteTheme} />
@@ -498,7 +501,7 @@ function RulesSection({ teamCount }: { teamCount: number }) {
    EMPTY STATE
    ============================================= */
 
-function EmptyState({ siteTheme, playerStats, playerConfigs }: { siteTheme: string; playerStats: { playerName: string; playerId?: string | null; wins: number; draws: number; losses: number; totalMatches: number; winRate: number }[]; playerConfigs: PlayerConfig[] }) {
+function EmptyState({ siteTheme, playerStats, playerConfigs, cardConfigs }: { siteTheme: string; playerStats: { playerName: string; playerId?: string | null; wins: number; draws: number; losses: number; totalMatches: number; winRate: number }[]; playerConfigs: PlayerConfig[]; cardConfigs?: Record<string, any> }) {
   return (
     <div className="empty-state">
       <span className="empty-icon"><CircleDot size={48} /></span>
@@ -512,6 +515,7 @@ function EmptyState({ siteTheme, playerStats, playerConfigs }: { siteTheme: stri
         <PlayerCardCarousel
           playerStats={playerStats}
           playerConfigs={playerConfigs.map(c => ({ id: c.id, name: c.name, jerseyNumber: c.jerseyNumber, isInjuryProne: c.isInjuryProne, telegramHandle: c.telegramHandle }))}
+          cardConfigs={cardConfigs}
         />
       )}
     </div>
@@ -551,6 +555,7 @@ export default function Home() {
   const [matchData, setMatchData] = useState<MatchData | null>(null);
   const [playerConfigs, setPlayerConfigs] = useState<PlayerConfig[]>([]);
   const [playerStats, setPlayerStats] = useState<PlayerStatsSummary[]>([]);
+  const [cardConfigs, setCardConfigs] = useState<Record<string, any>>({});
   const [currentUser, setCurrentUser] = useState<{username: string; id: string; name?: string; player_id?: string} | null>(null);
   const [thirdPartyVoters, setThirdPartyVoters] = useState<string[]>([]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -704,10 +709,11 @@ export default function Home() {
 
     // Phase 2: Fetch stats & payment lazily
     try {
-      const [statsRes, paymentRes, userRes] = await Promise.all([
+      const [statsRes, paymentRes, userRes, cardRes] = await Promise.all([
         fetch('/api/stats', { cache: 'no-store' }),
         fetch('/api/payment', { cache: 'no-store' }),
         fetch('/api/auth/me', { cache: 'no-store' }),
+        fetch('/api/card-config', { cache: 'no-store' }),
       ]);
       const statsData = await statsRes.json();
       setPlayerStats(statsData.players || []);
@@ -717,6 +723,9 @@ export default function Home() {
 
       const userData = await userRes.json();
       if (userData.user) setCurrentUser(userData.user);
+
+      const cardData = await cardRes.json();
+      if (cardData.configs) setCardConfigs(cardData.configs);
     } catch (err) {
       console.error('Failed to fetch stats:', err);
     } finally {
@@ -1167,29 +1176,33 @@ export default function Home() {
                 )}
 
                 {/* Teams Grid */}
-                <div className="teams-grid content-appear stagger-3" style={{
-                  display: 'grid',
-                  gridTemplateColumns: teamCount === 2 ? '1fr auto 1fr' : `repeat(${teamCount}, 1fr)`,
-                  gap: teamCount === 2 ? '0' : '16px',
-                  alignItems: 'start',
-                }}>
-                  {matchData.teams.map((team, i) =>
-                    teamCount === 2 ? (
-                      <div key={team.name} style={{ display: 'contents' }}>
-                        <TeamCard team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} siteTheme={siteTheme} />
-                        {i === 0 && (
-                          <div className="vs-badge-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', alignSelf: 'center' }}>
-                            <div className="vs-badge">VS</div>
+                {matchData && matchData.teams && matchData.teams.length > 0 && (
+                  <>
+                    <div className="teams-grid content-appear stagger-3" style={{
+                      display: 'grid',
+                      gridTemplateColumns: teamCount === 2 ? '1fr auto 1fr' : `repeat(${teamCount}, 1fr)`,
+                      gap: teamCount === 2 ? '0' : '16px',
+                      alignItems: 'start',
+                    }}>
+                      {matchData.teams.map((team, i) =>
+                        teamCount === 2 ? (
+                          <div key={team.name} style={{ display: 'contents' }}>
+                            <TeamCard team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} siteTheme={siteTheme} cardConfigs={cardConfigs} />
+                            {i === 0 && (
+                              <div className="vs-badge-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 6px', alignSelf: 'center' }}>
+                                <div className="vs-badge">VS</div>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ) : (
-                      <TeamCard key={team.name} team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} siteTheme={siteTheme} />
-                    )
-                  )}
-                </div>
+                        ) : (
+                          <TeamCard key={team.name} team={team} index={i} playerConfigs={playerConfigs} isDark={isDark} playerStats={playerStats} statsLoading={statsLoading} siteTheme={siteTheme} cardConfigs={cardConfigs} />
+                        )
+                      )}
+                    </div>
 
-                <RulesSection teamCount={teamCount} />
+                    <RulesSection teamCount={teamCount} />
+                  </>
+                )}
               </>
             )}
 
@@ -1216,6 +1229,7 @@ export default function Home() {
                     avatarVersion: c.avatarVersion,
                     avatarUrl: c.avatarUrl,
                   }))}
+                  cardConfigs={cardConfigs}
                 />
               </div>
             )}

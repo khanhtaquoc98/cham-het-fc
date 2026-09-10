@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import AdminPlayerCardModal from "@/components/AdminPlayerCardModal";
 
 interface Account {
   id: string;
@@ -21,6 +22,7 @@ export default function UsersAdminPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cardModalPlayer, setCardModalPlayer] = useState<Player | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, accountId: string | null}>({isOpen: false, accountId: null});
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{isOpen: boolean, accountId: string | null, username: string}>({isOpen: false, accountId: null, username: ""});
@@ -165,6 +167,23 @@ export default function UsersAdminPage() {
                     >
                       Chi Tiết
                     </Link>
+                    {acc.player_id && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const p = players.find(x => x.id === acc.player_id);
+                          if (p) setCardModalPlayer(p);
+                        }}
+                        style={{
+                          background: '#fff1f2', border: '1px solid #fecdd3', color: '#e11d48',
+                          padding: '8px 14px', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s ease',
+                          display: 'inline-block'
+                        }}
+                        title="Chỉnh sửa Thẻ cầu thủ"
+                      >
+                        🃏 Thẻ
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteClick(acc.id, acc.username)}
                       style={{
@@ -230,6 +249,13 @@ export default function UsersAdminPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {cardModalPlayer && (
+        <AdminPlayerCardModal
+          player={cardModalPlayer}
+          onClose={() => setCardModalPlayer(null)}
+        />
       )}
     </div>
   );

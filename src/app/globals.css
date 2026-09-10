@@ -1,4 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Chiron+GoRound+TC:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,700;0,800;0,900;1,600;1,700;1,800;1,900&family=Saira+Condensed:wght@600;700;800;900&family=Chiron+GoRound+TC:wght@300;400;500;600;700;800;900&display=swap');
+
+@font-face {
+  font-family: 'DINPro-CondBold';
+  src: url('/fut-cards/fonts/DINPro-CondBold.otf') format('opentype');
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'DINPro-Condensed';
+  src: url('/fut-cards/fonts/DINPro-Condensed.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 @import "tailwindcss";
 
@@ -3121,4 +3137,20 @@ div[role="status"] {
   font-size: 11px;
   color: #78350f;
   text-align: center;
+}
+
+/* ========================================= */
+/* Player FUT Card Face Stats Responsive Grid */
+/* ========================================= */
+.player-face-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .player-face-stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+  }
 }

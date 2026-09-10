@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { toast } from 'react-hot-toast';
+import { RefreshCw, Sparkles, Pencil, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { PlayerConfig } from '@/types/player';
+import AdminPlayerCardModal from '@/components/AdminPlayerCardModal';
 
 interface PlayerWithStats extends PlayerConfig {
   wins: number;
@@ -24,6 +27,7 @@ export default function PlayersPage() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  const [cardModalPlayer, setCardModalPlayer] = useState<PlayerWithStats | null>(null);
 
   // Modal State for Add / Edit
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -535,25 +539,39 @@ export default function PlayersPage() {
                 </div>
 
                 {/* Actions Row */}
-                <div style={{ display: 'flex', gap: '6px', width: '100%', justifyContent: 'center' }}>
+                <div className="player-actions-grid">
                   <button
-                    style={{ flex: 1, padding: '6px', borderRadius: '8px', border: 'none', background: 'rgba(76,175,80,0.08)', color: '#2e7d32', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                    className="player-action-btn player-action-btn-avatar"
                     onClick={() => handleRefreshAvatar(player.id)}
-                    title="Xóa cache & load lại ảnh mới"
+                    title="Xóa cache & tải lại ảnh mới"
                   >
-                    🔄 Ảnh
+                    <RefreshCw size={14} strokeWidth={2.2} />
+                    <span>Ảnh</span>
                   </button>
                   <button
-                    style={{ flex: 1, padding: '6px', borderRadius: '8px', border: 'none', background: '#e3f2fd', color: '#1565c0', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                    type="button"
+                    className="player-action-btn player-action-btn-card"
+                    onClick={() => setCardModalPlayer(player)}
+                    title="Tùy chỉnh Thẻ cầu thủ cho cầu thủ này"
+                  >
+                    <Sparkles size={14} strokeWidth={2.2} />
+                    <span>Card</span>
+                  </button>
+                  <button
+                    className="player-action-btn player-action-btn-edit"
                     onClick={() => handleOpenEditModal(player)}
+                    title="Chỉnh sửa thông tin cầu thủ"
                   >
-                    ✏️ Sửa
+                    <Pencil size={14} strokeWidth={2.2} />
+                    <span>Sửa</span>
                   </button>
                   <button
-                    style={{ flex: 1, padding: '6px', borderRadius: '8px', border: 'none', background: '#fce4ec', color: '#c62828', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+                    className="player-action-btn player-action-btn-delete"
                     onClick={() => handleDelete(player.id)}
+                    title="Xoá cầu thủ khỏi danh sách"
                   >
-                    🗑️ Xoá
+                    <Trash2 size={14} strokeWidth={2.2} />
+                    <span>Xoá</span>
                   </button>
                 </div>
               </div>
@@ -730,7 +748,7 @@ export default function PlayersPage() {
               </div>
 
               {/* Modal Action Buttons */}
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end', marginTop: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -769,6 +787,17 @@ export default function PlayersPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* EA FC 26 CARD CUSTOMIZATION MODAL */}
+      {cardModalPlayer && (
+        <AdminPlayerCardModal
+          player={cardModalPlayer}
+          onClose={() => setCardModalPlayer(null)}
+          onSaved={() => {
+            fetchPlayers();
+          }}
+        />
       )}
     </>
   );

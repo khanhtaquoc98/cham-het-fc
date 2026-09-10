@@ -8,6 +8,7 @@ import SuccessToast from "./SuccessToast";
 import TelegramLinkSection from "@/components/TelegramLinkSection";
 
 import UserProfileSection from "@/components/UserProfileSection";
+import PlayerFutCardSection from "@/components/PlayerFutCardSection";
 import { getPlayerMatchHistory } from "@/lib/history";
 
 export default async function DashboardPage(props: { searchParams?: Promise<{ status?: string, cancel?: string, orderCode?: string, page?: string }> }) {
@@ -121,17 +122,69 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
 
   const balance = user.balance || 0;
 
-  // Fetch linked player info if user has player_id
+  // Fetch linked player info if user has player_id or account link
   let linkedPlayer = null;
+  const { getInjuryPronePlayerIds } = await import("@/lib/players");
+  const injurySet = await getInjuryPronePlayerIds();
+
   if (user?.player_id) {
-    const { data: p } = await supabase
+    const { data: pData } = await supabase
       .from("players")
       .select("id, name, jersey_number, avatar_version, telegram_handle")
       .eq("id", user.player_id)
-      .single();
-    if (p) {
-      linkedPlayer = p;
+      .maybeSingle();
+
+    if (pData) {
+      linkedPlayer = {
+        ...pData,
+        is_injury_prone: injurySet.has(pData.id),
+      };
     }
+  }
+
+  // Fallback lookup if not found by player_id
+  if (!linkedPlayer && session?.username) {
+    const { data: pByAccount } = await supabase
+      .from("players")
+      .select("id, name, jersey_number, avatar_version, telegram_handle")
+      .or(`account_username.eq.${session.username},name.ilike.%${session.username}%`)
+      .limit(1)
+      .maybeSingle();
+
+    if (pByAccount) {
+      linkedPlayer = {
+        ...pByAccount,
+        is_injury_prone: injurySet.has(pByAccount.id),
+      };
+      // Auto-heal: update account's player_id in DB if missing
+      await supabase.from("accounts").update({ player_id: pByAccount.id }).eq("id", session.id);
+    }
+  }
+
+  // Fetch stats for the linked player
+  let playerStats = null;
+  if (linkedPlayer) {
+    const { getPlayerStatsSummary } = await import("@/lib/history");
+    const summary = await getPlayerStatsSummary(1, 1000);
+    const found = summary.players.find(
+      (s) => s.playerId === linkedPlayer.id || (linkedPlayer.name && s.playerName.trim().toLowerCase() === linkedPlayer.name.trim().toLowerCase())
+    );
+    if (found) {
+      playerStats = {
+        wins: found.wins,
+        draws: found.draws,
+        losses: found.losses,
+        totalMatches: found.totalMatches,
+        winRate: found.winRate,
+      };
+    }
+  }
+
+  // Fetch saved card config for the linked player from DB
+  let playerCardConfig = null;
+  if (linkedPlayer) {
+    const { getPlayerCardConfig } = await import("@/lib/card-config-db");
+    playerCardConfig = await getPlayerCardConfig(linkedPlayer.id, linkedPlayer.name);
   }
 
   // Fetch 5 recent matches for the linked player
@@ -249,6 +302,7 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
               }}
               linkedPlayer={linkedPlayer}
               recentMatches={playerRecentMatches}
+              playerStats={playerStats}
             />
           </div>
 
@@ -372,6 +426,18 @@ export default async function DashboardPage(props: { searchParams?: Promise<{ st
           </div>
 
         </div>
+
+        {/* Dedicated Personal EA FC 26 Card Section */}
+        <PlayerFutCardSection
+          user={{
+            id: session.id,
+            username: session.username,
+            telegram_id: user?.telegram_id || null
+          }}
+          linkedPlayer={linkedPlayer}
+          playerStats={playerStats}
+          initialCardConfig={playerCardConfig}
+        />
         
       </div>
     </div>
