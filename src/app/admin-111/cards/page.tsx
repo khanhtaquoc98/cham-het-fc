@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import {
@@ -42,7 +42,7 @@ interface StatsSummary {
   winRate: number;
 }
 
-export default function AdminCardsPage() {
+function AdminCardsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1313,5 +1313,20 @@ export default function AdminCardsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function AdminCardsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748b' }}>
+          <div style={{ fontSize: '32px', marginBottom: '12px' }}>⏳</div>
+          <p style={{ fontSize: '15px', fontWeight: 700 }}>Đang tải danh sách cầu thủ & dữ liệu thẻ...</p>
+        </div>
+      }
+    >
+      <AdminCardsContent />
+    </Suspense>
   );
 }
